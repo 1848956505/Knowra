@@ -76,7 +76,7 @@
 .accent {
   --knowra-icon-accent: currentColor;
   background: var(--accent-solid);
-  color: var(--surface-page);
+  color: var(--text-on-accent, var(--surface-page));
   border-color: transparent;
 }
 
@@ -84,7 +84,7 @@
 .accent[data-pressed]:not([data-disabled]):not([data-pending]) {
   background: var(--accent-hover);
   border-color: transparent;
-  color: var(--surface-page);
+  color: var(--text-on-accent, var(--surface-page));
 }
 
 .danger {

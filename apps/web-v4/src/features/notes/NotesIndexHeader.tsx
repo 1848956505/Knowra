@@ -2,28 +2,31 @@ import { CreateEntryMenu } from './CreateEntryMenu';
 import { Button, Menu, MenuItem, MenuPopover, MenuTrigger, Tooltip, TooltipTrigger } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
-import { UploadIcon, PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon } from '../../components/icons/knowra';
-import { WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
+import { UploadIcon, PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon, ChevronDownIcon } from '../../components/icons/knowra';
+import { notesIndexAppearanceProps } from './NotesIndexAppearance';
+import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
+import styles from './NotesIndexView.module.css';
 
-export function NotesIndexHeader({ path, canWrite, isRecycleView, selectionMode, onToggleSelection, onImport, onCreate, onOpenSpaces }: {
-  path: PathSegment[]; canWrite: boolean; isRecycleView: boolean; selectionMode: boolean;
+export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selectionMode, onToggleSelection, onImport, onCreate, onOpenSpaces }: {
+  path: PathSegment[]; count: number; canWrite: boolean; isRecycleView: boolean; selectionMode: boolean;
   onToggleSelection(): void; onImport(): void; onCreate(mode: 'note' | 'folder'): void; onOpenSpaces(): void;
 }) {
-  return <WorkspacePanelHeader title="笔记索引" code="INDEX" breadcrumb={<PathTrail path={path} variant="top" />}
-    breadcrumbTitle={path.map(segment => segment.label).join(' / ')} actionsLabel="笔记操作"
-    actions={<>
-      <TooltipTrigger>
-        <Button size="workspace" iconOnly aria-label="导入" isDisabled={!canWrite || isRecycleView} onPress={onImport}><UploadIcon size={16} /></Button>
-        <Tooltip>导入 Markdown</Tooltip>
-      </TooltipTrigger>
-      <MenuTrigger>
-        <Button size="workspace" iconOnly aria-label="更多操作" aria-pressed={selectionMode}><MoreHorizontalIcon size={16} /></Button>
-        <MenuPopover><Menu ariaLabel="更多操作" onAction={key => { if (key === 'spaces') onOpenSpaces(); else onToggleSelection(); }}>
+  const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
+  return <header className={styles.header}>
+    <div className={styles.heading}><NoteIcon size={17} /><strong>{path.at(-1)?.label ?? '笔记索引'}</strong><span title="当前已加载范围内的项目数，包含笔记与文件夹">已加载 {count} 项</span></div>
+    <nav className={styles.breadcrumb} aria-label="当前位置" title={path.map(segment => segment.label).join(' / ')}><PathTrail path={path} variant="top" /></nav>
+    <div className={styles.headerActions} aria-label="笔记操作">
+      <TooltipTrigger><Button size="workspace" variant="ghost" iconOnly aria-label="导入" isDisabled={!canWrite || isRecycleView} onPress={onImport}><UploadIcon size={16} /></Button><Tooltip>导入 Markdown</Tooltip></TooltipTrigger>
+      <MenuTrigger><Button size="workspace" variant="ghost" iconOnly aria-label="更多操作" aria-pressed={selectionMode}><MoreHorizontalIcon size={16} /></Button>
+        <MenuPopover {...theme}><Menu ariaLabel="更多操作" onAction={key => { if (key === 'spaces') onOpenSpaces(); else onToggleSelection(); }}>
           <MenuItem id="spaces" icon={<SettingsIcon size={14} />}>空间管理</MenuItem>
           <MenuItem id="batch" icon={<CheckIcon size={14} />} isDisabled={!canWrite || isRecycleView}>{selectionMode ? '退出批量管理' : '批量管理'}</MenuItem>
         </Menu></MenuPopover>
       </MenuTrigger>
-      <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate}><Button size="workspace" variant="accent" isDisabled={!canWrite || isRecycleView}><PlusIcon size={17} />新建</Button></CreateEntryMenu>
-    </>}
-  />;
+      <div className={styles.createGroup}>
+        <Button size="workspace" variant="accent" isDisabled={!canWrite || isRecycleView} onPress={() => onCreate('note')}><PlusIcon size={16} />新建笔记</Button>
+        <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate}><Button size="workspace" variant="accent" iconOnly aria-label="更多新建选项" isDisabled={!canWrite || isRecycleView}><ChevronDownIcon size={12} /></Button></CreateEntryMenu>
+      </div>
+    </div>
+  </header>;
 }

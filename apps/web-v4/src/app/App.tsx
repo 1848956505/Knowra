@@ -1,3 +1,6 @@
+import { ScopedAppearanceProvider } from '../components/ui/overlay';
+import { NotesIndexAppearanceControls, NotesIndexTitleTab, notesIndexAppearanceProps } from '../features/notes/NotesIndexAppearance';
+import { useNotesIndexAppearance } from '../features/notes/notesIndexAppearanceModel';
 import { RecoveryDraftNotice } from '../features/editor/RecoveryDraftNotice';
 import { BudgetAlertBanner } from '../features/assistant/BudgetAlertBanner';
 import { useMaterialsRoute } from './useMaterialsRoute';
@@ -223,20 +226,23 @@ export function App() {
     setEditorView((current) => applyEditorViewAction(current, action));
   }
 
+  const indexAppearance = useNotesIndexAppearance();
   const showNotesContextSidebar = (isNotesIndex && editorView.showLeftSidebar) || (isNoteEditor && effectiveEditorView.showLeftSidebar);
 
   return (
-    <EntryDragDropProvider>
+    <EntryDragDropProvider><ScopedAppearanceProvider value={isNotesIndex ? notesIndexAppearanceProps(indexAppearance) : null}>
       <AppShell
+      appearance={isNotesIndex ? notesIndexAppearanceProps(indexAppearance) : undefined}
+      toolbarAccessories={isNotesIndex ? <NotesIndexAppearanceControls /> : undefined}
       navigationKey={location.pathname}
       activeDomain={activeDomain}
       contextSidebarOpen={showNotesContextSidebar}
       contextSidebar={isNotesIndex || isNoteEditor ? (
-        <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} onOpenSearch={() => setSearchOpen(true)} />
+        <NotesContextSidebar appearanceActive={isNotesIndex} onOpenNote={openNote} onOpenIndex={openNotesIndex} onOpenSearch={() => setSearchOpen(true)} />
       ) : undefined}
       stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
       desktopTitlebarEditor={isNoteEditor && Boolean(editorNote)}
-      desktopTitlebarTabs={openNoteTabs.length > 0 ? <EditorTabs
+      desktopTitlebarTabs={isNotesIndex || openNoteTabs.length > 0 ? <>{isNotesIndex ? <NotesIndexTitleTab /> : null}{openNoteTabs.length > 0 ? <EditorTabs
         notes={openNoteTabs}
         activeNoteId=""
         canWrite={canWrite}
@@ -253,7 +259,7 @@ export function App() {
             .catch(() => setLiveAnnouncement('复制路径失败，请检查剪贴板权限'));
         }}
         onCreateNote={() => setCreateNoteOpen(true)}
-      /> : undefined}
+      /> : null}</> : undefined}
       focusMode={isNoteEditor && effectiveEditorView.mode === 'focus'}
       onSelectDomain={handleSelectDomain}
       onReturnHome={handleReturnHome}
@@ -360,7 +366,7 @@ export function App() {
         onCreateFolder={storeApi.getState().createFolder}
       />
       </AppShell>
-    </EntryDragDropProvider>
+    </ScopedAppearanceProvider></EntryDragDropProvider>
   );
 }
 

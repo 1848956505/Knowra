@@ -28,7 +28,7 @@ export function useNotesIndexData({ sort, typeFilter, queryString, urlTagIds, ta
     favoriteOnly: notesIndex.scope === 'favorites',
     deletedOnly: notesIndex.scope === 'trash',
     includeDeleted: notesIndex.scope === 'trash',
-    sortBy: sort === 'name-asc' ? 'title' as const : 'updatedAt' as const,
+    sortBy: sort === 'name-asc' || sort === 'name-desc' ? 'title' as const : 'updatedAt' as const,
     order: sort === 'updated-asc' || sort === 'name-asc' ? 'asc' as const : 'desc' as const,
     limit: notesIndex.scope === 'recent' ? 6 : NOTE_PAGE_SIZE
   }), [navigation.selectedFolderId, notesIndex.query, notesIndex.scope, notesIndex.selectedTagId, sort, tagMatch, urlTagIds]);

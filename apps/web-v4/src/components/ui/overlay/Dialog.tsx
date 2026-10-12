@@ -21,6 +21,7 @@ import { cx } from '../classnames';
 import type { ButtonVariant } from '../tokens';
 import styles from './Overlay.module.css';
 import { NestedOverlay } from './ResponsivePanel';
+import { useScopedAppearance } from './ScopedAppearance';
 
 interface DialogCloseContextValue {
   close(): void;
@@ -119,13 +120,15 @@ function ModalShell({
   sizeClass: string;
   children: ReactNode;
 }) {
+  const appearance = useScopedAppearance();
   return (
     <RAModalOverlay
+      {...appearance}
       isDismissable={Boolean(isDismissable) && !isPending}
       isKeyboardDismissDisabled={!isDismissable || isPending}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      className={cx(styles.underlay, styles.overlay)}
+      className={cx(styles.underlay, styles.overlay, appearance?.className)}
     >
       <RAModal className={cx(styles.dialog, sizeClass)}>{children}</RAModal>
     </RAModalOverlay>

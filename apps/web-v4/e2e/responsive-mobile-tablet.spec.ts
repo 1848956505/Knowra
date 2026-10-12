@@ -17,6 +17,7 @@ test.afterEach(async ({ page, browser, syntheticNetwork }, info) => {
     builtCommit: process.env.KNOWRA_EVIDENCE_SHA ?? 'local-unverified',
     sourceTree: process.env.KNOWRA_EVIDENCE_SOURCE_TREE ?? null,
     baseCommit: process.env.KNOWRA_EVIDENCE_BASE ?? null, test: info.title, status: info.status,
+    shortIndexGeometry: info.annotations.filter(item => item.type === 'short-index-geometry').map(item => JSON.parse(item.description!)),
     touchTargets: info.annotations.filter(item => item.type === 'touch-target').map(item => JSON.parse(item.description!)),
     viewport: page.viewportSize(), syntheticData: true, browserVersion: browser.version(), browserChannel: 'chrome', chromiumSandbox: true, chineseFont: process.env.KNOWRA_EVIDENCE_CJK_FONT ?? null, blockedRequests: syntheticNetwork, screenshots: screenshotNames,
     limitations: ['CSS 触摸视口模拟，不是真实 vivo/OriginOS、实体平板或系统输入法验收'] };
@@ -76,7 +77,26 @@ for (const viewport of viewports) {
       await mockEditorWorkspace(page, saved, [], markdown);
       await page.goto('/#/materials');
       await expect(page.getByText('笔记索引', { exact: true })).toBeVisible();
-      await activate(page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last());
+      const noteButton = page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last();
+      if (viewport.height <= 560) {
+        const content = page.getByTestId('notes-index-scroll');
+        expect((await content.boundingBox())!.height, '低高度下索引内容不能被工具栏和分页压没').toBeGreaterThanOrEqual(140);
+        await noteButton.scrollIntoViewIfNeeded();
+        await expect(noteButton).toBeInViewport({ ratio: 0.95 });
+        expect(await noteButton.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          return target === element || element.contains(target);
+        }), '笔记触摸目标不能被分页或其他固定区域遮挡').toBe(true);
+        test.info().annotations.push({ type: 'short-index-geometry', description: JSON.stringify({
+          content: await content.boundingBox(), note: await noteButton.boundingBox(),
+          footer: await page.getByRole('article', { name: '笔记索引', exact: true }).locator('footer').boundingBox()
+        }) });
+        const screenshot = test.info().outputPath(`short-index-${viewport.width}x${viewport.height}.png`);
+        await page.screenshot({ path: screenshot });
+        await test.info().attach('低高度索引可触达', { path: screenshot, contentType: 'image/png' });
+      }
+      await activate(noteButton);
       await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
       await expectShellContained(page);
       const mobileNav = page.getByRole('navigation', { name: '移动端模块导航' });

@@ -22,6 +22,7 @@ import overlayStyles from '../overlay/Overlay.module.css';
 import collectionStyles from '../collection/Collection.module.css';
 import styles from './Input.module.css';
 import { NestedOverlay } from '../overlay/ResponsivePanel';
+import { useScopedAppearance } from '../overlay/ScopedAppearance';
 
 export interface SelectOption {
   id: string;
@@ -64,6 +65,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
   },
   ref
 ) {
+  const appearance = useScopedAppearance();
   return (
     <RASelect
       ref={ref}
@@ -89,7 +91,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
         </RASelectValue>
         <ChevronDownIcon className={styles.selectChevron} size={12} />
       </RAButton>
-      <RAPopover className={overlayStyles.popover} offset={4} placement="bottom start">
+      <RAPopover {...appearance} className={cx(overlayStyles.popover, appearance?.className)} offset={4} placement="bottom start">
         <NestedOverlay>{asRAListBox(options)}</NestedOverlay>
       </RAPopover>
       {errorMessage ? <div className={styles.error} role="alert">{errorMessage}</div> : null}

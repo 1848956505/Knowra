@@ -17,11 +17,11 @@ test('笔记和文件夹可在索引、侧栏及根目录之间拖动', async ({
   expect(workspace.patchCalls).toContainEqual({ kind: 'note', id: 'note-1', parentId: 'folder-b' });
 
   await page.getByRole('button', { name: '展开甲目录' }).click();
-  const folderTile = index.locator('[data-entry-item]').filter({ hasText: '甲目录' }).locator('button[draggable="true"]');
+  const folderTile = index.locator('[data-entry-item][data-kind="folder"]').getByRole('button', { name: /^甲目录(?:\d+ 项)?$/ });
   await folderTile.dragTo(page.locator('[data-folder-id="folder-child"]'));
   expect(workspace.patchCalls).toHaveLength(1);
 
-  const targetTile = index.locator('[data-entry-item]').filter({ hasText: '乙目录' }).locator('button[draggable="true"]');
+  const targetTile = index.locator('[data-entry-item][data-kind="folder"]').getByRole('button', { name: /^乙目录(?:\d+ 项)?$/ });
   await folderTile.dragTo(targetTile);
   await expect.poll(() => workspace.folders[0].parentId).toBe('folder-b');
   expect(workspace.patchCalls).toContainEqual({ kind: 'folder', id: 'folder-a', parentId: 'folder-b' });
@@ -56,7 +56,7 @@ test('悬停文件夹会展开目录，空白区域可接收移动到当前文�
   const index = page.getByRole('article', { name: '笔记索引' });
   await expect(index).toBeVisible();
 
-  const source = index.locator('[data-entry-item]').filter({ hasText: '乙目录' }).locator('button[draggable="true"]');
+  const source = index.locator('[data-entry-item][data-kind="folder"]').getByRole('button', { name: /^乙目录(?:\d+ 项)?$/ });
   const target = page.locator('[data-folder-id="folder-a"]');
   await source.evaluate((element) => {
     const transfer = new DataTransfer();
@@ -118,7 +118,7 @@ test('全部笔记空白处不代表根目录，笔记库页面空白处可移�
   await expect(content.getByText('待移动笔记')).toBeVisible();
 });
 
-test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚动', async ({ page }) => {
+test('V5 笔记选中使用中性底色，索引保留独立滚动和图标焦点', async ({ page }) => {
   await mockMoveWorkspace(page);
   await page.goto('/#/materials');
   const index = page.getByRole('article', { name: '笔记索引' });
@@ -128,12 +128,16 @@ test('V5 笔记选中使用中性底色，索引保留轻线图标与独立滚�
   const content = page.getByTestId('notes-index-scroll');
   await expect(content).toHaveCSS('background-image', 'none');
   await expect(content).toHaveCSS('overflow-y', 'auto');
+  await page.getByRole('button', { name: '图标视图' }).click();
   const tile = index.locator('[data-entry-item]').filter({ hasText: '待移动笔记' }).locator('button[draggable="true"]');
-  await expect(tile).toHaveCSS('border-radius', '12px');
+  await expect(tile).toHaveCSS('border-radius', '10px');
   await expect(tile).toHaveCSS('transform', 'none');
-  await tile.focus();
+  // A mouse-triggered view change does not establish :focus-visible. Tab from
+  // the preceding selection control to exercise the actual keyboard entry path.
+  await index.getByRole('checkbox', { name: '选择待移动笔记', exact: true }).focus();
+  await page.keyboard.press('Tab');
   await expect(tile).toBeFocused();
-  await expect(tile).not.toHaveCSS('box-shadow', 'none');
+  await expect(tile).not.toHaveCSS('outline-style', 'none');
 
   await page.getByRole('button', { name: '展开甲目录' }).click();
   const note = page.getByRole('complementary', { name: '笔记上下文导航' }).locator('[data-note-id="note-1"]');

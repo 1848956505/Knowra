@@ -1,15 +1,19 @@
-import type { Folder, Note } from '@study-accelerator/web-core';
+import type { Folder, Note, Tag } from '@study-accelerator/web-core';
 import { Checkbox } from '../../components/ui';
 import { FolderIcon, NoteIcon } from '../../components/icons/knowra';
 import type { SidebarTreeAction } from './SidebarFolderTree';
 import { countFolderNotes, formatUpdatedAt } from './notesIndexModel';
 import { folderLocation, displayNoteStatus } from './notesIndexNavigation';
-import { itemKey, statusClassName, type IndexItem } from './notesIndexPresentation';
+import { itemKey, DEFAULT_DISPLAY_PROPERTIES, type IndexDisplayProperties, type IndexItem } from './notesIndexPresentation';
 import { IndexItemActions, RecycleNoteActions, openIndexItemMenu } from './IndexItemActions';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
+import { NotesIndexArt } from './NotesIndexArt';
+import { ItemTags, ItemStatus, ItemFavorite, itemTags, notePreview } from './NotesIndexItemMeta';
 import styles from './NotesIndexItems.module.css';
 
-interface NotesTableProps {
+interface ItemDisplayProps { tags?: Tag[]; decoration?: boolean; properties?: IndexDisplayProperties; iconSize?: 's' | 'm' | 'l' }
+
+interface NotesTableProps extends ItemDisplayProps {
   items: IndexItem[];
   selectedNoteId: string | null;
   onSelectFolder(id: string): void;
@@ -27,18 +31,26 @@ interface NotesTableProps {
 }
 
 export function NotesTable(props: NotesTableProps) {
-  const { items, selectionMode } = props;
+  const { items, selectionMode, properties = DEFAULT_DISPLAY_PROPERTIES } = props;
+  const canSelect = props.canWrite && !props.isRecycleView;
   return (
     <div className={styles.tableWrap}>
-      <table className={styles.table} data-selection-mode={selectionMode || undefined}>
-        <thead><tr>{selectionMode ? <th scope="col" className={styles.selectionColumn}><span className={styles.srOnly}>选择</span></th> : null}<th scope="col" className={styles.nameColumn}>名称</th><th scope="col" className={styles.statusColumn}>状态</th><th scope="col" className={styles.locationColumn}>位置</th><th scope="col" className={styles.updatedColumn}>最近更新</th><th scope="col" className={styles.actionColumn}><span className={styles.srOnly}>操作</span></th></tr></thead>
+      <table className={styles.table} data-selection-mode={selectionMode || undefined} data-can-select={canSelect || undefined} data-show-tags={properties.tags} data-show-status={properties.status} data-show-location={properties.location} data-show-updated={properties.updated}>
+        <colgroup>
+          {canSelect ? <col className={styles.selectionColumn} /> : null}
+          <col className={styles.nameColumn} />
+          <col className={styles.tagsColumn} /><col className={styles.statusColumn} />
+          <col className={styles.locationColumn} /><col className={styles.updatedColumn} />
+          <col className={styles.actionColumn} />
+        </colgroup>
+        <thead><tr>{canSelect ? <th scope="col" className={styles.selectionColumn}><span className={styles.srOnly}>选择</span></th> : null}<th scope="col" className={styles.nameColumn}>名称</th><th scope="col" className={styles.tagsColumn}>标签</th><th scope="col" className={styles.statusColumn}>状态</th><th scope="col" className={styles.locationColumn}>位置</th><th scope="col" className={styles.updatedColumn}>最近更新</th><th scope="col" className={styles.actionColumn}><span className={styles.srOnly}>操作</span></th></tr></thead>
         <tbody>{items.map((item) => <IndexTableRow key={itemKey(item)} {...props} item={item} />)}</tbody>
       </table>
     </div>
   );
 }
 
-function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction }: NotesTableProps & { item: IndexItem }) {
+function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction, tags = [], decoration = true, properties = DEFAULT_DISPLAY_PROPERTIES }: NotesTableProps & { item: IndexItem }) {
   const dragDrop = useEntryDragDrop();
   const isFolder = item.kind === 'folder';
   const id = isFolder ? item.folder.id : item.note.id;
@@ -57,8 +69,9 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
     onDragLeave={folderDrop.onDragLeave}
     onDrop={folderDrop.onDrop}
     onContextMenu={openIndexItemMenu}
+    onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('[data-index-item-menu-trigger]')?.click(); } }}
   >
-    {selectionMode ? <td className={styles.selectionCell}>{!isFolder ? (
+    {canWrite && !isRecycleView ? <td className={styles.selectionCell}>{!isFolder ? (
       <Checkbox
         aria-label={`选择${name || '未命名笔记'}`}
         isSelected={selectedNoteIds.has(id)}
@@ -66,7 +79,7 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       />
     ) : null}</td> : null}
     <td className={styles.nameData}>
-      <button type="button" className={styles.nameCell} disabled={isRecycleView && !isFolder}
+      <button type="button" className={styles.nameCell} aria-label={name || '未命名笔记'} disabled={isRecycleView && !isFolder}
         draggable={canWrite && !isRecycleView && !selectionMode}
         onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id })}
         onDragEnd={() => dragDrop?.end()}
@@ -77,9 +90,12 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       }}>
         <span className={styles.entryIcon} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true">{isFolder ? <FolderIcon size={18} /> : <NoteIcon size={18} />}</span>
         <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
+        {!isFolder && item.note.favorite ? <ItemFavorite decoration={decoration} /> : null}
+        {!isFolder && properties.summary ? <span className={styles.rowSummary} aria-hidden="true">{notePreview(item.note)}</span> : null}
       </button>
     </td>
-    <td className={styles.statusData}><span className={`${styles.status} ${statusClassName(status)}`}><span className={styles.statusDot} />{status}</span></td>
+    <td className={styles.tagsData}>{!isFolder ? <ItemTags tags={itemTags(item.note, tags)} /> : null}</td>
+    <td className={styles.statusData}><ItemStatus status={status} /></td>
     <td className={styles.locationData} title={location}>{location}</td>
     <td className={styles.updatedData}>{formatUpdatedAt(updatedAt)}</td>
     <td className={`${styles.more} ${styles.actionData}`}>{!isFolder && isRecycleView ? (
@@ -94,7 +110,8 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
     )}</td>
   </tr>;
 }
-export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection, canWrite, onItemAction }: {
+export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection, canWrite, onItemAction, view = 'grid', tags = [], decoration = true, properties = DEFAULT_DISPLAY_PROPERTIES, iconSize = 'm' }: ItemDisplayProps & {
+  view?: 'grid' | 'card';
   item: IndexItem; notes: Note[]; selectedNoteId: string | null;
   onSelectFolder(id: string): void; onSelectNote(id: string): void;
   isRecycleView: boolean;
@@ -111,16 +128,20 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
   const entity = isFolder ? item.folder : item.note;
   const count = isFolder ? countFolderNotes(item.folder, notes) : 0;
   const status = isFolder ? '文件夹' : item.note.deleted ? '回收站' : displayNoteStatus(item.note.status);
+  const noteTags = isFolder ? [] : itemTags(item.note, tags);
   const dragDrop = useEntryDragDrop();
   const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? entity.id : undefined);
   return (
-    <div className={styles.tileShell} data-entry-item onContextMenu={openIndexItemMenu}>
-      {!isFolder && selectionMode ? <span className={styles.tileSelection}>
+    <div className={styles.tileShell} data-entry-item data-view={view} data-icon-size={iconSize} data-kind={item.kind} data-decoration={decoration} data-selection-mode={selectionMode || undefined} data-selected={selected || undefined} onContextMenu={openIndexItemMenu}
+      onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('[data-index-item-menu-trigger]')?.click(); } }}>
+      {!isFolder && canWrite && !isRecycleView ? <span className={styles.tileSelection}>
         <Checkbox aria-label={`选择${item.note.title || '未命名笔记'}`} isSelected={selected} onChange={(next) => onToggleSelection(item.note.id, next)} />
       </span> : null}
       <button
         type="button"
         className={styles.tile}
+        aria-label={`${isFolder ? item.folder.name : item.note.title || '未命名笔记'}${isFolder ? `${count} 项` : properties.updated ? formatUpdatedAt(entity.updatedAt) : ''}`}
+        aria-description={isFolder ? undefined : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name)].filter(Boolean).join('，')}
         disabled={isRecycleView && !isFolder}
         data-selected={!isFolder && (selectedNoteId === entity.id || selected) ? true : undefined}
         data-drop-active={folderDrop.isOver || undefined}
@@ -137,16 +158,22 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
           else onSelectNote(entity.id);
         }}
       >
-      <span className={styles.tileArt}>
-        {isFolder ? (
-          <span data-art-kind="folder" aria-hidden="true"><FolderIcon size={44} /></span>
-        ) : (
-          <span data-art-kind="document" aria-hidden="true"><NoteIcon size={40} /></span>
-        )}
-      </span>
+      {view === 'grid' || isFolder || decoration ? <span className={styles.tileArt}>
+        <NotesIndexArt item={item} tags={noteTags} cover={view === 'card' && !isFolder} decoration={decoration} />
+        {view === 'grid' && !isFolder && item.note.favorite ? <span className={styles.artFavorite}><ItemFavorite decoration={decoration} /></span> : null}
+      </span> : null}
       <span className={styles.tileCopy}>
-        <strong title={isFolder ? item.folder.name : item.note.title || '未命名笔记'}>{isFolder ? item.folder.name : item.note.title || '未命名笔记'}</strong>
-        <small title={isFolder ? undefined : status}>{!isFolder ? <span className={`${styles.statusDot} ${statusClassName(status)}`} aria-hidden="true" /> : null}{isFolder ? `${count} 项` : formatUpdatedAt(entity.updatedAt)}</small>
+        <span className={styles.tileTitle}><strong title={isFolder ? item.folder.name : item.note.title || '未命名笔记'}>{isFolder ? item.folder.name : item.note.title || '未命名笔记'}</strong>
+          {view === 'card' && !isFolder && item.note.favorite ? <ItemFavorite decoration={decoration} /> : null}
+        </span>
+        {view === 'card' && !isFolder && properties.summary ? <span className={styles.cardSummary}>{notePreview(item.note)}</span> : null}
+        <small>
+          {!isFolder && properties.status ? <ItemStatus status={status} compact /> : null}
+          {isFolder ? <span>{count} 项</span> : null}
+          {view === 'card' && properties.tags ? <ItemTags tags={noteTags} limit={1} /> : null}
+          {properties.updated && !isFolder ? <span className={styles.tileDate}>{formatUpdatedAt(entity.updatedAt)}</span> : null}
+        </small>
+        {view === 'grid' && properties.tags ? <ItemTags tags={noteTags} dots /> : null}
       </span>
       </button>
       {!isFolder && isRecycleView ? (
