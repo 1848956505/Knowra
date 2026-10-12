@@ -17,7 +17,7 @@ export const iconGroups: readonly IconGroup[] = [
   {
     id: 'entities', title: '文件、知识与实体', caption: 'FILES, KNOWLEDGE & ENTITIES', columns: 9,
     names: [
-      'NoteIcon', 'BookIcon', 'QuestionIcon', 'FolderIcon', 'TagIcon', 'LinkIcon',
+      'NoteIcon', 'BookIcon', 'KnowledgeIcon', 'QuestionIcon', 'FolderIcon', 'TagIcon', 'LinkIcon',
       'PaperclipIcon', 'StarIcon', 'SparkIcon', 'NodesIcon', 'TargetIcon', 'ClockIcon',
       'CalendarIcon', 'CheckIcon', 'UserIcon', 'HomeIcon', 'BellIcon', 'InboxIcon'
     ]

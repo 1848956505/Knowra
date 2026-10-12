@@ -13,6 +13,12 @@ export const BookIcon = createIcon("BookIcon", (
   </>
 ));
 
+export const KnowledgeIcon = createIcon("KnowledgeIcon", (
+  <>
+    <path d="m12 3 10 5-10 5L2 8Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/>
+  </>
+));
+
 export const QuestionIcon = createIcon("QuestionIcon", (
   <>
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M9.6 8.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .9-1 1.6"/><path d="M12 15.2h.01" strokeWidth="2.2"/>
@@ -93,7 +99,7 @@ export const UserIcon = createIcon("UserIcon", (
 
 export const HomeIcon = createIcon("HomeIcon", (
   <>
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>
+    <rect x="3" y="3" width="7" height="18" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>
   </>
 ));
 

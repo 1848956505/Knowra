@@ -1,4 +1,4 @@
-// 知境图标 V2（第二稿，75 个）。完全按 knowra-layered.html 原型里的图标语言重画，不参考旧图标。
+// 知境图标 V2（第二稿，77 个）。沿用 knowra-layered.html 原型里的线性图标语言。
 // 语言：24×24 网格，默认 1.6 描边，圆角端点与转角；形体简洁几何，单色 currentColor。
 // 强调色只用于 AI 星光里的小星星，写作 {A}，构建时替换为 var(--accent)。
 // 第四项为该图标的描边宽度（默认 1.6）。第一稿保存在 icons-v2-draft1.mjs。
@@ -14,6 +14,7 @@ export const GROUPS = [
   ['files-knowledge', '文件与知识', [
     ['NoteIcon', '笔记', PAGE],
     ['BookIcon', '书本', '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2ZM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7Z"/>'],
+    ['KnowledgeIcon', '知识库', '<path d="m12 3 10 5-10 5L2 8Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/>'],
     ['QuestionIcon', '试题', '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/><path d="M9.6 8.6a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .9-1 1.6"/><path d="M12 15.2h.01" stroke-width="2.2"/>'],
     ['FolderIcon', '文件夹', '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z"/>'],
     ['TagIcon', '标签', TAG + '<path d="M7 7h.01" stroke-width="2.2"/>'],
@@ -27,7 +28,7 @@ export const GROUPS = [
     ['CalendarIcon', '日历', rr(3, 4, 18, 18) + '<path d="M16 2v4M8 2v4M3 10h18"/>'],
     ['CheckIcon', '完成', '<circle cx="12" cy="12" r="9.5"/><path d="m7.8 12.3 3 3 5.4-6"/>'],
     ['UserIcon', '用户', '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
-    ['HomeIcon', '主页', '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>'],
+    ['HomeIcon', '主页工作台', rr(3, 3, 7, 18) + rr(14, 3, 7, 7) + rr(14, 14, 7, 7)],
     ['InboxIcon', '收件箱', '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>'],
     ['BellIcon', '通知', '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'],
   ]],

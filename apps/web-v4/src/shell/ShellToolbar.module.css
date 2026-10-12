@@ -1,4 +1,8 @@
 .toolbar { min-width: 0; width: 100%; display: flex; align-items: center; gap: var(--space-1); padding-inline: var(--space-2); }
+.toolbar:has(.sidebarToggleSlot) { padding-left: 0; }
+.sidebarToggleSlot { width: var(--rail-size); flex: 0 0 var(--rail-size); display: grid; place-items: center; -webkit-app-region: no-drag; app-region: no-drag; }
+.history { display: flex; align-items: center; gap: var(--space-1); flex: 0 0 auto; -webkit-app-region: no-drag; app-region: no-drag; }
+.backArrow { display: inline-flex; transform: rotate(180deg); }
 .actions { display: flex; align-items: center; gap: var(--space-1); flex: 0 0 auto; -webkit-app-region: no-drag; app-region: no-drag; }
 .toolbar > button { flex: 0 0 auto; -webkit-app-region: no-drag; app-region: no-drag; }
 .statusIndicator[data-error] { color: var(--ink-danger); }

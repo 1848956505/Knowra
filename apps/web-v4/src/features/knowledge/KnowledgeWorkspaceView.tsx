@@ -13,7 +13,7 @@ import { getKnowledgeDraftScope, knowledgeDraftRecovery, type KnowledgeDraft } f
 import { filterKnowledgeItems, KNOWLEDGE_STATUS_LABELS, knowledgeError, knowledgeStatusLabel, knowledgeTypeLabel } from './knowledgeViewModel';
 import { useNavigate } from '../../app/router';
 import { PathTrail } from '../../shell/PathTrail';
-import { BookIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../components/icons/knowra';
+import { KnowledgeIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../components/icons/knowra';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import styles from './KnowledgeWorkspaceView.module.css';
 
@@ -260,7 +260,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   }, [refreshKey]);
 
   return <WorkspacePanel as="main" aria-labelledby="knowledge-title">
-    <WorkspacePanelHeader title="知识库" code="KNOW" titleId="knowledge-title" icon={<BookIcon size={13} />}
+    <WorkspacePanelHeader title="知识库" code="KNOW" titleId="knowledge-title" icon={<KnowledgeIcon size={13} />}
       breadcrumb={<PathTrail path={[{ id: 'home', label: '主页', onNavigate: () => navigate('/') }, { id: 'knowledge', label: '知识库', current: true }]} variant="top" />}
       breadcrumbTitle="主页 / 知识库" actionsLabel="知识操作"
       actions={<>
@@ -309,7 +309,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
           onTrash={() => setTrashItem(detail.item)} onRestoreDeleted={() => props.onRestoreDeleted && void mutate(detail.item, props.onRestoreDeleted, '知识已从回收站恢复；审核与来源已重新校验。')}
           onPurgePreview={props.onPermanentDelete ? () => void openPurgePreview(detail.item) : undefined}
           onAddSource={() => setSourceDialog({})} onReplaceSource={record => setSourceDialog({ replacing: record })} onRetireSource={setRetireEvidence} onReadoptSource={record => void readopt(record)} />
-          : !detailError ? <div className={`${styles.empty} ${styles.emptyDetail}`}><span className={styles.emptyIcon} aria-hidden="true"><BookIcon size={22} /></span><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
+          : !detailError ? <div className={`${styles.empty} ${styles.emptyDetail}`}><span className={styles.emptyIcon} aria-hidden="true"><KnowledgeIcon size={22} /></span><h2>选择一条知识</h2><p>查看核心陈述、个人解释及来源，完成核对后确认。</p></div> : null}
       </section>
       </div>
     </WorkspacePanelBody>

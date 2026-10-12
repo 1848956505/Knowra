@@ -1920,7 +1920,8 @@ test('V4-07 章节重点保存等待后不抢走搜索框焦点', async ({ page 
   await page.getByRole('menuitem', { name: '标记本节为重点', exact: true }).hover();
   await page.getByRole('menuitem', { name: '普通', exact: true }).click();
   await expect.poll(() => Boolean(finishSave)).toBe(true);
-  const search = page.getByRole('searchbox', { name: '搜索笔记目录' });
+  await page.getByRole('button', { name: '搜索笔记', exact: true }).click();
+  const search = page.getByRole('dialog', { name: '全局搜索' }).getByRole('combobox');
   await search.fill('查找');
   await finishSave!();
   await expect.poll(() => created.length).toBe(1);

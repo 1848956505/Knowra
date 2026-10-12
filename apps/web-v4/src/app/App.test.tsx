@@ -37,9 +37,9 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '工作区状态' })).toBeInTheDocument();
 
-    // 冻结左轨搜索触发器
-    expect(within(rail).getByRole('button', { name: '全局搜索' })).toBeInTheDocument();
-    expect(within(rail).getByRole('button', { name: '组件库' })).toBeEnabled();
+    expect(within(rail).queryByRole('button', { name: '全局搜索' })).not.toBeInTheDocument();
+    expect(within(rail).queryByRole('button', { name: '新建笔记' })).not.toBeInTheDocument();
+    expect(within(rail).queryByRole('button', { name: '组件库' })).not.toBeInTheDocument();
 
     // 工作台计数来自真实 workspace。
     expect(screen.getByText('AVAILABLE · 1 ITEMS')).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(screen.getAllByRole('button', { name: '打开全局搜索' }).length).toBeGreaterThan(0);
   });
 
-  it('opens the search command via the rail trigger and supports keyboard navigation', async () => {
+  it('opens the search command via the mobile trigger and supports keyboard navigation', async () => {
     const api = createWorkspaceApiStub();
     const store = createAppStore({
       api,
@@ -119,8 +119,8 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     render(<AppProviders store={store}><App /></AppProviders>);
     await screen.findByRole('heading', { name: '笔记工作台' });
 
-    const rail = screen.getByRole('navigation', { name: '工作域导航' });
-    fireEvent.click(within(rail).getByRole('button', { name: '全局搜索' }));
+    const mobileNav = screen.getByRole('navigation', { name: '移动端模块导航' });
+    fireEvent.click(within(mobileNav).getByRole('button', { name: '打开全局搜索' }));
     const dialog = await screen.findByRole('dialog', { name: '全局搜索' });
     expect(dialog).toBeInTheDocument();
     // 至少 1 条资料命中

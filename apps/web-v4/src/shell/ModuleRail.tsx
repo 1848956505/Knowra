@@ -1,20 +1,15 @@
-// V4-05 ModuleRail
-//
-// 印格 64px 桌面轨道：顶部品牌 + 中段工作域 + 底部工具组。
-// 选中态仅图标变蓝（不引入竖条/阴影/背景），符合 V4-00.5 §4 视觉签名。
+// V5 桌面轨道：主页、工作域与底部工具组共用紧凑按钮。
+// 选中态沿用分层外壳原型的白色高光、强调色图标与淡光晕。
 // 工作域切换：setActiveWorkDomain；品牌按钮回主页。
 
 import { forwardRef, type ReactNode } from 'react';
 import {
-  BookIcon,
+  KnowledgeIcon,
   BellIcon,
   CheckIcon,
-  ComponentLibraryIcon,
   HomeIcon,
   NoteIcon,
-  PlusIcon,
   QuestionIcon,
-  SearchIcon,
   SparkIcon,
   SettingsIcon,
   UserIcon,
@@ -44,7 +39,7 @@ export const PRIMARY_DOMAINS: readonly RailItem[] = [
     id: 'knowledge',
     label: '知识',
     description: '知识候选、人工确认与来源追溯。',
-    Icon: BookIcon,
+    Icon: KnowledgeIcon,
     available: true
   },
   {
@@ -77,17 +72,11 @@ export interface ModuleRailProps {
   activeDomain: WorkDomain | null;
   onSelect(domain: WorkDomain): void;
   onReturnHome(): void;
-  onOpenSearch?(): void;
-  onOpenCreate?(): void;
   onOpenNotifications?(): void;
   onOpenSettings?(): void;
   onOpenAssistant?(): void;
   isSettingsActive?: boolean;
   isAssistantActive?: boolean;
-  /** 打开组件展台（/showcase）。组件库是开发工具，不属于 WorkDomain。 */
-  onOpenShowcase?(): void;
-  /** 当前是否在 /showcase 路由——只有为 true 时组件库按钮才显示选中态。 */
-  isShowcaseActive?: boolean;
 }
 
 export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function ModuleRail(
@@ -95,15 +84,11 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
     activeDomain,
     onSelect,
     onReturnHome,
-    onOpenSearch,
-    onOpenCreate,
     onOpenNotifications,
     onOpenSettings,
     onOpenAssistant,
     isSettingsActive,
-    isAssistantActive,
-    onOpenShowcase,
-    isShowcaseActive
+    isAssistantActive
   },
   ref
 ) {
@@ -115,30 +100,15 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
     >
       <button
         type="button"
-        className={styles.brand}
+        className={styles.railItem}
         aria-label="知境工作区"
         title="知境工作区"
         onClick={onReturnHome}
       >
-        <HomeIcon size={18} />
+        <span className={styles.railIcon}><HomeIcon size={18} /></span>
       </button>
 
-      <div className={cx(styles.railGroup, styles.railGroupGlobal)} role="group" aria-label="全局操作">
-        <RailActionButton
-          label="全局搜索"
-          title="搜索资料 / 标签 / 跳转 · Ctrl K"
-          Icon={SearchIcon}
-          onClick={onOpenSearch}
-        />
-        <RailActionButton
-          label="新建笔记"
-          title="新建笔记 · Ctrl N"
-          Icon={PlusIcon}
-          onClick={onOpenCreate}
-        />
-      </div>
-
-      <div className={cx(styles.railGroup, styles.railGroupPrimary)} role="group" aria-label="主要工作域">
+      <div className={styles.railGroup} role="group" aria-label="主要工作域">
         {PRIMARY_DOMAINS.map((item) => (
           <RailButton
             key={item.id}
@@ -174,21 +144,6 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
             <SettingsIcon size={18} />
           </span>
         </button>
-        {onOpenShowcase ? (
-          <button
-            type="button"
-            className={styles.railItem}
-            onClick={onOpenShowcase}
-            aria-label="组件库"
-            aria-current={isShowcaseActive ? 'page' : undefined}
-            data-module="component-library"
-            title="组件库：V4-04 公共组件展台"
-          >
-            <span className={styles.railIcon}>
-              <ComponentLibraryIcon size={18} />
-            </span>
-          </button>
-        ) : null}
         {UTILITY_ITEMS.map((item) => (
           <RailButton
             key={item.id}

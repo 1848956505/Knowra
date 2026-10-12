@@ -1,17 +1,27 @@
 import type { ReactNode } from 'react';
 import { GhostIconButton } from '../components/ui/button';
 import { Popover, PopoverDialog, PopoverTrigger } from '../components/ui/overlay';
-import { FocusIcon, PanelIcon, SidebarIcon, MoreHorizontalIcon } from '../components/icons/knowra';
+import { ArrowRightIcon, FocusIcon, PanelIcon, SidebarIcon, MoreHorizontalIcon } from '../components/icons/knowra';
+import { useLocation } from '../app/router';
 import { StatusBar, type StatusBarProps } from './StatusBar';
 import styles from './ShellToolbar.module.css';
 
 /** 全局控制与真实保存信息。与文档内容、标签页状态分离。 */
 export function ShellToolbar({ status, children }: { status: StatusBarProps; children?: ReactNode }) {
+  const navigation = useLocation();
   return <div className={styles.toolbar}>
-    {status.panels?.filter(panel => panel.id === 'sidebar').map(panel => <GhostIconButton key={panel.id}
+    {status.panels?.filter(panel => panel.id === 'sidebar').map(panel => <span key={panel.id} className={styles.sidebarToggleSlot}><GhostIconButton
       aria-label={`切换${panel.label}`} title={panel.label} aria-pressed={panel.active} onPress={panel.onToggle}>
       <SidebarIcon size={17} />
-    </GhostIconButton>)}
+    </GhostIconButton></span>)}
+    <div className={styles.history} role="group" aria-label="浏览历史">
+      <GhostIconButton size={28} aria-label="后退" title="后退" disabled={!navigation.canGoBack || !navigation.back} onPress={navigation.back}>
+        <span className={styles.backArrow}><ArrowRightIcon size={16} /></span>
+      </GhostIconButton>
+      <GhostIconButton size={28} aria-label="前进" title="前进" disabled={!navigation.canGoForward || !navigation.forward} onPress={navigation.forward}>
+        <ArrowRightIcon size={16} />
+      </GhostIconButton>
+    </div>
     {children}
     <div className={styles.actions} aria-label="工作区操作">
       {status.persistenceMode === 'desktop-local' ? status.dataModeNote : null}

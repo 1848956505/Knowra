@@ -49,8 +49,8 @@ describe('Notes index skeleton', () => {
     expect(within(content).getByLabelText('笔记图标视图')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: '笔记分页' })).toBeInTheDocument();
     expect(within(content).queryByRole('toolbar')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '后退' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '前进' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: '后退' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '前进' })).not.toBeInTheDocument();
     const search = screen.getByRole('searchbox', { name: '搜索笔记索引' });
     expect(search.parentElement).toHaveAttribute('data-shadow-token', '--shadow-search-rest');
   });
