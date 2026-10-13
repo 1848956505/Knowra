@@ -6,7 +6,7 @@ import type { PathSegment } from '../../shell/path';
 import { LOCAL_PERMANENT_DELETE_REASON } from '../../store/workspaceCapabilities';
 import { NotesIndexHeader } from './NotesIndexHeader';
 import { NotesIndexCompactTools, NotesIndexToolbar } from './NotesIndexToolbar';
-import { useCompactIndex } from './useCompactIndex';
+import { useCompactLayout } from '../../shell/useCompactLayout';
 import { NotesIndexDialogs } from './NotesIndexDialogs';
 import { NotesIndexPreview } from './NotesIndexPreview';
 import { NotesIndexPagination } from './NotesIndexPagination';
@@ -25,7 +25,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
   const c = useNotesIndexController(onOpenNote);
   const appearance = useNotesIndexAppearance();
   const theme = notesIndexAppearanceProps(appearance);
-  const compact = useCompactIndex();
+  const compact = useCompactLayout();
   if (!c.indexPath.length) return null;
   const itemProps = {
     selectedNoteId: c.navigation.selectedNoteId,

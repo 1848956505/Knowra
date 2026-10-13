@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogClose, DialogFooter, SearchBox, SegmentedButton, SegmentedControl, Select, TextField } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogClose, DialogFooter, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl, Select, TextField } from '../../components/ui';
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { TagChip, normalizeTagColor } from './TagChip';
 import { countTagUsage } from './tagUsage';
-import { PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
+import { FilterLinesIcon, PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
+import { useCompactLayout } from '../../shell/useCompactLayout';
+import { notesIndexAppearanceProps } from '../notes/NotesIndexAppearance';
+import { useNotesIndexAppearance } from '../notes/notesIndexAppearanceModel';
 import { PathTrail } from '../../shell/PathTrail';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelFooter, WorkspacePanelHeader, WorkspacePanelToolbar } from '../../components/workspace/WorkspacePanel';
 import styles from './TagManagerView.module.css';
@@ -36,6 +39,8 @@ export function TagManagerView() {
   const deleteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [draggedTagId, setDraggedTagId] = useState('');
+  const compact = useCompactLayout();
+  const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
   const usage = useMemo(() => countTagUsage(data.tags, data.notes), [data.notes, data.tags]);
   const unusedCount = Object.values(usage).filter((count) => count === 0).length;
 
@@ -93,17 +98,52 @@ export function TagManagerView() {
     await reorderTags(siblings.map((item) => item.id));
   }
 
+  const filtering = groupFilter !== 'all' || unusedOnly;
+  const groupOptions = [{ id: 'all', label: '全部分组' }, ...data.tagGroups.map((group) => ({ id: group.id, label: group.name }))];
+  const sortOptions: Array<{ id: SortMode; label: string }> = [{ id: 'manual', label: '手动顺序' }, { id: 'name', label: '按名称' }, { id: 'usage', label: '按使用量' }];
+  const usageFilter = <SegmentedControl density="compact" aria-label="使用情况筛选"><SegmentedButton aria-pressed={!unusedOnly} count={data.tags.length} onPress={() => setUnusedOnly(false)}>全部</SegmentedButton><SegmentedButton aria-pressed={unusedOnly} count={unusedCount} onPress={() => setUnusedOnly(true)}>未使用</SegmentedButton></SegmentedControl>;
+  const search = <div className={styles.searchSlot}><SearchBox label="搜索标签" icon={<SearchIcon size={15} />} name="tag-manager-search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标签…" onClear={query ? () => setQuery('') : undefined} /></div>;
+  const header = (actions: ReactNode, className?: string) => <WorkspacePanelHeader title="标签管理" code="TAGS" titleId="tag-manager-title" icon={<TagIcon size={13} />} className={className}
+    breadcrumb={<PathTrail path={[{ id: 'materials', label: '笔记库', onNavigate: () => navigate('/materials') }, { id: 'tags', label: '标签管理', current: true }]} variant="top" />}
+    breadcrumbTitle="笔记库 / 标签管理" actionsLabel="标签操作" actions={actions} />;
   return <WorkspacePanel as="main" aria-labelledby="tag-manager-title">
-    <WorkspacePanelHeader title="标签管理" code="TAGS" titleId="tag-manager-title" icon={<TagIcon size={13} />}
-      breadcrumb={<PathTrail path={[{ id: 'materials', label: '笔记库', onNavigate: () => navigate('/materials') }, { id: 'tags', label: '标签管理', current: true }]} variant="top" />}
-      breadcrumbTitle="笔记库 / 标签管理" actionsLabel="标签操作"
-      actions={canWrite ? <><Button size="workspace" onPress={() => setEditTarget({ kind: 'group' })}>新建分组</Button><Button size="workspace" variant="accent" onPress={() => setEditTarget({ kind: 'tag' })}><PlusIcon size={17} />新建标签</Button></> : null} />
-    <WorkspacePanelToolbar className={styles.filters} role="toolbar" aria-label="筛选标签">
-      <SearchBox label="搜索标签" icon={<SearchIcon size={17} />} name="tag-manager-search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标签…" />
-      <Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={[{ id: 'all', label: '全部分组' }, ...data.tagGroups.map((group) => ({ id: group.id, label: group.name }))]} />
-      <Select presentation="toolbar" label="标签排序" name="tag-sort" leadingIcon={<SortArrowsIcon size={16} />} selectedKey={sort} onSelectionChange={(key) => setSort(String(key) as SortMode)} options={[{ id: 'manual', label: '手动顺序' }, { id: 'name', label: '按名称' }, { id: 'usage', label: '按使用量' }]} />
-      <SegmentedControl density="compact" aria-label="使用情况筛选"><SegmentedButton aria-pressed={!unusedOnly} count={data.tags.length} onPress={() => setUnusedOnly(false)}>全部</SegmentedButton><SegmentedButton aria-pressed={unusedOnly} count={unusedCount} onPress={() => setUnusedOnly(true)}>未使用</SegmentedButton></SegmentedControl>
-    </WorkspacePanelToolbar>
+    {compact
+      /* 平板/手机版：标题与工具合为一行——筛选、排序、搜索（默认图标）、新建。 */
+      ? header(<div className={styles.compactTools} role="toolbar" aria-label="筛选标签">
+        <PopoverTrigger>
+          <GhostIconButton size={40} className={styles.dotHost} data-on={filtering || undefined} aria-label="筛选"><FilterLinesIcon size={16} /></GhostIconButton>
+          <Popover placement="bottom end" offset={6} {...theme}><PopoverDialog aria-label="筛选标签" className={styles.optionsPanel}>
+            <div className={styles.field}><span>分组</span><Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} /></div>
+            <div className={styles.field}><span>使用情况</span>{usageFilter}</div>
+          </PopoverDialog></Popover>
+        </PopoverTrigger>
+        <PopoverTrigger>
+          <GhostIconButton size={40} className={styles.dotHost} data-on={sort !== 'manual' || undefined} aria-label="排序"><SortArrowsIcon size={16} /></GhostIconButton>
+          <Popover placement="bottom end" offset={6} {...theme}><PopoverDialog aria-label="标签排序" className={styles.optionsPanel}>
+            <div className={styles.field}><span>排序</span>
+              <SegmentedControl density="compact" aria-label="标签排序">{sortOptions.map((option) => <SegmentedButton key={option.id} aria-pressed={sort === option.id} onPress={() => setSort(option.id)}>{option.label}</SegmentedButton>)}</SegmentedControl>
+            </div>
+          </PopoverDialog></Popover>
+        </PopoverTrigger>
+        {search}
+        {canWrite ? <MenuTrigger>
+          <GhostIconButton variant="glass" aria-label="新建" title="新建"><PlusIcon size={16} /></GhostIconButton>
+          <MenuPopover {...theme}><Menu ariaLabel="新建" onAction={(key) => setEditTarget({ kind: key === 'group' ? 'group' : 'tag' })}>
+            <MenuItem id="tag" icon={<TagIcon size={14} />}>新建标签</MenuItem>
+            <MenuItem id="group" icon={<PlusIcon size={14} />}>新建分组</MenuItem>
+          </Menu></MenuPopover>
+        </MenuTrigger> : null}
+      </div>, styles.compactHeader)
+      : <>
+        {header(canWrite ? <><Button size="workspace" onPress={() => setEditTarget({ kind: 'group' })}>新建分组</Button><Button size="workspace" variant="accent" onPress={() => setEditTarget({ kind: 'tag' })}><PlusIcon size={17} />新建标签</Button></> : null)}
+        <WorkspacePanelToolbar className={styles.filters} role="toolbar" aria-label="筛选标签">
+          {usageFilter}
+          <span className={styles.toolbarSpacer} />
+          {search}
+          <Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} />
+          <Select presentation="toolbar" label="标签排序" name="tag-sort" leadingIcon={<SortArrowsIcon size={16} />} selectedKey={sort} onSelectionChange={(key) => setSort(String(key) as SortMode)} options={sortOptions} />
+        </WorkspacePanelToolbar>
+      </>}
     <WorkspacePanelBody grid className={styles.content}>
       {pendingDeletion ? <p role="status" className={styles.meta}>“{pendingDeletion.tag.name}”将在 10 秒后删除。<Button variant="ghost" onPress={undoDeletion}>撤销删除</Button></p> : null}
       {deletionError ? <p role="alert" className={styles.error}>{deletionError}</p> : null}
