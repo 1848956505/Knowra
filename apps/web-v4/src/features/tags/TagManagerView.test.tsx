@@ -25,7 +25,8 @@ describe('TagManagerView 标签删除', () => {
   it('确认后先提供撤销窗口，撤销不向服务端发送删除', async () => {
     const user = userEvent.setup();
     render(<TagManagerView />);
-    await user.click(screen.getByRole('button', { name: '删除…' }));
+    await user.click(screen.getByRole('button', { name: /的更多操作$/ }));
+    await user.click(screen.getByRole('menuitem', { name: '删除…' }));
     await user.click(screen.getByRole('button', { name: '删除标签' }));
     expect(screen.getByRole('button', { name: '撤销删除' })).toBeInTheDocument();
     expect(mocked.state.deleteTag).not.toHaveBeenCalled();
@@ -103,7 +104,8 @@ describe('TagManagerView 标签使用统计', () => {
     await user.click(screen.getByRole('button', { name: /全部\s*5/ }));
     const updatedCard = screen.getByText('未使用', { selector: 'article *' }).closest('article')!;
     expect(updatedCard).toHaveTextContent('1 篇笔记');
-    await user.click(within(updatedCard).getByRole('button', { name: '删除…' }));
+    await user.click(within(updatedCard).getByRole('button', { name: /的更多操作$/ }));
+    await user.click(screen.getByRole('menuitem', { name: '删除…' }));
     expect(screen.getByRole('dialog', { name: '删除标签“未使用”？' })).toHaveTextContent('该标签被 1 篇笔记引用。');
     expect(screen.getByRole('button', { name: '移除 1 处引用并删除' })).toBeInTheDocument();
     expect(mocked.state.deleteTag).not.toHaveBeenCalled();
@@ -128,7 +130,8 @@ describe('TagManagerView 标签使用统计', () => {
     expect(screen.getByText('构造标签').closest('article')).toHaveTextContent('2 篇笔记');
     expect(screen.getByRole('button', { name: /未使用\s*0/ })).toBeInTheDocument();
 
-    await user.click(within(prototypeCard).getByRole('button', { name: '删除…' }));
+    await user.click(within(prototypeCard).getByRole('button', { name: /的更多操作$/ }));
+    await user.click(screen.getByRole('menuitem', { name: '删除…' }));
     expect(screen.getByRole('dialog', { name: '删除标签“原型标签”？' })).toHaveTextContent('该标签被 1 篇笔记引用。');
     mocked.state.serverData = { ...data, tags: [], notes };
     view.rerender(<TagManagerView />);

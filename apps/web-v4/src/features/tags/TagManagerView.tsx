@@ -5,7 +5,7 @@ import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { TagChip, normalizeTagColor } from './TagChip';
 import { countTagUsage } from './tagUsage';
-import { FilterLinesIcon, PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
+import { FilterLinesIcon, MoreHorizontalIcon, PlusIcon, SearchIcon, SortArrowsIcon, TagIcon } from '../../components/icons/knowra';
 import { useCompactLayout } from '../../shell/useCompactLayout';
 import { notesIndexAppearanceProps } from '../notes/NotesIndexAppearance';
 import { useNotesIndexAppearance } from '../notes/notesIndexAppearanceModel';
@@ -140,8 +140,8 @@ export function TagManagerView() {
           {usageFilter}
           <span className={styles.toolbarSpacer} />
           {search}
-          <Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} />
-          <Select presentation="toolbar" label="标签排序" name="tag-sort" leadingIcon={<SortArrowsIcon size={16} />} selectedKey={sort} onSelectionChange={(key) => setSort(String(key) as SortMode)} options={sortOptions} />
+          <div className={styles.toolbarField}><Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} /></div>
+          <div className={styles.toolbarField}><Select presentation="toolbar" label="标签排序" name="tag-sort" leadingIcon={<SortArrowsIcon size={16} />} selectedKey={sort} onSelectionChange={(key) => setSort(String(key) as SortMode)} options={sortOptions} /></div>
         </WorkspacePanelToolbar>
       </>}
     <WorkspacePanelBody grid className={styles.content}>
@@ -153,20 +153,27 @@ export function TagManagerView() {
           {canWrite ? <div className={styles.groupActions}><Button size="compact" onPress={() => setEditTarget({ kind: 'group', value: group })}>编辑分组</Button>{!group.isSystem ? <Button size="compact" variant="danger" isDisabled={data.tags.some((tag) => tag.groupId === group.id)} onPress={() => void deleteTagGroup(group.id)}>删除分组</Button> : null}</div> : null}
         </header>
         <div className={styles.cards}>{items.map((tag, index) => <article className={styles.card} data-dragging={draggedTagId === tag.id || undefined} draggable={canWrite && sort === 'manual'} onDragStart={() => setDraggedTagId(tag.id)} onDragEnd={() => setDraggedTagId('')} onDragOver={(event) => { if (draggedTagId && draggedTagId !== tag.id) event.preventDefault(); }} onDrop={() => void dropBefore(tag)} key={tag.id}>
-          <div className={styles.cardTop}><span className={styles.cardNumber}>{String(index + 1).padStart(2, '0')}</span><span className={styles.handle} aria-hidden="true">⋮⋮</span></div>
-          <div className={styles.cardMain}>
-            <TagChip tag={tag} className={styles.tagChip} />
-            <div className={styles.cardInfo}><span className={styles.usage}><strong>{usage[tag.id] ?? 0}</strong> 篇笔记</span><span className={styles.color} data-color={normalizeTagColor(tag.color)}><i aria-hidden="true" />{colorLabel(normalizeTagColor(tag.color))}</span></div>
+          <div className={styles.cardHead}>
+            <button type="button" className={styles.cardOpen} aria-label={`查看“${tag.name ?? '未命名标签'}”的笔记`}
+              onClick={() => navigate(`/materials?tags=${encodeURIComponent(tag.id)}&match=all`)}>
+              <TagChip tag={tag} className={styles.tagChip} />
+            </button>
+            {canWrite ? <MenuTrigger>
+              <GhostIconButton size={28} className={styles.cardMenu} aria-label={`标签“${tag.name ?? '未命名标签'}”的更多操作`}><MoreHorizontalIcon size={16} /></GhostIconButton>
+              <MenuPopover placement="bottom end" {...theme}><Menu ariaLabel={`${tag.name ?? '未命名标签'}的操作`} onAction={(key) => {
+                if (key === 'edit') setEditTarget({ kind: 'tag', value: tag });
+                else if (key === 'up') void move(tag, -1);
+                else if (key === 'down') void move(tag, 1);
+                else if (key === 'delete') { setDeleteTarget(tag); setMergeTargetId(''); }
+              }}>
+                <MenuItem id="edit">编辑</MenuItem>
+                <MenuItem id="up" isDisabled={index === 0 || sort !== 'manual'}>上移</MenuItem>
+                <MenuItem id="down" isDisabled={index === items.length - 1 || sort !== 'manual'}>下移</MenuItem>
+                {!tag.isSystem ? <MenuItem id="delete" isDanger isDisabled={Boolean(pendingDeletion)}>删除…</MenuItem> : null}
+              </Menu></MenuPopover>
+            </MenuTrigger> : null}
           </div>
-          <div className={styles.cardActions} aria-label={`${tag.name ?? '未命名标签'}的操作`}>
-            <Button size="compact" emphasis="soft" className={styles.viewNotes} onPress={() => navigate(`/materials?tags=${encodeURIComponent(tag.id)}&match=all`)}>查看笔记</Button>
-            {canWrite ? <>
-              <Button size="compact" isDisabled={index === 0 || sort !== 'manual'} onPress={() => void move(tag, -1)}>上移</Button>
-              <Button size="compact" isDisabled={index === items.length - 1 || sort !== 'manual'} onPress={() => void move(tag, 1)}>下移</Button>
-              <Button size="compact" className={tag.isSystem ? styles.fullAction : undefined} onPress={() => setEditTarget({ kind: 'tag', value: tag })}>编辑</Button>
-              {!tag.isSystem ? <Button size="compact" variant="danger" isDisabled={Boolean(pendingDeletion)} onPress={() => { setDeleteTarget(tag); setMergeTargetId(''); }}>删除…</Button> : null}
-            </> : null}
-          </div>
+          <div className={styles.cardInfo}><span className={styles.usage}><strong>{usage[tag.id] ?? 0}</strong> 篇笔记</span><span className={styles.color} data-color={normalizeTagColor(tag.color)} title={`${colorLabel(normalizeTagColor(tag.color))}色`}><i aria-hidden="true" /></span></div>
         </article>)}{items.length === 0 ? <p className={styles.empty}>该分组暂无符合条件的标签</p> : null}</div>
       </section>)}</div>
       {sections.length === 0 ? <p className={styles.empty}>没有符合条件的标签。</p> : null}
