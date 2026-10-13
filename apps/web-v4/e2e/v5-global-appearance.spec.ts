@@ -81,11 +81,16 @@ test('默认图标布局与卡片文件夹按原型展示，放大的类型筛�
   await expect(badge.first()).toHaveCSS('color', 'rgb(242, 107, 29)');
   await page.screenshot({ path: info.outputPath('folder-cards-dark.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(types.getByRole('button', { name: '文件夹', exact: true })).toHaveCSS('min-height', '44px');
+  // 窄屏：标题与工具合为一行，类型筛选与布局切换收进“显示选项”。
+  await expect(toolbar.getByRole('group', { name: '类型筛选' })).toHaveCount(0);
+  const displayOptions = toolbar.getByRole('button', { name: /^显示选项/ });
+  await expect(displayOptions).toHaveCSS('min-height', '44px');
   await expect(badge.first()).toBeInViewport();
   await page.screenshot({ path: info.outputPath('folder-cards-mobile.png'), animations: 'disabled' });
   await page.reload();
-  await expect(toolbar.getByRole('button', { name: '图标视图' })).toHaveAttribute('aria-pressed', 'true');
+  await toolbar.getByRole('button', { name: /^显示选项/ }).click();
+  await expect(page.getByRole('group', { name: '类型' }).getByRole('button', { name: /^全部/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: '布局' }).getByRole('button', { name: '图标' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('热力图随标签区域滚动，新建按钮两半在桌面和窄屏保持等高', async ({ page }, info) => {
@@ -107,18 +112,25 @@ test('热力图随标签区域滚动，新建按钮两半在桌面和窄屏保�
   expect((await trash.boundingBox())!.y).toBe(trashBefore!.y);
   await expect(distribution).toBeInViewport();
   await page.screenshot({ path: info.outputPath('sidebar-scroll.png') });
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 844 });
-    const actions = page.getByRole('article', { name: '笔记索引' }).getByLabel('笔记操作', { exact: true });
-    const create = actions.getByRole('button', { name: '新建笔记', exact: true });
-    const more = actions.getByRole('button', { name: '更多新建选项' });
-    const left = await create.boundingBox();
-    const right = await more.boundingBox();
-    expect(left!.height).toBe(width === 390 ? 44 : 28);
-    expect(right!.height).toBe(left!.height);
-    expect(right!.y).toBe(left!.y);
-    await more.click();
-    await expect(page.getByRole('menu', { name: '更多新建选项', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-  }
+  await page.setViewportSize({ width: 1440, height: 844 });
+  const actions = page.getByRole('article', { name: '笔记索引' }).getByLabel('笔记操作', { exact: true });
+  const create = actions.getByRole('button', { name: '新建笔记', exact: true });
+  const more = actions.getByRole('button', { name: '更多新建选项' });
+  const left = await create.boundingBox();
+  const right = await more.boundingBox();
+  expect(left!.height).toBe(28);
+  expect(right!.height).toBe(left!.height);
+  expect(right!.y).toBe(left!.y);
+  await more.click();
+  await expect(page.getByRole('menu', { name: '更多新建选项', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // 窄屏：新建收成圆形“+”，菜单里含新建笔记、新建文件夹、导入 Markdown。
+  await page.setViewportSize({ width: 390, height: 844 });
+  const compactCreate = page.getByRole('article', { name: '笔记索引' }).getByRole('button', { name: '新建', exact: true });
+  await expect(compactCreate).toBeVisible();
+  await compactCreate.click();
+  const menu = page.getByRole('menu', { name: '新建', exact: true });
+  await expect(menu.getByRole('menuitem')).toHaveText(['新建笔记', '新建文件夹', '导入 Markdown']);
+  await page.keyboard.press('Escape');
 });
