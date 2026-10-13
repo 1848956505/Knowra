@@ -67,14 +67,15 @@ for (const viewport of viewports) test(`V5 知识题库标签合成验收 ${view
     await expect(page.getByRole('heading', { name: '标签管理' })).toBeVisible();
     await expect(page.getByText('数学概念', { exact: true })).toBeVisible();
     await capture('07-tag-manager');
-    const editTag = page.getByLabel('数学概念的操作').getByRole('button', { name: '编辑', exact: true });
-    await editTag.click();
+    const tagMenu = page.getByRole('button', { name: '标签“数学概念”的更多操作' });
+    await tagMenu.click();
+    await page.getByRole('menuitem', { name: '编辑', exact: true }).click();
     const tagDialog = page.getByRole('dialog', { name: '编辑标签' });
     await tagDialog.getByRole('textbox', { name: '名称', exact: true }).fill('未保存的标签草稿');
     await capture('08-tag-edit');
     await tagDialog.getByRole('button', { name: '取消', exact: true }).click();
     await expect(tagDialog).toBeHidden();
-    await expect(editTag).toBeFocused();
+    await expect(tagMenu).toBeFocused();
     await expect(page.getByText('数学概念', { exact: true })).toBeVisible();
     expect(network.blocked).toEqual([]);
     expect(errors).toEqual([]);
