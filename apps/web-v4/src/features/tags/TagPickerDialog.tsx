@@ -1,7 +1,7 @@
-import { useDeferredValue, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, type FormEvent, type RefObject } from 'react';
 import type { Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogClose, DialogFooter, Select, TextField } from '../../components/ui';
-import { PlusIcon } from '../../components/icons/knowra';
+import { Button, GhostIconButton, Popover, PopoverDialog, SearchBox, Select, TextField } from '../../components/ui';
+import { ChevronLeftIcon, CloseIcon, DeleteIcon, EditIcon, PlusIcon, SearchIcon, SettingsIcon, TagIcon } from '../../components/icons/knowra';
 import { TagChip, normalizeTagColor } from './TagChip';
 import styles from './TagPickerDialog.module.css';
 
@@ -11,10 +11,12 @@ type DialogMode = 'select' | 'manage' | 'form' | 'delete';
 type ReturnMode = Extract<DialogMode, 'select' | 'manage'>;
 
 export function TagPickerDialog({
-  isOpen, tags, groups, selectedTagIds, usageCounts = {}, canWrite, onOpenChange,
+  isOpen, triggerRef, tags, groups, selectedTagIds, usageCounts = {}, canWrite, onOpenChange,
   onCreateTag, onUpdateTag, onDeleteTag, onMergeTags, onOpenFullManager, onSave
 }: {
   isOpen: boolean;
+  /** 弹层锚点：打开面板的“添加/编辑”按钮。 */
+  triggerRef: RefObject<Element | null>;
   tags: Tag[];
   groups: TagGroup[];
   selectedTagIds: string[];
@@ -42,6 +44,7 @@ export function TagPickerDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const sideSpace = useMinWidth(820);
   const defaultGroupId = groups.find((group) => group.code === 'ordinary')?.id ?? groups[0]?.id ?? '';
   const deferredQuery = useDeferredValue(query);
   const deferredManagerQuery = useDeferredValue(managerQuery);
@@ -202,35 +205,53 @@ export function TagPickerDialog({
   }
 
   if (!isOpen) return null;
-  return <Dialog title={dialogTitle(mode, editingTag)} description={dialogDescription(mode)} size="md" isOpen onOpenChange={onOpenChange} isPending={pending}>
-    <DialogBody key={mode} className={styles.body}>
-      {mode === 'select' ? <SelectTagsView canWrite={canWrite} query={query} selected={selected} selectedTags={selectedTags} visibleGroups={visibleGroups} exactMatch={exactMatch} notice={notice} error={error} onQueryChange={setQuery} onToggle={toggle} onCreate={() => openCreate('select')} onCreateFromQuery={() => openCreate('select', query.trim())} onManage={() => { setError(''); setMode('manage'); }} /> : null}
-      {mode === 'manage' ? <ManageTagsView canWrite={canWrite} query={managerQuery} groups={managedGroups} usageCounts={usageCounts} notice={notice} error={error} onQueryChange={setManagerQuery} onCreate={() => openCreate('manage')} onEdit={openEdit} onDelete={openDelete} onOpenFullManager={onOpenFullManager ? () => { onOpenChange(false); onOpenFullManager(); } : undefined} /> : null}
-      {mode === 'form' ? <TagForm editingTag={editingTag} groups={orderedGroups} name={name} groupId={groupId} color={color} error={error} onNameChange={setName} onGroupChange={setGroupId} onColorChange={setColor} onSubmit={() => void submitTag()} /> : null}
-      {mode === 'delete' && deleteTarget ? <DeleteTagView tag={deleteTarget} usageCount={deleteUsageCount} candidates={tags.filter((tag) => tag.id !== deleteTarget.id)} mergeTargetId={mergeTargetId} error={error} onMergeTargetChange={setMergeTargetId} /> : null}
-    </DialogBody>
-    <DialogFooter>
-      {mode === 'select' ? <><DialogClose variant="ghost">取消</DialogClose>{canWrite ? <Button variant="primary" isPending={pending} onPress={() => void save()}>保存到笔记</Button> : null}</> : null}
-      {mode === 'manage' ? <Button variant="primary" onPress={() => { setError(''); setMode('select'); }}>返回选择标签</Button> : null}
-      {mode === 'form' ? <><Button variant="ghost" onPress={() => { setError(''); setMode(returnMode); }}>取消</Button><Button type="submit" form="tag-form" variant={editingTag ? 'primary' : 'accent'} isPending={pending} isDisabled={!name.trim() || !groupId}>{editingTag ? '保存修改' : returnMode === 'select' ? '创建并添加' : '创建标签'}</Button></> : null}
-      {mode === 'delete' ? <><Button variant="ghost" onPress={() => { setError(''); setMode('manage'); }}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void deleteTag()}>{mergeTargetId ? '合并并删除' : deleteUsageCount ? `从 ${deleteUsageCount} 篇笔记移除并删除` : '删除标签'}</Button></> : null}
-    </DialogFooter>
-  </Dialog>;
+  const goBack = mode === 'manage' ? () => { setError(''); setMode('select'); }
+    : mode === 'form' ? () => { setError(''); setMode(returnMode); }
+    : () => { setError(''); setMode('manage'); };
+  const title = dialogTitle(mode, editingTag);
+  return <Popover triggerRef={triggerRef} isOpen onOpenChange={(open) => { if (open || !pending) onOpenChange(open); }} placement={sideSpace ? 'left' : 'top'} offset={12} className={styles.popover}>
+    <PopoverDialog className={styles.panel} aria-label={title} data-pending={pending || undefined}>
+      <header className={styles.header}>
+        {mode === 'select'
+          ? <span className={styles.headIcon} aria-hidden="true"><TagIcon size={18} /></span>
+          : <GhostIconButton size={28} aria-label={mode === 'manage' ? '返回选择标签' : '返回'} onPress={goBack}><ChevronLeftIcon size={18} /></GhostIconButton>}
+        <div className={styles.headText}><h2>{title}</h2><p>{dialogDescription(mode)}</p></div>
+        {mode === 'select' ? <GhostIconButton size={28} aria-label="管理标签库" onPress={() => { setError(''); setMode('manage'); }}><SettingsIcon size={18} /></GhostIconButton> : null}
+        <GhostIconButton size={28} aria-label="关闭" onPress={() => onOpenChange(false)}><CloseIcon size={16} /></GhostIconButton>
+      </header>
+      <div key={mode} className={styles.body}>
+        {mode === 'select' ? <SelectTagsView canWrite={canWrite} query={query} selected={selected} selectedTags={selectedTags} visibleGroups={visibleGroups} exactMatch={exactMatch} notice={notice} error={error} onQueryChange={setQuery} onToggle={toggle} onCreate={() => openCreate('select')} onCreateFromQuery={() => openCreate('select', query.trim())} /> : null}
+        {mode === 'manage' ? <ManageTagsView canWrite={canWrite} query={managerQuery} groups={managedGroups} usageCounts={usageCounts} notice={notice} error={error} onQueryChange={setManagerQuery} onCreate={() => openCreate('manage')} onEdit={openEdit} onDelete={openDelete} onOpenFullManager={onOpenFullManager ? () => { onOpenChange(false); onOpenFullManager(); } : undefined} /> : null}
+        {mode === 'form' ? <TagForm editingTag={editingTag} groups={orderedGroups} name={name} groupId={groupId} color={color} error={error} onNameChange={setName} onGroupChange={setGroupId} onColorChange={setColor} onSubmit={() => void submitTag()} /> : null}
+        {mode === 'delete' && deleteTarget ? <DeleteTagView tag={deleteTarget} usageCount={deleteUsageCount} candidates={tags.filter((tag) => tag.id !== deleteTarget.id)} mergeTargetId={mergeTargetId} error={error} onMergeTargetChange={setMergeTargetId} /> : null}
+      </div>
+      {mode !== 'manage' ? <footer className={styles.footer}>
+        {mode === 'select' ? <><span className={styles.footerHint}>已选 {selected.size} 个</span><Button variant="ghost" onPress={() => onOpenChange(false)}>取消</Button>{canWrite ? <Button variant="primary" isPending={pending} onPress={() => void save()}>保存到笔记</Button> : null}</> : null}
+        {mode === 'form' ? <><Button variant="ghost" onPress={goBack}>取消</Button><Button type="submit" form="tag-form" variant={editingTag ? 'primary' : 'accent'} isPending={pending} isDisabled={!name.trim() || !groupId}>{editingTag ? '保存修改' : returnMode === 'select' ? '创建并添加' : '创建标签'}</Button></> : null}
+        {mode === 'delete' ? <><Button variant="ghost" onPress={goBack}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void deleteTag()}>{mergeTargetId ? '合并并删除' : deleteUsageCount ? `从 ${deleteUsageCount} 篇笔记移除并删除` : '删除标签'}</Button></> : null}
+      </footer> : null}
+    </PopoverDialog>
+  </Popover>;
 }
 
-function SelectTagsView({ canWrite, query, selected, selectedTags, visibleGroups, exactMatch, notice, error, onQueryChange, onToggle, onCreate, onCreateFromQuery, onManage }: {
+function SelectTagsView({ canWrite, query, selected, selectedTags, visibleGroups, exactMatch, notice, error, onQueryChange, onToggle, onCreate, onCreateFromQuery }: {
   canWrite: boolean; query: string; selected: Set<string>; selectedTags: Tag[]; visibleGroups: Array<{ group: TagGroup; tags: Tag[] }>;
   exactMatch: boolean; notice: string; error: string; onQueryChange(value: string): void; onToggle(tag: Tag): void;
-  onCreate(): void; onCreateFromQuery(): void; onManage(): void;
+  onCreate(): void; onCreateFromQuery(): void;
 }) {
+  const trimmed = query.trim();
+  const canCreateFromQuery = canWrite && Boolean(trimmed) && !exactMatch;
   return <>
-    <div className={styles.primaryTools}>
-      <TextField label="搜索已有标签" type="search" name="tag-search" autoComplete="off" value={query} onChange={onQueryChange} placeholder="输入标签名称…" />
-      <div className={styles.primaryActions}>{canWrite ? <Button variant="accent" icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}<Button onPress={onManage}>管理标签库</Button></div>
-    </div>
-    {selectedTags.length > 0 ? <section className={styles.block} aria-label="已选择标签"><h3>已选择 <span>{selectedTags.length}</span></h3><div className={styles.chips}>{selectedTags.map((tag) => <TagChip key={tag.id} tag={tag} selected removable={canWrite} aria-label={`移除标签 ${tag.name}`} onClick={() => onToggle(tag)} />)}</div></section> : <p className={styles.emptySelected}>当前笔记尚未选择标签。</p>}
-    <div>{visibleGroups.map(({ group, tags }) => <section className={styles.group} key={group.id}><div className={styles.groupHeader}><strong>{group.name}</strong><span>{group.selectionMode === 'single' ? '单选' : '多选'}{group.isSystem ? ' · 内置' : ''}</span></div><div className={styles.chips}>{tags.map((tag) => <TagChip key={tag.id} tag={tag} selected={selected.has(tag.id)} aria-pressed={selected.has(tag.id)} onClick={() => onToggle(tag)} />)}</div></section>)}</div>
-    {visibleGroups.length === 0 ? <div className={styles.noResults}><strong>没有找到“{query.trim()}”</strong>{canWrite && query.trim() && !exactMatch ? <Button variant="accent" onPress={onCreateFromQuery}>以此名称新建标签</Button> : null}</div> : null}
+    <SearchBox label="搜索已有标签" size="field" icon={<SearchIcon size={16} />} name="tag-search" autoComplete="off" placeholder="搜索标签，或输入名称新建"
+      value={query} onChange={(event) => onQueryChange(event.target.value)} onClear={query ? () => onQueryChange('') : undefined}
+      onKeyDown={(event) => { if (event.key === 'Enter' && canCreateFromQuery && visibleGroups.length === 0) { event.preventDefault(); onCreateFromQuery(); } }} />
+    {canCreateFromQuery
+      ? <Button variant="ghost" className={styles.createRow} icon={<PlusIcon size={16} />} onPress={onCreateFromQuery}>新建标签“{trimmed}”</Button>
+      : canWrite && !trimmed ? <Button variant="ghost" className={styles.createRow} icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}
+    {selectedTags.length > 0 ? <section className={styles.selected} aria-label="已选择标签"><h3>已选择</h3><div className={styles.chips}>{selectedTags.map((tag) => <TagChip key={tag.id} tag={tag} selected removable={canWrite} aria-label={`移除标签 ${tag.name}`} onClick={() => onToggle(tag)} />)}</div></section> : null}
+    {visibleGroups.map(({ group, tags }) => <section className={styles.group} key={group.id}><div className={styles.groupHeader}><strong>{group.name}</strong><span>{group.selectionMode === 'single' ? '单选' : '多选'}{group.isSystem ? ' · 内置' : ''}</span></div><div className={styles.chips}>{tags.map((tag) => <TagChip key={tag.id} tag={tag} selected={selected.has(tag.id)} aria-pressed={selected.has(tag.id)} onClick={() => onToggle(tag)} />)}</div></section>)}
+    {visibleGroups.length === 0 && !trimmed ? <p className={styles.empty}>还没有标签，先新建一个吧。</p> : null}
+    {visibleGroups.length === 0 && trimmed ? <p className={styles.empty}>没有找到“{trimmed}”{canCreateFromQuery ? '，按回车可新建。' : ''}</p> : null}
     <Feedback notice={notice} error={error} />
   </>;
 }
@@ -240,8 +261,23 @@ function ManageTagsView({ canWrite, query, groups, usageCounts, notice, error, o
   notice: string; error: string; onQueryChange(value: string): void; onCreate(): void; onEdit(tag: Tag): void; onDelete(tag: Tag): void; onOpenFullManager?: () => void;
 }) {
   return <>
-    <div className={styles.manageTools}><TextField label="搜索标签库" type="search" name="tag-manager-search" autoComplete="off" value={query} onChange={onQueryChange} placeholder="按名称查找…" />{canWrite ? <Button variant="accent" icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}</div>
-    <div className={styles.manageGroups}>{groups.map(({ group, tags }) => <section className={styles.manageGroup} key={group.id} aria-labelledby={`picker-manage-${group.id}`}><header><h3 id={`picker-manage-${group.id}`}>{group.name}</h3><span>{group.selectionMode === 'single' ? '单选' : '多选'}{group.isSystem ? ' · 内置' : ''}</span></header><div className={styles.manageRows}>{tags.map((tag) => <article className={styles.manageRow} key={tag.id}><TagChip tag={tag} className={styles.manageTag} /><span className={styles.usage}>{usageCounts[tag.id] ?? 0} 篇笔记</span><div className={styles.rowActions}>{canWrite ? <Button variant="ghost" onPress={() => onEdit(tag)}>编辑</Button> : null}{canWrite && !tag.isSystem ? <Button variant="danger" onPress={() => onDelete(tag)}>删除</Button> : null}{tag.isSystem ? <span className={styles.systemNote}>内置标签不可删除</span> : null}</div></article>)}</div></section>)}</div>
+    <div className={styles.manageTools}>
+      <SearchBox label="搜索标签库" size="field" icon={<SearchIcon size={16} />} name="tag-manager-search" autoComplete="off" placeholder="按名称查找…"
+        value={query} onChange={(event) => onQueryChange(event.target.value)} onClear={query ? () => onQueryChange('') : undefined} />
+      {canWrite ? <Button variant="accent" icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}
+    </div>
+    {groups.map(({ group, tags }) => <section className={styles.group} key={group.id} aria-labelledby={`picker-manage-${group.id}`}>
+      <div className={styles.groupHeader}><strong id={`picker-manage-${group.id}`}>{group.name}</strong><span>{group.selectionMode === 'single' ? '单选' : '多选'}{group.isSystem ? ' · 内置' : ''}</span></div>
+      <div className={styles.manageRows}>{tags.map((tag) => <article className={styles.manageRow} key={tag.id}>
+        <TagChip tag={tag} className={styles.manageTag} />
+        <span className={styles.usage}>{usageCounts[tag.id] ?? 0} 篇笔记</span>
+        <div className={styles.rowActions}>
+          {canWrite ? <GhostIconButton size={28} aria-label={`编辑标签 ${tag.name}`} onPress={() => onEdit(tag)}><EditIcon size={16} /></GhostIconButton> : null}
+          {canWrite && !tag.isSystem ? <GhostIconButton size={28} aria-label={`删除标签 ${tag.name}`} className={styles.dangerAction} onPress={() => onDelete(tag)}><DeleteIcon size={16} /></GhostIconButton> : null}
+          {tag.isSystem ? <span className={styles.systemNote}>内置标签不可删除</span> : null}
+        </div>
+      </article>)}</div>
+    </section>)}
     {groups.length === 0 ? <p className={styles.empty}>没有符合条件的标签。</p> : null}
     {onOpenFullManager ? <a className={styles.fullManager} href="#/materials/tags" onClick={(event) => {
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -282,6 +318,21 @@ function DeleteTagView({ tag, usageCount, candidates, mergeTargetId, error, onMe
 
 function Feedback({ notice = '', error = '' }: { notice?: string; error?: string }) {
   return <>{notice ? <p className={styles.notice} role="status" aria-live="polite">{notice}</p> : null}{error ? <p className={styles.error} role="alert">{error}</p> : null}</>;
+}
+
+/** 宽屏从按钮侧边弹出，可用高度是整个视口；窄屏退回上下方向。 */
+function useMinWidth(width: number) {
+  const query = `(min-width: ${width}px)`;
+  const [matches, setMatches] = useState(() => window.matchMedia?.(query).matches ?? true);
+  useEffect(() => {
+    const media = window.matchMedia?.(query);
+    if (!media) return;
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, [query]);
+  return matches;
 }
 
 function dialogTitle(mode: DialogMode, editingTag: Tag | null) {

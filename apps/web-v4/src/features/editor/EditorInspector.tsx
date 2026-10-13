@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GhostIconButton } from '../../components/ui/button';
 import { Tabs, type TabsItem } from '../../components/ui/collection';
 import { CloseIcon } from '../../components/icons/knowra';
@@ -35,6 +35,7 @@ export function EditorInspector(props: EditorInspectorProps) {
   }, []);
   const modal = compact && !props.nativeTitlebar;
   const [tagEditorOpen, setTagEditorOpen] = useState(false);
+  const tagTriggerRef = useRef<HTMLButtonElement>(null);
   const [organizeOpen, setOrganizeOpen] = useState(false);
   const usageCounts = useMemo(() => countTagUsage(props.tags, props.notes), [props.tags, props.notes]);
   const tags = useMemo(() => resolveNoteTags(props.note, props.tags), [props.note, props.tags]);
@@ -90,6 +91,7 @@ export function EditorInspector(props: EditorInspectorProps) {
                 assignedTags={tags}
                 relations={relations}
                 stats={stats}
+                tagTriggerRef={tagTriggerRef}
                 onEditTags={() => setTagEditorOpen(true)}
                 onOrganize={() => setOrganizeOpen(true)}
               />
@@ -125,6 +127,7 @@ export function EditorInspector(props: EditorInspectorProps) {
       </Tabs>
       <TagPickerDialog
         isOpen={tagEditorOpen}
+        triggerRef={tagTriggerRef}
         tags={props.tags}
         groups={props.tagGroups ?? []}
         canWrite={props.canWrite}

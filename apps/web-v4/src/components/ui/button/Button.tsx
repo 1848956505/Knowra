@@ -35,7 +35,7 @@ export interface ButtonProps extends Omit<RAButtonProps, 'className' | 'children
    */
   variant?: ButtonVariant;
   /** 工作区工具栏、分组标题、密集卡片的尺寸；视觉规则统一由本组件维护。 */
-  size?: 'default' | 'workspace' | 'compact' | 'mini';
+  size?: 'default' | 'workspace' | 'compact' | 'mini' | 'toolbar' | 'footer';
   /** 沉浸式对话等宽松布局中的圆角主操作。 */
   shape?: 'square' | 'pill';
   /** 低强调蓝色操作，用于卡片内的“查看”等入口。 */

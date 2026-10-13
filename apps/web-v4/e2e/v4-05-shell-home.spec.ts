@@ -95,7 +95,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
       return { background: style.backgroundImage, color: style.color, shadow: style.boxShadow, transform: style.transform };
     });
     await home.hover();
-    // 索引原稿使用局部 .045 悬停令牌；Chromium 的 alpha 会量化至 8 bit。
+    // 定稿外观全局使用 .045 悬停令牌；Chromium 的 alpha 会量化至 8 bit。
     expect(await home.evaluate(element => {
       const style = getComputedStyle(element);
       return style.getPropertyValue('--surface-hover').trim() === style.getPropertyValue('--ni-hover').trim();
@@ -121,7 +121,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await expect(page).toHaveURL(/#\/$/);
     const other = rail.getByRole('button', { name: '资料', exact: true });
     await other.hover();
-    await expect(other).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.055)');
+    await expect(other).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.043)');
   });
 
   test('上下文侧栏开关对齐模块轨道，展开与折叠显示对应视觉状态', async ({ page }, testInfo) => {

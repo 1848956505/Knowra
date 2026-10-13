@@ -243,9 +243,9 @@
 }
 
 .menu:focus-visible {
-  outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
-  box-shadow: var(--shadow-popover), var(--focus-ring);
+  /* 菜单容器本身获得焦点时不画粗环；各菜单项有自己的焦点态。 */
+  outline: 0;
+  box-shadow: var(--shadow-popover);
 }
 
 .menuHead {

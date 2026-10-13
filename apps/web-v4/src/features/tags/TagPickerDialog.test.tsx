@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -48,12 +48,10 @@ describe('TagPickerDialog', () => {
     renderPicker({ onDeleteTag });
 
     await user.click(screen.getByRole('button', { name: '管理标签库' }));
-    expect(screen.getAllByRole('button', { name: '删除' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^删除标签 / })).toHaveLength(2);
     expect(screen.getByText('内置标签不可删除')).toBeInTheDocument();
 
-    const paperRow = screen.getByText('论文').closest('article');
-    expect(paperRow).not.toBeNull();
-    await user.click(paperRow!.querySelector('button:last-of-type') as HTMLButtonElement);
+    await user.click(screen.getByRole('button', { name: '删除标签 论文' }));
     expect(screen.getByRole('dialog', { name: '删除标签' })).toBeInTheDocument();
     expect(screen.getByText('这个标签正在被 3 篇笔记使用。你可以先合并，或从这些笔记中移除后删除。')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '从 3 篇笔记移除并删除' }));
@@ -82,9 +80,11 @@ function renderPicker(overrides: Partial<Parameters<typeof TagPickerDialog>[0]> 
 
   function Harness() {
     const [tags, setTags] = useState(initialTags);
-    return <TagPickerDialog
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    return <><button ref={triggerRef} type="button">打开标签</button><TagPickerDialog
       {...overrides}
       isOpen
+      triggerRef={triggerRef}
       tags={tags}
       groups={groups}
       selectedTagIds={['tag-paper']}
@@ -100,7 +100,7 @@ function renderPicker(overrides: Partial<Parameters<typeof TagPickerDialog>[0]> 
       onDeleteTag={async (id) => { await onDeleteTag(id); setTags((current) => current.filter((tag) => tag.id !== id)); }}
       onMergeTags={onMergeTags}
       onSave={overrides.onSave ?? vi.fn().mockResolvedValue(undefined)}
-    />;
+    /></>;
   }
 
   return render(<Harness />);

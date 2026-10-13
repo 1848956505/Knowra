@@ -1,4 +1,5 @@
 import { Button } from '../../components/ui';
+import { MathText } from '../../components/math/MathText';
 import { CloseIcon, FolderIcon, NoteIcon, PanelIcon } from '../../components/icons/knowra';
 import { folderLocation, displayNoteStatus } from './notesIndexNavigation';
 import { formatUpdatedAt, countFolderNotes } from './notesIndexModel';
@@ -23,7 +24,7 @@ export function NotesIndexPreview({ c }: { c: NotesIndexController }) {
           <dt>标签</dt><dd>{item.note.tagIds.map(id => c.serverData.tags.find(tag => tag.id === id)?.name).filter(Boolean).join(' · ') || '无标签'}</dd></> : null}
       </dl>
       <h3>{item.kind === 'folder' ? '目录内容' : '摘要'}</h3>
-      <p className={styles.peekSummary}>{item.kind === 'folder' ? `${countFolderNotes(item.folder, c.serverData.notes)} 篇已加载笔记（含子目录）` : (typeof item.note.summary === 'string' && item.note.summary ? item.note.summary : '暂无摘要，打开笔记查看完整内容。')}</p>
+      <p className={styles.peekSummary}>{item.kind === 'folder' ? `${countFolderNotes(item.folder, c.serverData.notes)} 篇已加载笔记（含子目录）` : (typeof item.note.summary === 'string' && item.note.summary ? <MathText text={item.note.summary} inlineOnly /> : '暂无摘要，打开笔记查看完整内容。')}</p>
       {item.kind === 'note' && item.note.deleted ? <p className={styles.optionHint}>笔记已在回收站，请先恢复。</p> : <Button size="compact" variant="accent"
         onPress={() => item.kind === 'folder' ? c.selectFolder(item.folder.id) : c.openNote(item.note.id)}>打开{item.kind === 'folder' ? '文件夹' : '笔记'}</Button>}
     </div> : <div className={styles.peekEmpty}><PanelIcon size={26} /><strong>选择一项以预览</strong><p>开启预览后，单击笔记或目录查看信息，使用“打开”继续。</p></div>}

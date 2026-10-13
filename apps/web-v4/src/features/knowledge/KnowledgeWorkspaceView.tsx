@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AuthoritativePurgeResult, AuthoritativePurgeStatus, PurgeConfirmationInput, Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
@@ -269,7 +270,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
       </>} />
     <WorkspacePanelToolbar className={styles.toolbar} role="toolbar" aria-label="知识库工具栏">
       <SearchBox label="搜索知识" icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索标题、陈述或解释…" />
-      <SegmentedControl className={styles.statusFilters} aria-label="按知识状态筛选">
+      <SegmentedControl density="compact" className={styles.statusFilters} aria-label="按知识状态筛选">
         <SegmentedButton aria-label="全部未归档" aria-pressed={status === 'all'} count={activeItems.length - (counts.archived ?? 0)} onPress={() => setStatus('all')}>全部未归档</SegmentedButton>
         {Object.entries(KNOWLEDGE_STATUS_LABELS).map(([key, label]) => <SegmentedButton key={key} aria-pressed={status === key} count={counts[key] ?? 0} onPress={() => setStatus(key)}>{label}</SegmentedButton>)}
         <SegmentedButton aria-pressed={status === 'trash'} count={items.length - activeItems.length} onPress={() => setStatus('trash')}>回收站</SegmentedButton>
@@ -294,7 +295,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
           {listLoading && items.length === 0 ? <p className={styles.empty} role="status">正在加载知识…</p> : null}
           {!listLoading && !listError && visible.length === 0 ? <p className={styles.empty}>{items.length === 0 ? '还没有知识。可从笔记标注创建候选，或手动新建。' : '没有符合条件的知识。'}</p> : null}
           <ul className={styles.items}>{visible.map(item => <li key={item.id}><button type="button" className={styles.item} aria-current={selectedItemId === item.id ? 'true' : undefined} disabled={pending} onClick={() => props.onSelectItem(item.id)}>
-            <span className={styles.itemTitle}>{item.title || '未命名知识'}</span><span className={styles.itemStatement}>{item.canonicalStatement || '尚未填写核心陈述'}</span>
+            <span className={styles.itemTitle}>{item.title ? <MathText text={item.title} inlineOnly /> : '未命名知识'}</span><span className={styles.itemStatement}>{item.canonicalStatement ? <MathText text={item.canonicalStatement} inlineOnly /> : '尚未填写核心陈述'}</span>
             <span className={styles.meta}><span>{item.deletedAt ? '回收站' : knowledgeStatusLabel(item.reviewStatus)}</span><span>{knowledgeTypeLabel(item.knowledgeType)}</span></span>
           </button></li>)}</ul>
         </div>
@@ -337,7 +338,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     </Dialog> : null}
     {sourceDialog && detail ? <KnowledgeSourceDialog notes={props.notes} evidence={detail.evidence} replacing={sourceDialog.replacing} onClose={() => setSourceDialog(null)} onListAnnotations={props.onListAnnotations} onSave={saveSource} /> : null}
     {retireEvidence ? <Dialog title="撤回这条来源的适用性？" description="来源的技术健康状态与历史摘录会保留；若这是已确认知识的最后一个适用来源，知识会转为待修订。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setRetireEvidence(null); }}>
-      <DialogBody><blockquote className={styles.prose}>{retireEvidence.quoteText || '该来源没有文字摘录'}</blockquote>{detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}</DialogBody>
+      <DialogBody><blockquote className={styles.prose}>{retireEvidence.quoteText ? <MathText text={retireEvidence.quoteText} /> : '该来源没有文字摘录'}</blockquote>{detailError ? <p role="alert" className={styles.error}>{detailError}</p> : null}</DialogBody>
       <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setRetireEvidence(null)}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void confirmRetire()}>确认移除</Button></DialogFooter>
     </Dialog> : null}
   </WorkspacePanel>;

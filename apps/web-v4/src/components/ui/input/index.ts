@@ -8,5 +8,7 @@ export { SearchBox } from './SearchBox';
 export type { SearchBoxProps, SearchBoxSize } from './SearchBox';
 export { Checkbox } from './Checkbox';
 export type { CheckboxProps } from './Checkbox';
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
 export { Select } from './Select';
 export type { SelectProps, SelectOption } from './Select';

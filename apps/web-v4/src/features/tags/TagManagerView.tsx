@@ -102,7 +102,7 @@ export function TagManagerView() {
       <SearchBox label="搜索标签" icon={<SearchIcon size={17} />} name="tag-manager-search" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标签…" />
       <Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={[{ id: 'all', label: '全部分组' }, ...data.tagGroups.map((group) => ({ id: group.id, label: group.name }))]} />
       <Select presentation="toolbar" label="标签排序" name="tag-sort" leadingIcon={<SortArrowsIcon size={16} />} selectedKey={sort} onSelectionChange={(key) => setSort(String(key) as SortMode)} options={[{ id: 'manual', label: '手动顺序' }, { id: 'name', label: '按名称' }, { id: 'usage', label: '按使用量' }]} />
-      <SegmentedControl aria-label="使用情况筛选"><SegmentedButton aria-pressed={!unusedOnly} count={data.tags.length} onPress={() => setUnusedOnly(false)}>全部</SegmentedButton><SegmentedButton aria-pressed={unusedOnly} count={unusedCount} onPress={() => setUnusedOnly(true)}>未使用</SegmentedButton></SegmentedControl>
+      <SegmentedControl density="compact" aria-label="使用情况筛选"><SegmentedButton aria-pressed={!unusedOnly} count={data.tags.length} onPress={() => setUnusedOnly(false)}>全部</SegmentedButton><SegmentedButton aria-pressed={unusedOnly} count={unusedCount} onPress={() => setUnusedOnly(true)}>未使用</SegmentedButton></SegmentedControl>
     </WorkspacePanelToolbar>
     <WorkspacePanelBody grid className={styles.content}>
       {pendingDeletion ? <p role="status" className={styles.meta}>“{pendingDeletion.tag.name}”将在 10 秒后删除。<Button variant="ghost" onPress={undoDeletion}>撤销删除</Button></p> : null}

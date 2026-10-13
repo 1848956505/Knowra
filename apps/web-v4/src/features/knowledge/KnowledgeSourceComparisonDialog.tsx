@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { ExtractionDemoNotice } from '../editor/ExtractionEnvironment';
 import { useEffect, useState } from 'react';
 import type { KnowledgeEvidence, KnowledgeItem, KnowledgeProvenance, NoteVersion } from '@study-accelerator/web-core';
@@ -66,9 +67,9 @@ export function KnowledgeSourceComparisonDialog({ item, evidence, onGetVersion, 
       <div className={styles.columns}>
         <section className={styles.section} aria-label="待核对知识">
           <header className={styles.heading}><h3>知识陈述</h3><span>{knowledgeStatusLabel(item.reviewStatus)}</span></header>
-          <h4 className={styles.title}>{item.title || '未命名知识'}</h4>
-          <p className={styles.prose}>{item.canonicalStatement || '尚未填写核心陈述'}</p>
-          {item.userExplanation ? <><h4 className={styles.label}>我的解释</h4><p className={styles.prose}>{item.userExplanation}</p></> : null}
+          <h4 className={styles.title}>{item.title ? <MathText text={item.title} inlineOnly /> : '未命名知识'}</h4>
+          <p className={styles.prose}>{item.canonicalStatement ? <MathText text={item.canonicalStatement} /> : '尚未填写核心陈述'}</p>
+          {item.userExplanation ? <><h4 className={styles.label}>我的解释</h4><p className={styles.prose}><MathText text={item.userExplanation} /></p></> : null}
         </section>
         <section className={styles.section} aria-label="保存的来源">
           <header className={styles.heading}><h3>来源依据</h3></header>
@@ -79,7 +80,7 @@ export function KnowledgeSourceComparisonDialog({ item, evidence, onGetVersion, 
           </div>
           {evidence.headingPath?.length ? <p className={styles.path}>{evidence.headingPath.join(' / ')}</p> : null}
           <h4 className={styles.label}>保存的摘录</h4>
-          <blockquote className={styles.quote}>{evidence.quoteText || '该来源没有文字摘录'}</blockquote>
+          <blockquote className={styles.quote}>{evidence.quoteText ? <MathText text={evidence.quoteText} /> : '该来源没有文字摘录'}</blockquote>
           {evidence.status !== 'valid' || evidence.applicabilityStatus === 'withdrawn' || evidence.applicabilityStatus === 'needsReview' ?
             <p className={styles.hint}>历史内容用于核对依据，来源的健康状态与适用性需要单独核对。</p> : null}
         </section>
@@ -135,7 +136,7 @@ function KnowledgeProvenanceSummary({ itemId, evidenceId, onRead }: {
         <p className={styles.hint}>模拟生成记录 · 未调用真实模型。保存于 <time dateTime={record.committedAt}>{new Date(record.committedAt).toLocaleString('zh-CN')}</time>。</p>
         <p className={styles.hint}>原模型标识：{record.modelId}</p>
         {source && resolved ? <>
-          <h4 className={styles.label}>生成时的精确摘录</h4><blockquote className={styles.quote}>{source.quoteText}</blockquote>
+          <h4 className={styles.label}>生成时的精确摘录</h4><blockquote className={styles.quote}><MathText text={source.quoteText} /></blockquote>
           <p className={styles.versionId}>原始版本：{resolved.originalVersionId}</p>
           {resolved.aliasUsed ? <><p className={styles.versionId}>当前解析版本：{resolved.resolvedVersionId}</p>
             <p className={styles.hint}>同步后的版本标识不同，已核对为同一笔记、相同内容的历史版本。</p></> :

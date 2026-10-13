@@ -39,6 +39,8 @@
   --sidebar-saturation: 125%;
   --sidebar-highlight: inset 1px 1px 0 #ffffffc7;
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
+  /* 文本框/搜索框/下拉的聚焦：淡橙细环，不用描边加粗。 */
+  --focus-soft: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent), 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
   --focus-ring-danger: 0 0 0 3px color-mix(in srgb, var(--ink-danger) 28%, transparent);
   --shadow-control: 0 0 0 1px var(--border-subtle), 0 1px 2px rgb(24 30 48 / 5%);
   --shadow-rail-selected: 0 0 0 1px rgb(24 30 48 / 8%), 0 1px 2px rgb(24 30 48 / 6%), 0 6px 12px -6px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 var(--surface-raised);

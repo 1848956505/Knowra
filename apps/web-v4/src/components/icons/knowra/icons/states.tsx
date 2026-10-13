@@ -53,3 +53,10 @@ export const StatusDotIcon = createIcon("StatusDotIcon", (
     <circle cx="12" cy="12" r="4.2" fill="currentColor" stroke="none"/>
   </>
 ));
+
+/** 虚线圆环：筛选里的“状态”维度。 */
+export const StatusRingIcon = createIcon("StatusRingIcon", (
+  <>
+    <circle cx="12" cy="12" r="8.5" strokeDasharray="3 3.2"/>
+  </>
+));

@@ -1,8 +1,9 @@
 import type { IndexItem } from './notesIndexPresentation';
 
 export type UpdatedWithin = 'today' | '7d' | '30d' | null;
+export type FilterLevel = 'root' | 'status' | 'tags' | 'updated';
 export interface IndexFilters { statuses: readonly string[]; updatedWithin: UpdatedWithin }
-export const FILTER_LABELS: Record<Exclude<UpdatedWithin, null>, string> = { today: '今天', '7d': '近 7 天', '30d': '近 30 天' };
+export const FILTER_LABELS: Record<Exclude<UpdatedWithin, null>, string> = { today: '今天', '7d': '过去 7 天', '30d': '过去 30 天' };
 export const NOTE_STATUS_LABELS: Record<string, string> = { draft: '草稿', active: '进行中', completed: '已完成', published: '已发布', archived: '已归档', unknown: '未知状态' };
 
 export function normalizeNoteStatus(status: unknown): string {
@@ -37,3 +38,6 @@ export function filterIndexItems(items: readonly IndexItem[], filters: IndexFilt
     return age !== null && age <= days;
   });
 }
+
+/** 状态筛选菜单的展示顺序。 */
+export const STATUS_ORDER = ['active', 'draft', 'completed', 'published', 'archived'] as const;

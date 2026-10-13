@@ -43,7 +43,7 @@
 
 .source:read-only {
   cursor: default;
-  color: var(--text-secondary);
+  color: var(--text-body, var(--text-secondary));
 }
 
 @media (max-width: 767px) {

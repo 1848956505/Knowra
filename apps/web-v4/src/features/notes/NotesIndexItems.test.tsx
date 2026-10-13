@@ -67,13 +67,6 @@ describe('Notes index item views', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
-  it('removes optional card metadata and decorative cover in plain mode', () => {
-    const { container } = mount(<IndexTile {...tileProps({ decoration: false, properties: { summary: false, tags: false, status: false, location: false, updated: false } })} />);
-    expect(container.querySelector('[data-art-kind]')).toBeNull();
-    expect(screen.queryByText('研究 正文 重点 链接')).not.toBeInTheDocument();
-    expect(screen.queryByText('研究', { selector: 'span' })).not.toBeInTheDocument();
-  });
-
   it('retains list table semantics, real metadata and independent open actions', async () => {
     const props = tileProps();
     mount(<NotesTable {...props} items={[props.item]} selectedNoteIds={new Set()} foldersById={{}} properties={DEFAULT_DISPLAY_PROPERTIES} />);
@@ -95,7 +88,7 @@ describe('Notes index item views', () => {
 
   it('gives every folder its own gradient and removes extra paper in plain mode', () => {
     const item = { kind: 'folder' as const, folder: { id: 'folder', name: '资料', parentId: null, children: [] } };
-    const { container, rerender } = render(<><NotesIndexArt item={item} /><NotesIndexArt item={item} /></>);
+    const { container, rerender } = render(<><NotesIndexArt item={item} noteCount={1} /><NotesIndexArt item={item} noteCount={1} /></>);
     const gradients = [...container.querySelectorAll('linearGradient')];
     expect(gradients).toHaveLength(2);
     expect(gradients[0].id).not.toBe(gradients[1].id);
@@ -104,16 +97,13 @@ describe('Notes index item views', () => {
       expect(container.querySelector(`[fill="url(#${gradient.id})"]`)).not.toBeNull();
     });
     expect(container.querySelectorAll('[data-folder-paper]')).toHaveLength(2);
-    rerender(<NotesIndexArt item={item} decoration={false} />);
-    expect(container.querySelector('[data-folder-paper]')).toBeNull();
-    expect(container.querySelector('[data-art-kind]')).toHaveAttribute('data-decoration', 'false');
+    rerender(<><NotesIndexArt item={item} noteCount={2} /><NotesIndexArt item={item} noteCount={8} /><NotesIndexArt item={item} /></>);
+    expect(container.querySelectorAll('[data-folder-paper]')).toHaveLength(1 + 3 + 0);
   });
 
-  it('gates the favorite emphasis with the actual decoration preference', () => {
-    const { rerender } = render(<ItemFavorite decoration />);
-    expect(screen.getByLabelText('已收藏')).toHaveAttribute('data-decoration', 'true');
-    rerender(<ItemFavorite decoration={false} />);
-    expect(screen.getByLabelText('已收藏')).toHaveAttribute('data-decoration', 'false');
+  it('always renders the favorite emphasis', () => {
+    render(<ItemFavorite />);
+    expect(screen.getByLabelText('已收藏')).toBeInTheDocument();
   });
 
 });

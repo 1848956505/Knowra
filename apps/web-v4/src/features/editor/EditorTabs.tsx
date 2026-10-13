@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, PressableButton } from '../../components/ui/button';
@@ -99,7 +100,7 @@ export function EditorTabs(props: EditorTabsProps) {
                   onPress={() => props.onOpenNote(note.id)}
                 >
                   <span className={styles.tabNumber}><NoteIcon size={14} /></span>
-                  <span className={styles.tabLabel}>{note.title || '无标题笔记'}</span>
+                  <span className={styles.tabLabel}>{note.title ? <MathText text={note.title} inlineOnly /> : '无标题笔记'}</span>
                 </PressableButton>
               </TabContextMenu>
               <button type="button" className={styles.tabClose} aria-label={`关闭${note.title || '无标题笔记'}`} onClick={() => closeNote(note.id)}>

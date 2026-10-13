@@ -12,7 +12,7 @@ const createNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   contentLoaded: false, favorite: false, deleted: false, status: 'draft', updatedAt: new Date(Date.now() - 1_000).toISOString(), ...overrides
 });
 
-async function setup(options: { notes?: Note[]; readOnly?: boolean } = {}) {
+async function setup(options: { notes?: Note[]; readOnly?: boolean; view?: 'list' | 'grid' } = {}) {
   const api = createApi();
   const store = createAppStore({ api, cacheKey: 'notes-redesign-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
   const folder = { id: 'folder-1', name: '设计资料', parentId: null, children: [] };
@@ -34,22 +34,21 @@ async function setup(options: { notes?: Note[]; readOnly?: boolean } = {}) {
   const onOpenNote = vi.fn();
   const view = render(<AppStoreProvider store={store} dependencies={{ api, cacheKey: 'notes-redesign-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}><NotesIndexView path={[]} onOpenNote={onOpenNote} /></AppStoreProvider>);
   await vi.waitFor(() => expect(screen.queryByText('正在从服务端加载筛选结果…')).not.toBeInTheDocument());
+  if (options.view !== 'grid') await userEvent.click(screen.getByRole('button', { name: '列表视图' }));
   return { ...view, api, store, onOpenNote, user: userEvent.setup() };
 }
 
 async function chooseGroup(user: ReturnType<typeof userEvent.setup>, label: string) {
-  await user.click(screen.getByRole('button', { name: '显示选项（分组、属性、图标大小）' }));
-  await user.click(screen.getByRole('button', { name: /分组/ }));
-  await user.click(screen.getByRole('option', { name: label }));
-  await user.click(screen.getAllByRole('button', { name: 'Dismiss' }).at(-1)!);
+  await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
+  const dialog = screen.getByRole('dialog', { name: '索引显示选项' });
+  await user.click(within(within(dialog).getByRole('group', { name: '分组' })).getByRole('button', { name: label === '更新时间' ? '时间' : label }));
+  await user.keyboard('{Escape}');
 }
 
 describe('笔记索引新版真实交互', () => {
   it('三种视图读取同一数据并保留笔记打开行为', async () => {
-    const { user, onOpenNote } = await setup();
-    expect(screen.getByRole('button', { name: '列表视图' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: title })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '图标视图' }));
+    const { user, onOpenNote } = await setup({ view: 'grid' });
+    expect(screen.getByRole('button', { name: '图标视图' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getAllByLabelText('笔记图标视图').length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: '卡片视图' }));
     expect(screen.getAllByLabelText('笔记卡片视图').length).toBeGreaterThan(0);
@@ -83,12 +82,14 @@ describe('笔记索引新版真实交互', () => {
     }));
     const { user, api } = await setup({ notes });
     await user.click(screen.getByRole('button', { name: '筛选' }));
-    expect(screen.getByText('状态与时间筛选仅作用于已加载笔记。')).toBeInTheDocument();
-    await user.click(screen.getByRole('checkbox', { name: '草稿' }));
-    await user.click(screen.getByRole('button', { name: /更新时间/ }));
-    await user.click(screen.getByRole('option', { name: '今天' }));
-    await user.click(screen.getAllByRole('button', { name: 'Dismiss' }).at(-1)!);
-    expect(screen.getByLabelText('已加载笔记筛选')).toHaveTextContent('仅筛选已加载笔记，可在底部加载更多');
+    await user.click(screen.getByRole('menuitem', { name: /状态/ }));
+    expect(screen.getByText('状态筛选仅作用于已加载笔记。')).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /草稿/ }));
+    await user.click(screen.getByRole('menuitem', { name: '返回' }));
+    await user.click(screen.getByRole('menuitem', { name: /更新时间/ }));
+    await user.click(screen.getByRole('menuitemradio', { name: '今天' }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('group', { name: '已启用的筛选' })).toHaveTextContent('状态与时间仅筛选已加载笔记，可在底部加载更多');
     expect(screen.getByText('没有符合当前筛选条件的笔记或文件夹')).toBeInTheDocument();
     expect(api.queryNotes).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: '加载更多' }));
@@ -231,10 +232,32 @@ describe('笔记索引新版真实交互', () => {
     expect(screen.queryByRole('button', { name: '加载更多' })).not.toBeInTheDocument();
   });
 
+  it('列表快捷键：J/K 移动焦点，X 选择，Space 预览而不是打开', async () => {
+    const { user, onOpenNote } = await setup();
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-entry-item]'));
+    const focusables = rows.map(row => row.querySelector<HTMLElement>('button')!);
+    const noteIndex = rows.findIndex(row => row.dataset.kind === 'note');
+    expect(rows.length).toBeGreaterThan(1);
+    focusables[noteIndex].focus();
+    await user.keyboard('j');
+    expect(focusables[noteIndex + 1] ?? focusables[noteIndex]).toHaveFocus();
+    await user.keyboard('k');
+    expect(focusables[noteIndex]).toHaveFocus();
+    await user.keyboard('x');
+    expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(1);
+    await user.keyboard(' ');
+    expect(onOpenNote).not.toHaveBeenCalled();
+    expect(screen.getByRole('complementary', { name: '笔记预览' })).toBeInTheDocument();
+    await user.keyboard('{Enter}');
+    expect(onOpenNote).toHaveBeenCalledTimes(1);
+  });
+
   it('名称降序使用服务端排序，不只倒序当前页', async () => {
     const { user, api } = await setup();
-    await user.click(screen.getByRole('button', { name: '排序：最近更新' }));
-    await user.click(screen.getByRole('menuitemradio', { name: '名称 Z→A' }));
+    await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
+    const sort = within(screen.getByRole('group', { name: '排序' }));
+    await user.click(sort.getByRole('button', { name: '名称' }));
+    await user.click(sort.getByRole('button', { name: /名称/ }));
     await vi.waitFor(() => expect(api.queryNotes).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: 'title', order: 'desc', offset: 0 })));
   });
 });

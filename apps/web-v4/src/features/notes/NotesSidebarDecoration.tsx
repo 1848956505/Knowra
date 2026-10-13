@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Note } from '@study-accelerator/web-core';
 import { buildNoteUpdateDistribution } from './notesIndexUpdateDistribution';
+import { ACCENT } from '../../components/icons/knowra';
 import styles from './NotesContextSidebar.module.css';
 
 export function NotesUpdateDistribution({ notes }: { notes: readonly Note[] }) {
@@ -20,5 +21,15 @@ export function NotesTrashDecoration({ full }: { full: boolean }) {
     <g className={styles.trashLid}><path d="M3 6h18M9 6V3h6v3" /></g>
     <path d="M19 6l-1 14H6L5 6" />
     {full ? <path className={styles.trashScrap} d="m9.6 8.2 1.4 1.6m2.6-2.2.9 2" /> : null}
+  </svg>;
+}
+
+
+
+/** 笔记库：一个六边形格子，中心一枚主色“核”；形状极简，15px 下依然清晰。 */
+export function NotesLibraryDecoration() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 2.8 20 7.4v9.2L12 21.2 4 16.6V7.4Z" />
+    <circle cx="12" cy="12" r="2.2" fill={ACCENT} stroke={ACCENT} />
   </svg>;
 }
