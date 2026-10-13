@@ -196,13 +196,6 @@
   padding: 6px;
 }
 
-.popover[data-entering] {
-  animation: popIn var(--motion-fast) var(--motion-ease);
-}
-
-.popover[data-exiting] {
-  animation: popOut var(--motion-fast) var(--motion-ease);
-}
 
 /* Menu 的定位容器不绘制面板；边框、背景和阴影只由内层 .menu 持有。
  * Select / 通用 Popover 仍使用 .popover 的单层面板外观。 */
@@ -212,12 +205,35 @@
   outline: 0;
 }
 
-.menuPopover[data-entering] {
-  animation: popIn var(--motion-fast) var(--motion-ease);
+/* 浮层统一入场：从触发点“弹出”——轻微缩放加位移，方向跟随弹出侧；退场更短更轻。
+ * transform-origin 取 React Aria 提供的触发器锚点；右键菜单（PointMenu 业务样式）自行关闭动画。 */
+.popover,
+.menuPopover {
+  --pop-x: 0px;
+  --pop-y: -6px;
+  transform-origin: var(--trigger-anchor-point, 50% 0);
 }
 
-.menuPopover[data-exiting] {
-  animation: popOut var(--motion-fast) var(--motion-ease);
+:is(.popover, .menuPopover)[data-placement='top'] { --pop-y: 6px; }
+:is(.popover, .menuPopover)[data-placement='left'] { --pop-x: 6px; --pop-y: 0px; }
+:is(.popover, .menuPopover)[data-placement='right'] { --pop-x: -6px; --pop-y: 0px; }
+
+:is(.popover, .menuPopover)[data-entering] {
+  animation: popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:is(.popover, .menuPopover)[data-exiting] {
+  animation: popoverOut 110ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes popoverIn {
+  from { opacity: 0; transform: translate(var(--pop-x), var(--pop-y)) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes popoverOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.97); }
 }
 
 @keyframes popIn {
