@@ -135,8 +135,7 @@
 @media (max-width: 767px) {
   .groups { padding: 18px 14px 30px; gap: 22px; }
   .filters { gap: 9px; }
-  .groupHeader { flex-wrap: wrap; }
-  .groupActions { width: 100%; justify-content: flex-start; }
+  .groupHeader { gap: var(--space-2); }
 }
 @media (max-width: 480px) {
   .filters > [role='group'] { width: 100%; }
@@ -152,8 +151,9 @@
 .compactTools { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .dotHost { position: relative; }
 .dotHost[data-on]::after { content: ''; position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-.optionsPanel { display: grid; gap: var(--space-4); width: min(320px, calc(100vw - 32px)); padding: var(--space-4); outline: 0; }
-.field { display: grid; gap: var(--space-2); }
+.optionsPanel { display: grid; gap: var(--space-4); width: max-content; min-width: 220px; max-width: calc(100vw - 32px); padding: var(--space-4); outline: 0; }
+.field { display: grid; justify-items: start; gap: var(--space-2); }
+.selectBox { width: 200px; max-width: 100%; }
 .field > span { color: var(--text-muted); font: 500 11px/1.4 var(--font-ui); letter-spacing: .04em; }
 .compactHeader.compactHeader { flex-wrap: nowrap; gap: 8px; padding: 4px 12px; }
 .compactHeader nav { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 0; padding-left: 0; }
@@ -168,3 +168,5 @@
 .compactHeader:has(.searchSlot:focus-within) .compactTools { flex: 1 1 auto; width: 100%; }
 @media (max-width: 560px) { .compactHeader nav { display: none; } }
 @media (pointer: coarse), (max-width: 767px) { .cardMenu { width: 40px; height: 40px; margin: -6px -6px -6px 0; } .card { padding: var(--space-3); } }
+.groupMenu { flex: 0 0 auto; }
+@media (pointer: coarse), (max-width: 767px) { .groupMenu { width: 40px; height: 40px; } }

@@ -113,7 +113,7 @@ export function TagManagerView() {
         <PopoverTrigger>
           <GhostIconButton size={40} className={styles.dotHost} data-on={filtering || undefined} aria-label="筛选"><FilterLinesIcon size={16} /></GhostIconButton>
           <Popover placement="bottom end" offset={6} {...theme}><PopoverDialog aria-label="筛选标签" className={styles.optionsPanel}>
-            <div className={styles.field}><span>分组</span><Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} /></div>
+            <div className={styles.field}><span>分组</span><div className={styles.selectBox}><Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} /></div></div>
             <div className={styles.field}><span>使用情况</span>{usageFilter}</div>
           </PopoverDialog></Popover>
         </PopoverTrigger>
@@ -150,7 +150,18 @@ export function TagManagerView() {
       <div className={styles.groups}>{sections.map(({ group, items }, groupIndex) => <section className={styles.group} key={group.id} aria-labelledby={`group-${group.id}`}>
         <header className={styles.groupHeader}>
           <div className={styles.groupTitle}><span className={styles.groupNumber}>{String(groupIndex + 1).padStart(2, '0')}</span><h2 id={`group-${group.id}`}>{group.name}</h2><span className={styles.groupCount}>{items.length} 个标签</span><span className={styles.meta}>{group.selectionMode === 'single' ? '单选' : '多选'}</span>{group.isSystem ? <span className={styles.system}>内置</span> : null}</div>
-          {canWrite ? <div className={styles.groupActions}><Button size="compact" onPress={() => setEditTarget({ kind: 'group', value: group })}>编辑分组</Button>{!group.isSystem ? <Button size="compact" variant="danger" isDisabled={data.tags.some((tag) => tag.groupId === group.id)} onPress={() => void deleteTagGroup(group.id)}>删除分组</Button> : null}</div> : null}
+          {canWrite ? (compact
+            ? <MenuTrigger>
+              <GhostIconButton size={28} className={styles.groupMenu} aria-label={`分组“${group.name}”的更多操作`}><MoreHorizontalIcon size={16} /></GhostIconButton>
+              <MenuPopover placement="bottom end" {...theme}><Menu ariaLabel={`${group.name}的操作`} onAction={(key) => {
+                if (key === 'edit') setEditTarget({ kind: 'group', value: group });
+                else if (key === 'delete') void deleteTagGroup(group.id);
+              }}>
+                <MenuItem id="edit">编辑分组</MenuItem>
+                {!group.isSystem ? <MenuItem id="delete" isDanger isDisabled={data.tags.some((tag) => tag.groupId === group.id)}>删除分组</MenuItem> : null}
+              </Menu></MenuPopover>
+            </MenuTrigger>
+            : <div className={styles.groupActions}><Button size="compact" onPress={() => setEditTarget({ kind: 'group', value: group })}>编辑分组</Button>{!group.isSystem ? <Button size="compact" variant="danger" isDisabled={data.tags.some((tag) => tag.groupId === group.id)} onPress={() => void deleteTagGroup(group.id)}>删除分组</Button> : null}</div>) : null}
         </header>
         <div className={styles.cards}>{items.map((tag, index) => <article className={styles.card} data-dragging={draggedTagId === tag.id || undefined} draggable={canWrite && sort === 'manual'} onDragStart={() => setDraggedTagId(tag.id)} onDragEnd={() => setDraggedTagId('')} onDragOver={(event) => { if (draggedTagId && draggedTagId !== tag.id) event.preventDefault(); }} onDrop={() => void dropBefore(tag)} key={tag.id}>
           <div className={styles.cardHead}>
