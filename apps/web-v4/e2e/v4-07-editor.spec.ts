@@ -103,10 +103,8 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await page.getByRole('button', { name: '一级标题' }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^# /);
 
-  await page.getByRole('button', { name: '查看全部标签页' }).click();
-  await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: /编辑器验收笔记/ })).toBeVisible();
-  await page.keyboard.press('Escape');
+  // 单个标签页放得下时不显示“全部标签页”入口。
+  await expect(page.getByRole('button', { name: '查看全部标签页' })).toHaveCount(0);
 
   const openFileMenu = async () => {
     await page.getByRole('toolbar', { name: '笔记格式工具栏' }).evaluate((toolbar) => {

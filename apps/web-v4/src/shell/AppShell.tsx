@@ -121,6 +121,7 @@ export function AppShell({
           <div ref={setTitlebarHost} className={styles.desktopTitlebarHost}>
             {!desktopTitlebarEditor ? desktopTitlebarTabs ?? <span className={styles.desktopTitle}>知境</span> : null}
           </div>
+          {toolbarAccessories ? <span className={styles.toolbarDivider} aria-hidden="true" /> : null}
           {toolbarAccessories}
         </ShellToolbar>
       </header>

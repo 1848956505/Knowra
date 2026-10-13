@@ -43,3 +43,6 @@
 }
 
 .sidebarDialog > :last-child { flex: 1 1 auto; min-height: 0; height: auto; }
+
+/* 标签页管理与视图/外观开关之间的分隔线。 */
+.toolbarDivider { flex: 0 0 1px; align-self: center; width: 1px; height: 16px; margin-inline: var(--space-1); background: var(--border-subtle); }

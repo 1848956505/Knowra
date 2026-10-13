@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, 
 import type { Note } from '@study-accelerator/web-core';
 import { GhostIconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
-import { CloseIcon, MoreVerticalIcon, PlusIcon, NoteIcon } from '../../components/icons/knowra';
+import { ChevronDownIcon, CloseIcon, PlusIcon, NoteIcon } from '../../components/icons/knowra';
 import { cx } from '../../components/ui/classnames';
 import styles from './NoteEditorView.module.css';
 
@@ -23,6 +23,8 @@ export interface EditorTabsProps {
 export function EditorTabs(props: EditorTabsProps) {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
   const pendingClose = useRef<{ id: string; index: number } | null>(null);
   useLayoutEffect(() => {
     const pending = pendingClose.current;
@@ -32,6 +34,17 @@ export function EditorTabs(props: EditorTabsProps) {
       (next ?? tabsRef.current?.querySelector<HTMLButtonElement>('[aria-label="新建笔记"]'))?.focus({ preventScroll: true });
       pendingClose.current = null;
     }
+  }, [props.notes]);
+  // 标签页放不下时才提供“全部标签页”入口，避免顶栏常驻一个用途不明的“更多”图标。
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const measure = () => setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(scroller);
+    return () => observer.disconnect();
   }, [props.notes]);
   useLayoutEffect(() => {
     tabsRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
@@ -69,7 +82,7 @@ export function EditorTabs(props: EditorTabsProps) {
 
   return (
     <div ref={tabsRef} className={cx(styles.tabs, props.windowTitlebar ? styles.windowTabs : undefined)} role="tablist" aria-label="打开的笔记" onKeyDown={handleKeyDown}>
-      <div className={styles.tabScroller}>
+      <div ref={scrollerRef} className={styles.tabScroller}>
         {props.notes.map((note, index) => {
           const selected = note.id === props.activeNoteId;
           return (
@@ -110,13 +123,13 @@ export function EditorTabs(props: EditorTabsProps) {
           );
         })}
       </div>
-      <MenuTrigger>
+      {overflowing ? <MenuTrigger>
         <GhostIconButton
           className={styles.tabAction}
           aria-label="查看全部标签页"
           title="查看全部标签页"
         >
-          <MoreVerticalIcon size={18} />
+          <ChevronDownIcon size={16} />
         </GhostIconButton>
         <MenuPopover placement="bottom end">
           <Menu ariaLabel="全部标签页">
@@ -127,7 +140,7 @@ export function EditorTabs(props: EditorTabsProps) {
             ))}
           </Menu>
         </MenuPopover>
-      </MenuTrigger>
+      </MenuTrigger> : null}
       <GhostIconButton
         className={styles.tabAction}
         aria-label="新建笔记"
