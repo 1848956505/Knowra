@@ -77,7 +77,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <PressableButton className={`${styles.plainButton} ${styles.compactHide}`} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
         <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled={!props.canEditContent || props.canInsertImage === false} onAction={props.onInsertImage}>插入图片</MenuItem></Menu></MenuPopover>
       </MenuTrigger>
-      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
+      <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
       <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
       </div>
     </div>

@@ -37,7 +37,12 @@ async function expectShellContained(page: Page) {
   }));
   expect(bounds).toEqual({ width: 0, height: 0, windowY: 0, stageY: 0 });
 }
+/** 浮层有入场缩放动画；量尺寸前等它结束，避免把 94% 起始缩放当成真实尺寸。 */
+async function settleAnimations(locator: Locator) {
+  await locator.evaluate((element) => Promise.all(element.ownerDocument.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
+}
 async function expectTouchTarget(locator: Locator) {
+  await settleAnimations(locator);
   const rect = (await locator.boundingBox())!;
   test.info().annotations.push({ type: 'touch-target', description: JSON.stringify({
     label: await locator.getAttribute('aria-label') ?? (await locator.textContent())?.trim(),
@@ -48,6 +53,7 @@ async function expectTouchTarget(locator: Locator) {
   expect(Number(rect.height.toFixed(3))).toBeGreaterThanOrEqual(44);
 }
 async function expectInViewport(page: Page, locator: Locator) {
+  await settleAnimations(locator);
   const rect = (await locator.boundingBox())!;
   const size = page.viewportSize()!;
   expect(rect.x).toBeGreaterThanOrEqual(0);

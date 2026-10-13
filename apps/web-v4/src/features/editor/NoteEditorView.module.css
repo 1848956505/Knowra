@@ -268,7 +268,7 @@
   .tabItem { height: var(--touch-target); grid-template-columns: minmax(0, 1fr) 44px; }
   .tabClose, .tabAction, .windowTabs .tabAction { width: var(--touch-target); height: var(--touch-target); min-width: var(--touch-target); }
   .tabItem .tabClose { opacity: 1; }
-  /* 触屏/窄屏：菜单与快捷操作合为一行；放不下时整行横向滑动。重复入口收起：检查器已在顶部，表格/图片/插入在“格式”菜单，收藏在“文件”菜单，未接入的“更多”。 */
+  /* 触屏/窄屏：菜单与快捷操作合为一行；放不下时整行横向滑动。重复入口收起：表格/图片/插入在“格式”菜单，收藏在“文件”菜单，未接入的“更多”。检查器按钮保留，跨断点时仍是焦点归还目标。 */
   .toolbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; padding: var(--space-1); }
   .toolbarMenus { flex: 0 0 auto; gap: 0; }
   .toolbarMenus > button { min-width: var(--touch-target); height: var(--touch-target); padding-inline: 8px; }
