@@ -565,8 +565,11 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       const scrollTop = scrollRoot?.scrollTop;
       applyingRemoteRef.current = true;
       try {
-        editor.action(replaceAllMarkdown(markdown));
+        // 远端整篇正文是新的编辑基线，不能混入本地撤销历史或沿用旧正文的重点范围快照。
+        editor.action(replaceAllMarkdown(markdown, true));
+        view.dispatch(view.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
         applyBlockIdentity(view, markdown, blockIdentityRef.current);
+        setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
       }
       finally { applyingRemoteRef.current = false; }
       latestLocalMarkdownRef.current = markdown;

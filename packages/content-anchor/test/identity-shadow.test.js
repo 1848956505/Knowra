@@ -117,6 +117,9 @@ test('身份表：正文不一致、无法对齐或 ID 重复时不生成；内�
   assert.equal(validIdentityTable(markdown, { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, type: 'paragraph' } : block) }), false);
   assert.equal(validIdentityTable(markdown, { ...identity, blocks: identity.blocks.map(block => ({ ...block, id: 'same' })) }), false);
   assert.equal(validIdentityTable(markdown, null), false);
+  const emptyId = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+  assert.equal(validIdentityTable(markdown, emptyId), false);
+  assert.equal(adoptIdentityIds(markdown, emptyId, editorBlocks), null);
 });
 
 test('身份表：重新加载时把 ID 交回编辑器块；新编辑器的空段落仍可跳过', () => {

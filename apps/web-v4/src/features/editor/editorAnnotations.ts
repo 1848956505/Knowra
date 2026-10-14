@@ -22,7 +22,7 @@ interface AnnotationPluginState {
   ranges: Map<string, TrackedAnnotationRange>;
   editIntent: AnnotationEditIntent;
   snapshots: Array<{ doc: ProseNode; ranges: Map<string, TrackedAnnotationRange> }>;
-  /** 正文修订号；只改块 ID 或重点 mark 的身份事务不递增，不触发保存。 */
+  /** 正文修订号；身份事务和不改变 Markdown 的非历史维护事务不递增，不触发保存。 */
   contentRevision: number;
 }
 
@@ -79,13 +79,16 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
           const currentContentHash = calculateContentHash(currentMarkdown);
           const projection = annotations.some(annotation => annotation.scopeType === 'section') ? projectMarkdown(currentMarkdown) : undefined;
           for (const annotation of annotations) {
-            if (ranges.has(annotation.id) && previous.snapshots.length && annotation.noteContentHash !== currentContentHash) continue;
+            if (ranges.has(annotation.id) && previous.contentRevision > 0 && annotation.noteContentHash !== currentContentHash) continue;
             const resolved = annotation.anchorStatus === 'missing' ? null : resolveAnnotationRange(transaction.doc, annotation, projection);
             if (resolved) ranges.set(annotation.id, { ...resolved, scopeType: annotation.scopeType ?? 'selection', needsReview: annotation.anchorStatus === 'needsReview' });
             else if (!ranges.has(annotation.id)) ranges.set(annotation.id, { from: 0, to: 0, scopeType: annotation.scopeType ?? 'selection', missing: true });
           }
         }
-        const contentChanged = transaction.docChanged && !transaction.getMeta(IDENTITY_META);
+        // 非历史维护事务（如标题 DOM ID）不改变正文；真正改写 Markdown 的非历史事务仍须保存。
+        const contentChanged = transaction.docChanged && !transaction.getMeta(IDENTITY_META)
+          && (transaction.getMeta('addToHistory') !== false
+            || ctx.get(serializerCtx)(transaction.before) !== ctx.get(serializerCtx)(transaction.doc));
         return {
           contentRevision: previous.contentRevision + (contentChanged ? 1 : 0),
           editIntent: contentChanged ? {

@@ -3,7 +3,7 @@ import { Editor, defaultValueCtx, editorViewCtx, parserCtx, rootCtx, serializerC
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
-import { getHTML, getMarkdown } from '@milkdown/kit/utils';
+import { getHTML, getMarkdown, replaceAll as replaceAllMarkdown } from '@milkdown/kit/utils';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
@@ -16,13 +16,13 @@ import { commonmarkPreset } from './editorHardbreakMarks';
 import { mathBlockSchema } from './editorMathBlock';
 import { mathInlineSchema } from './editorMathInline';
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
-import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, setEditorAnnotations } from './editorAnnotations';
+import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, resolveAnnotationRange, setEditorAnnotations } from './editorAnnotations';
 import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
 import { annotationShadowBehavior, applyBlockIdentity, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
-import { bindingFromAnchor, bindingFromEditor, calculateContentHash, compareIdentityShadow, identityFromEditorState } from '@study-accelerator/content-anchor';
+import { anchorFromProjectedRange, bindingFromAnchor, bindingFromEditor, calculateContentHash, compareIdentityShadow, identityFromEditorState, projectMarkdown } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -470,5 +470,68 @@ describe('块身份表（S2b）', () => {
     expect(rebound?.scopeType).toBe('section');
     expect(rebound?.rootBlockId).not.toBe(oldRoot);
     expect(blockIds(e.view.state.doc)).toContain(rebound!.rootBlockId);
+  });
+
+  it('读取空 ID 身份表时回退到本会话 ID，正文和合法快照保持可用', async () => {
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const identity = tableFrom(e);
+    const invalid = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+    const before = blockIds(e.view.state.doc);
+    expect(applyBlockIdentity(e.view, serialized, invalid)).toBe(false);
+    expect(blockIds(e.view.state.doc)).toEqual(before);
+    expect(e.markdown()).toBe(serialized);
+    expect(tableFrom(e)).toEqual(identity);
+  });
+
+  it('身份回填后迟到重点可恢复，本地正文编辑后仍拒绝旧响应覆盖范围', async () => {
+    const source = '## 标题\n\n重要文字\n\n尾段：重要远端文字。';
+    const annotationFor = (content: string, quote: string): Annotation => {
+      const projection = projectMarkdown(content), start = projection.text.indexOf(quote);
+      return { id: 'late', schemaVersion: 2, scopeType: 'selection', anchorStatus: 'resolved', lifecycleStatus: 'active',
+        quoteText: quote, noteContentHash: calculateContentHash(content),
+        anchor: anchorFromProjectedRange(projection, start, start + quote.length) } as Annotation;
+    };
+    const e = await createEditor(source);
+    const initial = annotationFor(source, '重要文字');
+    setEditorAnnotations(e.editor, [initial], null);
+    const remote = source.replace('重要文字', '重要远端文字');
+    e.editor.action(replaceAllMarkdown(remote, true));
+    e.view.dispatch(e.view.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
+    applyBlockIdentity(e.view, remote, null);
+    setEditorAnnotations(e.editor, [initial], null);
+    expect(annotationPluginKey.getState(e.view.state)?.ranges.get('late')?.missing).toBe(true);
+    expect(annotationPluginKey.getState(e.view.state)?.snapshots.length).toBeGreaterThan(0);
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(0);
+    expect(calculateContentHash(e.markdown())).not.toBe(calculateContentHash(remote));
+    const updated = annotationFor(remote, '重要远端文字');
+    setEditorAnnotations(e.editor, [updated], null);
+    const markedText = () => e.view.dom.querySelector('[data-annotation-id="late"]')?.textContent;
+    expect(markedText()).toBe('重要远端文字');
+    const range = annotationPluginKey.getState(e.view.state)!.ranges.get('late')!;
+    e.view.dispatch(e.view.state.tr.insertText('本地', range.from + 1));
+    const local = { ...annotationPluginKey.getState(e.view.state)!.ranges.get('late')! };
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBeGreaterThan(0);
+    // 本地插字后，旧摘录仍在尾段唯一存在；去掉保护会真实命中尾段，而不是解析失败后保留范围。
+    const staleRange = resolveAnnotationRange(e.view.state.doc, updated);
+    const tailStart = child(e.view.state.doc, 2).start + '尾段：'.length;
+    expect(staleRange).toEqual({ from: tailStart, to: tailStart + updated.quoteText.length });
+    expect(e.view.state.doc.textBetween(staleRange!.from, staleRange!.to)).toBe(updated.quoteText);
+    expect(staleRange).not.toEqual({ from: local.from, to: local.to });
+    setEditorAnnotations(e.editor, [updated], null);
+    expect(annotationPluginKey.getState(e.view.state)?.ranges.get('late')).toEqual(local);
+    expect(markedText()).toBe('重本地要远端文字');
+  });
+
+  it('标题 ID 维护不通知保存，非历史正文编辑仍递增修订并通知保存', async () => {
+    const changes: string[] = [];
+    const e = await createEditor('## 标题\n\n正文', { onChange: markdown => changes.push(markdown) });
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(0);
+    expect(changes).toEqual([]);
+    const paragraph = child(e.view.state.doc, 1);
+    e.view.dispatch(e.view.state.tr.insertText('补充', paragraph.start).setMeta('addToHistory', false));
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(1);
+    expect(changes).toEqual([e.markdown()]);
+    expect(e.markdown()).toContain('补充正文');
   });
 });
