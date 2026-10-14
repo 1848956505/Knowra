@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Dialog, DialogBody, MenuItem } from '../../components/ui/overlay';
@@ -121,4 +121,14 @@ it('菜单项打开独立弹窗时焦点由弹窗持有，Escape 只关闭弹窗
   await user.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+
+it('用户滚动触发器祖先时仍关闭非模态菜单', async () => {
+  const user = userEvent.setup();
+  const { trigger } = setup();
+  await user.click(trigger);
+  expect(screen.getByRole('menu', { name: '测试' })).toBeVisible();
+  fireEvent.scroll(trigger.parentElement!);
+  await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 });

@@ -1,3 +1,4 @@
+import { openEditorToolbarMenu } from '../../../scripts/test-support/editor-menu.mjs';
 import { test } from './fixtures/syntheticTest';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { mockEditorWorkspace, createNote } from './fixtures/editorWorkspace';
@@ -134,7 +135,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
       stage.scrollTop = 500;
       stage.dispatchEvent(new Event('scroll'));
     });
-    await page.getByRole('button', { name: '文件', exact: true }).click();
+    await openEditorToolbarMenu(page, '文件');
     await expect(page.getByRole('menu', { name: '文件', exact: true })).toBeVisible();
   };
   await openFileMenu();
@@ -310,7 +311,7 @@ test('V4-07 代码块保持 Typora 式插入与末尾点击行为', async ({ pag
   const paragraph = editor.locator(':scope > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
-  await page.getByRole('button', { name: '段落', exact: true }).click();
+  await openEditorToolbarMenu(page, '段落');
   await page.getByRole('menuitem', { name: '代码块', exact: true }).click();
 
   await expect(paragraph).toHaveText('已有正文');
@@ -386,7 +387,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   };
   const chooseParagraphAction = async (name: string) => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '段落', exact: true }).click();
+    await openEditorToolbarMenu(page, '段落');
     await page.getByRole('menuitem', { name, exact: true }).click();
   };
 
@@ -405,12 +406,12 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
     selection?.addRange(range);
   });
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '格式', exact: true }).click();
+  await openEditorToolbarMenu(page, '格式');
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^`缩进验收已有正文`/);
   await expect(editor.locator('p code').first()).toHaveCSS('background-color', await tokenColor(editor.locator('p code').first(), '--surface-hover'));
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '格式', exact: true }).click();
+  await openEditorToolbarMenu(page, '格式');
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').not.toMatch(/^`缩进验收已有正文`/);
 
@@ -495,7 +496,7 @@ test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ pa
   };
   const openFormatMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '格式', exact: true }).click();
+    await openEditorToolbarMenu(page, '格式');
     await expect(page.getByRole('menu', { name: '格式', exact: true })).toBeVisible();
   };
   const runFormatAction = async (name: string | RegExp) => {
@@ -716,7 +717,7 @@ test('V4-07 编辑菜单完成剪贴板、查找替换与历史命令闭环', as
   const editor = page.locator('.ProseMirror');
   const openEditMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await openEditorToolbarMenu(page, '编辑');
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
 
@@ -846,7 +847,7 @@ test('V4-07 异常格式修复读取原始草稿并可一次撤销', async ({ pa
 
   const openEditMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await openEditorToolbarMenu(page, '编辑');
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
   await openEditMenu();
@@ -995,7 +996,7 @@ test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源�
   await page.keyboard.press('End');
   const openViewMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '视图', exact: true }).click();
+    await openEditorToolbarMenu(page, '视图');
     await expect(page.getByRole('menu', { name: '视图', exact: true })).toBeVisible();
   };
 
@@ -1260,7 +1261,7 @@ test('V4-07 Markdown 导入复用后端批量能力并打开首篇笔记', async
     stage.scrollTop = 500;
     stage.dispatchEvent(new Event('scroll'));
   });
-  await page.getByRole('button', { name: '文件', exact: true }).click();
+  await openEditorToolbarMenu(page, '文件');
   await page.getByRole('menuitem', { name: '导入 Markdown' }).click();
 
   const dialog = page.getByRole('dialog', { name: '导入 Markdown' });
@@ -1315,7 +1316,7 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await expect(code).toContainText('# literal\n```js\n**text**');
   await page.evaluate(() => navigator.clipboard.writeText('\n# 菜单粘贴\n    raw'));
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await openEditorToolbarMenu(page, '编辑');
   await page.getByRole('menuitem', { name: '粘贴', exact: true }).click();
   await expect(code).toContainText('\n# 菜单粘贴\n    raw');
   await expect(editor.locator('h1')).toHaveCount(0);
@@ -1331,12 +1332,12 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await expect(language).toHaveValue('c++');
   await expect(editor.locator(':scope > p')).toHaveText('正文继续');
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(language).toBeDisabled();
   await expect(page.getByRole('button', { name: '在下方继续', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '复制代码', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '编辑模式', exact: true }).click();
   await expect(language).toBeEnabled();
   expect(errors).toEqual([]);
@@ -1406,7 +1407,7 @@ test(`V4-07 代码块 ${modifier}+A 选当前代码，正文平台全选选整�
   await editor.locator('pre[data-code-block] > code').last().click();
   await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe('other block');
-  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await openEditorToolbarMenu(page, '编辑');
   await page.getByRole('menuitem', { name: '全选', exact: true }).click();
   await expect.poll(selectedText).toBe('other block');
   await editor.locator(':scope > p').first().click();
@@ -1482,7 +1483,7 @@ test('V4-07 代码块命令将当前代码行转为正文并保留上下代码',
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
   });
-  await page.getByRole('button', { name: '段落', exact: true }).click();
+  await openEditorToolbarMenu(page, '段落');
   await page.getByRole('menuitem', { name: '代码块', exact: true }).click();
   await expect(code).toHaveText(['one', 'three']);
   await expect(editor.locator(':scope > p')).toHaveText('    two');
@@ -2083,7 +2084,7 @@ test('V4-07 窄屏表格菜单可由键盘访问，阅读模式不显示写入�
   await expect(page.getByRole('menuitem', { name: '删除当前列', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(trigger).toHaveCount(0);
 });
@@ -2201,7 +2202,7 @@ test('V4-07 旧比例长图保持等比与窄屏键盘预设，阅读模式隐�
   expect(saved.at(-1)).toContain('长图标题');
   expect(saved.at(-1)).not.toContain('knowra-image-ratio');
   await expect.poll(async () => (await image.boundingBox())!.width / rect.width).toBeCloseTo(0.4 / 0.66, 1);
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(controls).toHaveCount(0);
   await expect(page.getByRole('button', { name: '拖动缩放图片', exact: true })).toHaveCount(0);

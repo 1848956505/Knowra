@@ -66,9 +66,7 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   assert((await skipLink.boundingBox()).y >= titlebarBounds.y + titlebarBounds.height);
   assert((await tabs.boundingBox()).x >= 92);
   assert.equal(await tabs.getByRole('tab', { name: '标题栏验收笔记' }).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
-  await tabs.getByRole('button', { name: '查看全部标签页' }).click();
-  await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(tabs.getByRole('button', { name: '查看全部标签页', exact: true })).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: '新建笔记' })).toBeVisible();
   await expect(page.locator('.ProseMirror')).toContainText('正文');
 
@@ -97,7 +95,18 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(960, 700));
   await expect.poll(async () => (await titlebar.boundingBox()).width).toBe(960);
   await expect(tabs.getByRole('tab')).toHaveCount(7);
-  assert(await tabs.evaluate(element => element.firstElementChild.scrollWidth > element.firstElementChild.clientWidth));
+  // “全部标签页”只在真实溢出时显示；等待960px布局与ResizeObserver完成。
+  await expect.poll(() => tabs.evaluate(element => element.firstElementChild.scrollWidth - element.firstElementChild.clientWidth)).toBeGreaterThan(1);
+  const allTabs = tabs.getByRole('button', { name: '查看全部标签页', exact: true });
+  await expect(allTabs).toBeVisible();
+  await allTabs.click();
+  const allTabsMenu = page.getByRole('menu', { name: '全部标签页', exact: true });
+  await expect(allTabsMenu).toBeVisible();
+  const orderedTitles = await tabs.getByRole('tab').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+  await expect(allTabsMenu.getByRole('menuitem')).toHaveText(orderedTitles.map((title, index) => `${String(index + 1).padStart(2, '0')} · ${title}`));
+  await page.keyboard.press('Escape');
+  await expect(allTabsMenu).toBeHidden();
+  await expect(allTabs).toBeFocused();
   await page.getByRole('button', { name: '切换检查器' }).click();
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await expect(inspector).toBeVisible();

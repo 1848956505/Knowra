@@ -93,7 +93,7 @@ export function EditorContextMenu({
           });
         }}
       >
-        <Menu ariaLabel="编辑器右键快捷功能" className={styles.menu} onAction={runAction}>
+        <Menu ariaLabel="编辑器右键快捷功能" className={styles.menu} onAction={runAction} onClose={() => setPoint(null)}>
           <MenuSection className={styles.toolRow}>
             <MenuHeader className={styles.srOnly}>编辑</MenuHeader>
             {toolItem('cut', '剪切', <CutIcon size={16} />, !canEdit)}
@@ -124,7 +124,7 @@ export function EditorContextMenu({
           <SubmenuTrigger delay={80}>
             <MenuItem id="heading-menu" className={styles.submenuTrigger}>标题</MenuItem>
             <MenuPopover placement="end top" offset={-1} containerPadding={12} className={styles.submenuPopover}>
-              <Menu ariaLabel="标题样式" className={styles.submenu} onAction={runAction}>
+              <Menu ariaLabel="标题样式" className={styles.submenu} onAction={runAction} onClose={() => setPoint(null)}>
                 <MenuItem id="paragraph" kbd={getEditorShortcutLabel('paragraph')} isDisabled={!canEdit}>段落</MenuItem>
                 <MenuItem id="heading-1" kbd={getEditorShortcutLabel('heading-1')} isDisabled={!canEdit}>H1</MenuItem>
                 <MenuItem id="heading-2" kbd={getEditorShortcutLabel('heading-2')} isDisabled={!canEdit}>H2</MenuItem>
@@ -136,7 +136,7 @@ export function EditorContextMenu({
           <SubmenuTrigger delay={80}>
             <MenuItem id="insert-menu" className={styles.submenuTrigger}>插入</MenuItem>
             <MenuPopover placement="end top" offset={-1} containerPadding={12} className={styles.submenuPopover}>
-              <Menu ariaLabel="插入内容" className={styles.submenu} onAction={runAction}>
+              <Menu ariaLabel="插入内容" className={styles.submenu} onAction={runAction} onClose={() => setPoint(null)}>
                 <MenuItem id="table" icon={<TableIcon size={15} />} isDisabled={!canEdit}>表格</MenuItem>
                 <MenuItem id="horizontal-rule" icon={<HorizontalRuleIcon size={15} />} isDisabled={!canEdit}>水平分割线</MenuItem>
                 <MenuItem id="code-block" icon={<CodeIcon size={15} />} isDisabled={!canEdit}>代码块</MenuItem>

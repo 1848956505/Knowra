@@ -241,11 +241,14 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     await inspector.getByRole('tab', { name: '信息', exact: true }).click();
     const metadata = inspector.locator('dl');
     await expect(metadata).toContainText(folderName);
-    for (const label of ['字数', '创建', '更新']) {
-      const value = metadata.locator(':scope > div').filter({ has: page.locator('dt').filter({ hasText: label }) }).locator('dd span').first();
-      await checkUiFont(`inspector-${label}`, value);
-    }
-    const folderValue = metadata.locator(':scope > div').filter({ has: page.locator('dt').filter({ hasText: '位置' }) }).locator('dd');
+    // 信息面板将字数/阅读时长合为“篇幅”，创建/更新时间合为“时间”。
+    const extent = metadata.getByRole('term').filter({ hasText: /^篇幅$/ }).locator('..').getByRole('definition').locator(':scope > span');
+    await expect(extent).toHaveText(/^[1-9][\d,]* 字 · (?:约 \d+ 分钟|少于 1 分钟)$/);
+    await checkUiFont('inspector-字数', extent);
+    const times = metadata.getByRole('term').filter({ hasText: /^时间$/ }).locator('..').getByRole('definition').locator(':scope > span');
+    await expect(times).toHaveText(/^更新 .+ · 创建 .+$/);
+    for (const label of ['创建', '更新']) await checkUiFont(`inspector-${label}`, times);
+    const folderValue = metadata.getByRole('term').filter({ hasText: /^位置$/ }).locator('..').getByRole('definition');
     await checkReadable('inspector-folder-location', folderValue, 120, 5);
     await capture('10-inspector-information', inspector);
     const attachment = inspector.getByRole('button', { name: `打开附件 ${attachmentName}`, exact: true });

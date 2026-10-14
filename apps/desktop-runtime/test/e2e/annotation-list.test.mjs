@@ -1,3 +1,4 @@
+import { openEditorToolbarMenu } from '../../../../scripts/test-support/editor-menu.mjs';
 import { withWorkspaceStatus } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -201,7 +202,7 @@ test('真实页面：长列表续段滚动后入口仍可操作，窄屏与阅�
   await expect.poll(() => annotations().length).toBe(1);
   assert.match(annotations()[0].quoteText, /续接段落 0/); assert.match(annotations()[0].quoteText, /子项/);
   assert.doesNotMatch(annotations()[0].quoteText, /相邻/);
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(editor).toHaveAttribute('contenteditable', 'false');
   await target.hover(); await expect(page.getByRole('button', { name: '列表项重点菜单', exact: true })).toHaveCount(0);
