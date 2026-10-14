@@ -8,6 +8,7 @@ import { ANNOTATION_MARK, IDENTITY_META } from './editorBlockIdentity';
 import { adoptIdentityIds, calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK, identityQuoteHash } from '@study-accelerator/content-anchor';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import type { AnnotationIdentityEditorState } from '@study-accelerator/web-core';
+type IdentityPoint = NonNullable<AnnotationIdentityEditorState['annotations'][number]['start']>;
 
 /**
  * 稳定身份迁移 S1（影子阶段）：为已定位的重点建立编辑器内身份，并与现有位置推算逐事务比对。
@@ -223,6 +224,22 @@ function alignedBlockId(doc: ProseNode, blockId: string | null): string | undefi
   return blockId;
 }
 
+/** 块内位置：文本块 ID 与内容偏移；表格内为表格 ID 加单元格 [行, 列]，与服务端块内偏移模型同一口径。 */
+function identityPoint(doc: ProseNode, position: number): IdentityPoint | undefined {
+  const resolved = doc.resolve(Math.max(0, Math.min(position, doc.content.size)));
+  if (!resolved.parent.isTextblock) return undefined;
+  for (let depth = 1; depth < resolved.depth; depth += 1) {
+    const ancestor = resolved.node(depth);
+    if (ancestor.type.name !== 'table') continue;
+    const blockId = ancestor.attrs.blockId as string | null;
+    // 表格 → 行 → 单元格 → 段落
+    if (!blockId || resolved.depth !== depth + 3) return undefined;
+    return { blockId, offset: position - resolved.start(), cell: [resolved.index(depth), resolved.index(depth + 1)] };
+  }
+  const blockId = resolved.parent.attrs.blockId as string | null;
+  return blockId ? { blockId, offset: position - resolved.start() } : undefined;
+}
+
 export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<string, AnnotationIdentityBinding>, markdown: string): AnnotationIdentityEditorState {
   const annotations: AnnotationIdentityEditorState['annotations'] = [];
   for (const [id, binding] of bindings) {
@@ -233,6 +250,8 @@ export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<s
         item.startBlockId = alignedBlockId(doc, textblockIdAt(doc, derived.from, 1));
         item.endBlockId = alignedBlockId(doc, textblockIdAt(doc, derived.to, -1));
         item.quoteHash = identityQuoteHash(doc.textBetween(derived.from, derived.to, '\n', '\uFFFC'));
+        item.start = identityPoint(doc, derived.from);
+        item.end = identityPoint(doc, derived.to);
       }
     } else if (binding.scopeType === 'blocks') {
       item.startBlockId = alignedBlockId(doc, binding.startBlockId ?? null);

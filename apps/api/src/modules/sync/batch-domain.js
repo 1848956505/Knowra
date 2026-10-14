@@ -1,3 +1,4 @@
+import { applyIdentityBindings } from '../knowledge/application/annotation-identity-binding.js';
 import { calculateContentHash as trackingHash, updateStructure, validIdentityTable } from '@study-accelerator/content-anchor';
 import { normalizeKnowledgeChange, validateKnowledgeBatch, validateKnowledgeLifecycleChange } from './knowledge-batch-domain.js';
 import { normalizeTrainingChange, reconcileTrainingChanges, validateTrainingBatch } from './training-batch-domain.js';
@@ -192,6 +193,7 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     const note = state.notes.find(item => item.id === change.id);
     if (!state.noteVersions.some(version => version.noteId === note.id && version.contentHash === note.contentHash)) throw syncError('DEPENDENCY_MISSING', '正文对应的不可变版本尚未提交。');
     annotations.reconcileForNote(note.id, calculateContentHash(note.rawMarkdown));
+    applyIdentityBindings(createInMemoryContentAnnotationRepository({ records: state.contentAnnotations }), note, state.contentAnnotations.filter(item => item.noteId === note.id));
   }
   for (const collection of ['folders', 'tags', 'tagGroups', 'notes']) {
     const names = new Set();

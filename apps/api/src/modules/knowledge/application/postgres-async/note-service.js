@@ -19,6 +19,7 @@ export function createAsyncNoteService({
   annotationRepository = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
+  onNoteIdentityChanged = null,
   onNoteDeleted = null,
   onBeforePermanentDelete = null
 } = {}) {
@@ -55,7 +56,8 @@ export function createAsyncNoteService({
     return runTransaction(async ({
       noteRepository: transactionNoteRepository = repository,
       noteVersionService: transactionNoteVersionService = noteVersionService,
-      onNoteContentChanged: transactionOnNoteContentChanged = onNoteContentChanged
+      onNoteContentChanged: transactionOnNoteContentChanged = onNoteContentChanged,
+      onNoteIdentityChanged: transactionOnNoteIdentityChanged = onNoteIdentityChanged
     } = {}) => {
       const saved = await transactionNoteRepository.save(note, {
         expectedUpdatedAt
@@ -63,6 +65,8 @@ export function createAsyncNoteService({
       if (createVersion && transactionNoteVersionService) {
         const version = await transactionNoteVersionService.ensureForNote(saved);
         await transactionOnNoteContentChanged?.(saved, version, annotationChange);
+      } else if (annotationChange) {
+        await transactionOnNoteIdentityChanged?.(saved, annotationChange);
       }
       return saved;
     });

@@ -34,6 +34,7 @@ import { attachmentRecoveryTests } from './attachment-recovery.test.js';
 import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { annotationIdentityShadowTests } from './annotation-identity-shadow.test.js';
+import { annotationIdentityBindingTests, annotationIdentityBindingPostgresTests } from './annotation-identity-binding.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
 import { aiKnowledgeExtractionGatewayTests } from './ai-knowledge-extraction-gateway.test.js';
@@ -215,6 +216,8 @@ const tests = [
   ...annotationScopeServiceTests,
   ...annotationDynamicTests,
   ...annotationIdentityShadowTests,
+  ...annotationIdentityBindingTests,
+  ...annotationIdentityBindingPostgresTests,
   ...annotationDynamicPostgresTests,
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,

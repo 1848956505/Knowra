@@ -1,4 +1,5 @@
 import { createNoteDependencyLifecycle } from './application/note-dependency-lifecycle.js';
+import { withIdentityBindingRefresh } from './application/annotation-identity-binding.js';
 import { createSpaceAssetLifecycle } from './application/space-asset-lifecycle.js';
 import { createNavigationReferencePolicy } from './application/navigation-reference-policy.js';
 import { taskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './application/asset-purge-guard.js';
@@ -270,12 +271,12 @@ export function createKnowledgeModule(options = {}) {
     normalizeTagIds,
     noteVersionService,
     runTransaction,
-    ...createNoteDependencyLifecycle({
+    ...withIdentityBindingRefresh(createNoteDependencyLifecycle({
       contentAnnotationService, contentAnnotationRepository, annotationIdentityShadow,
       knowledgeItemService, questionService, noteVersionService, noteVersionRepository,
       knowledgeEvidenceRepository, questionSourceRepository, analysisScopeRepository,
       coalescePreviousVersion
-    }),
+    }), contentAnnotationRepository),
     validateSiblingNameConflict: ({ spaceId, folderId, title, currentNoteId }) => {
       assertSiblingNameAvailable({
         spaceId,

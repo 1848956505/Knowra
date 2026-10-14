@@ -14,9 +14,12 @@ export const IDENTITY_SHADOW_FORMAT = 2;
 /** 编辑器节点名 → Markdown 块类型。表格单元格内部不参与对齐。 */
 export const EDITOR_TO_MARKDOWN_BLOCK = Object.freeze({
   paragraph: 'paragraph', heading: 'heading', blockquote: 'blockquote', code_block: 'code', hr: 'thematicBreak',
-  list_item: 'listItem', table: 'table', math_block: 'math', html: 'html'
+  list_item: 'listItem', table: 'table', math_block: 'math'
 });
-const MARKDOWN_BLOCKS = new Set(Object.values(EDITOR_TO_MARKDOWN_BLOCK));
+// 编辑器的 html 是行内原子节点，不是块；Markdown 块级 HTML 在编辑器里是一个段落（对齐时按段落配对）。
+const MARKDOWN_BLOCKS = new Set([...Object.values(EDITOR_TO_MARKDOWN_BLOCK), 'html']);
+/** 只有这些容器包含块级内容；段落、标题等只含行内内容，不再向内递归（行内 HTML 不是块）。 */
+const FLOW_CONTAINERS = new Set(['root', 'blockquote', 'list', 'listItem', 'footnoteDefinition']);
 const TEXT_BLOCKS = new Set(['paragraph', 'heading', 'code', 'math', 'html', 'thematicBreak', 'table']);
 const LIMITS = { blocks: 50000, annotations: 5000, id: 128 };
 const BR_HTML = /^\s*<br\s*\/?>\s*$/i;
@@ -37,7 +40,7 @@ export function parseIdentityBlocks(markdown) {
         br: node.type === 'html' && BR_HTML.test(node.value ?? '')
       });
     }
-    if (node.type === 'table') return;
+    if (!FLOW_CONTAINERS.has(node.type)) return;
     for (const child of node.children ?? []) walk(child, MARKDOWN_BLOCKS.has(node.type) ? depth + 1 : depth);
   };
   walk(tree, 0);
@@ -45,7 +48,7 @@ export function parseIdentityBlocks(markdown) {
 }
 
 /**
- * 按类型顺序对齐。已知差异：Markdown `<br />` HTML 块对应编辑器空段落；无对应的编辑器空段落跳过。
+ * 按类型顺序对齐。已知差异：Markdown 块级 HTML 对应编辑器段落（`<br />` 即空段落）；无对应的编辑器空段落跳过。
  * 返回 editorIndex → markdownIndex；无法对齐时返回失败位置。
  */
 export function alignIdentityBlocks(markdownBlocks, editorBlocks) {
@@ -54,7 +57,7 @@ export function alignIdentityBlocks(markdownBlocks, editorBlocks) {
   while (i < editorBlocks.length || j < markdownBlocks.length) {
     const editor = editorBlocks[i], markdown = markdownBlocks[j];
     if (editor && markdown && editor.type === markdown.type) { pairs.set(i++, j++); continue; }
-    if (editor?.type === 'paragraph' && editor.empty && markdown?.br) { pairs.set(i++, j++); continue; }
+    if (editor?.type === 'paragraph' && markdown?.type === 'html') { pairs.set(i++, j++); continue; }
     if (editor?.type === 'paragraph' && editor.empty) { i++; continue; }
     return { aligned: false, editorIndex: i, markdownIndex: j, editorType: editor?.type ?? null, markdownType: markdown?.type ?? null };
   }
@@ -63,6 +66,12 @@ export function alignIdentityBlocks(markdownBlocks, editorBlocks) {
 
 function text(value, max) { return typeof value === 'string' && value.length <= max; }
 function optionalId(value) { return value === undefined || text(value, LIMITS.id); }
+/** 选区块内位置：{ blockId, offset, cell?: [行, 列] }。 */
+function optionalPoint(point) {
+  if (point === undefined) return true;
+  return Boolean(point) && text(point.blockId, LIMITS.id) && Number.isInteger(point.offset) && point.offset >= 0
+    && (point.cell === undefined || (Array.isArray(point.cell) && point.cell.length === 2 && point.cell.every(value => Number.isInteger(value) && value >= 0)));
+}
 
 /** 编辑器状态来自客户端，形状不合法时整体忽略，不能影响保存。 */
 export function validIdentityEditorState(state) {
@@ -73,7 +82,8 @@ export function validIdentityEditorState(state) {
   return blocksOk && state.annotations.every(item => item && text(item.id, LIMITS.id) && typeof item.present === 'boolean'
     && ['selection', 'blocks', 'section', 'list'].includes(item.scopeType)
     && optionalId(item.rootBlockId) && optionalId(item.startBlockId) && optionalId(item.endBlockId)
-    && (item.quoteHash === undefined || text(item.quoteHash, 128)));
+    && (item.quoteHash === undefined || text(item.quoteHash, 128))
+    && optionalPoint(item.start) && optionalPoint(item.end));
 }
 
 function deepestContaining(blocks, offset, types) {

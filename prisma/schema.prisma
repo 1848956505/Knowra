@@ -206,6 +206,7 @@ model ContentAnnotation {
   revision          Int            @default(1)
   anchor            Json?
   originSnapshot    Json?
+  identityBinding   Json?
   resolvedContentHash String?
   boundaryFingerprint String?
   requestHash       String?

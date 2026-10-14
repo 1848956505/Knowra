@@ -21,6 +21,8 @@ export function mark(knowledge, note) {
 }
 
 for (const sqlite of [false, true]) test(`${sqlite ? 'SQLite 离线' : 'JSON 在线'}：连续编辑不堆积自动修订，当前位置与人工修改正常保存`, t => {
+  // updatedAt 模拟连续编辑，修订 createdAt 仍取系统时钟；固定在采样桶内，避免运行跨桶改变恢复点数量。
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-14T12:05:00.000Z') });
   const root = temporaryDirectory(t);
   const store = sqlite ? createSqliteDataStore(path.join(root, 'local.sqlite')) : createFileDataStore(path.join(root, 'cloud.json'));
   t.after(() => store.close?.());

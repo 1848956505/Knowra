@@ -13,7 +13,7 @@ import { createAppContext } from '../../../api/src/app.factory.js';
 import { createFileDataStore } from '../../../api/src/infrastructure/file-data-store.js';
 import { createServer } from '../../../api/src/server.js';
 import { createAttachmentTransfer } from '../../../api/src/modules/sync/attachment-transfer.js';
-import { anchorFromProjectedRange, calculateContentHash, parseIdentityBlocks, projectMarkdown, sourceEdits } from '../../../../packages/content-anchor/src/index.js';
+import { anchorFromProjectedRange, bindingSourceRange, calculateContentHash, parseIdentityBlocks, projectMarkdown, sourceEdits } from '../../../../packages/content-anchor/src/index.js';
 
 // 同文档 hash 导航后 reload 可能回到旧历史项；需要全新加载时先到 about:blank。
 async function openFresh(page, url) { await page.goto('about:blank'); await page.goto(url); }
@@ -141,6 +141,15 @@ for (const { trailingNewline, delayedAnnotation } of [
   assert.deepEqual(adopted.originSnapshot, original.originSnapshot);
   assert.equal(adopted.anchorStatus, 'resolved');
   assert.equal(adopted.lifecycleStatus, 'active');
+  const assertBinding = async annotation => {
+    const savedNote = await read(`/api/knowledge/notes/${note.id}`);
+    assert.equal(annotation.identityBinding.contentHash, calculateContentHash(savedNote.rawMarkdown));
+    const range = bindingSourceRange(savedNote.rawMarkdown, savedNote.annotationStructure.identity, annotation.identityBinding);
+    assert.ok(range);
+    assert.equal(savedNote.rawMarkdown.slice(range.sourceStart, range.sourceEnd), annotation.quoteText);
+  };
+  assert.equal(adopted.identityBinding.start.blockId, 'remote-1');
+  await assertBinding(adopted);
 
   await highlight.evaluate(element => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT), node = walker.nextNode();
@@ -154,6 +163,7 @@ for (const { trailingNewline, delayedAnnotation } of [
   await expect(highlight).toHaveText(editedQuote);
   const edited = await current();
   assert.equal(edited.revision, adopted.revision + 1);
+  await assertBinding(edited);
   assert.equal(edited.anchorStatus, 'resolved'); assert.deepEqual(edited.originSnapshot, original.originSnapshot);
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(async () => (await current()).quoteText).toBe(remoteQuote);
@@ -162,4 +172,12 @@ for (const { trailingNewline, delayedAnnotation } of [
   assert.equal(undone.revision, edited.revision + 1);
   assert.equal(undone.anchorStatus, 'resolved'); assert.deepEqual(undone.originSnapshot, original.originSnapshot);
   await expect(editor).toContainText('远端追加');
+  await assertBinding(undone);
+  await openFresh(page, `${runtime.origin}/#/materials/notes/${note.id}`);
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await expect(highlight).toHaveText(remoteQuote);
+  const reopened = await current();
+  assert.deepEqual(reopened.identityBinding, undone.identityBinding);
+  assert.equal(reopened.revision, undone.revision);
+  assert.deepEqual(reopened.originSnapshot, original.originSnapshot);
 });

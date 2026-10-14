@@ -1,5 +1,6 @@
 import { assertRangeConfirmation } from '../annotation-range-preview.js';
 import { reconcileAnnotationSource, reconciledAnnotationFields } from '../reconcile-annotation-source.js';
+import { initialIdentityBinding } from '../annotation-identity-binding.js';
 import { resolveStoredAnnotation } from '../resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import { listTracking, anchorForSection, calculateContentHash, followSectionAnchor, headingPathForSourceOffset, relocateAnchor, resolveAnchor } from '@study-accelerator/content-anchor';
@@ -74,7 +75,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       if (await repository.findDuplicate({ ...dto, ...source })) throw fail('ANNOTATION_DUPLICATE', '该范围已存在同类型标记', 409);
       const anchor = source.anchor ? { ...source.anchor, noteVersionId: version?.id ?? null } : null;
       const originSnapshot = anchor ? { noteVersionId: version.id, contentHash: dto.noteContentHash, scopeType: dto.scopeType, segments: structuredClone(anchor.segments), quoteText: source.quoteText, headingPath: source.headingPath } : null;
-      const created = await repository.save(new ContentAnnotation({ ...dto, ...source, anchor, originSnapshot, noteVersionId: version?.id ?? null, lifecycleStatus: 'active', anchorStatus: 'resolved', anchorReason: null, requestHash: hashedRequest, id: `annotation-${crypto.randomUUID()}` }));
+      const created = await repository.save(new ContentAnnotation({ ...dto, ...source, anchor, originSnapshot, identityBinding: anchor ? initialIdentityBinding(note, { scopeType: dto.scopeType, anchor }) : null, noteVersionId: version?.id ?? null, lifecycleStatus: 'active', anchorStatus: 'resolved', anchorReason: null, requestHash: hashedRequest, id: `annotation-${crypto.randomUUID()}` }));
       await recordRevision(created, 'created');
       return created;
     },

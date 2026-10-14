@@ -1,3 +1,4 @@
+import { applyIdentityBindings, withIdentityBindingRefresh } from './application/annotation-identity-binding.js';
 import { createAsyncNoteDependencyLifecycle } from './application/postgres-async/note-dependency-lifecycle.js';
 import { createAsyncSpaceAssetLifecycle } from './application/postgres-async/space-asset-lifecycle.js';
 import { createAsyncNavigationReferencePolicy } from './application/postgres-async/navigation-reference-policy.js';
@@ -169,7 +170,7 @@ export function createPostgresKnowledgeModule({
       noteRepository: transaction.noteRepository,
       annotationRepository: transaction.contentAnnotationRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
-      ...createAsyncNoteDependencyLifecycle({
+      ...withIdentityBindingRefresh(createAsyncNoteDependencyLifecycle({
         createAnnotationService: () => buildTransactionAnnotationServices(transaction).annotationService,
         contentAnnotationRepository: transaction.contentAnnotationRepository,
         noteVersionRepository: transaction.noteVersionRepository,
@@ -178,7 +179,7 @@ export function createPostgresKnowledgeModule({
         analysisScopeRepository: transaction.analysisScopeRepository,
         knowledgeItemService: formalServices.knowledgeItemService,
         questionService: formalServices.questionService
-      })
+      }), transaction.contentAnnotationRepository)
     };
   }
   const runTransaction = client?.$transaction
@@ -413,8 +414,12 @@ export function createPostgresKnowledgeModule({
     annotationRepository: contentAnnotationRepository,
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
+    onNoteIdentityChanged: async (note, annotationChange) => {
+      await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
+    },
     onNoteContentChanged: async (note, version, annotationChange) => {
       const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash, annotationChange);
+      await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');
       }
