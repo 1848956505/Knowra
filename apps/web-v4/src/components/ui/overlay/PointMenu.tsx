@@ -1,6 +1,19 @@
-import { useRef, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { MenuPopover } from './Menu';
 import styles from './PointMenu.module.css';
+
+const VIEWPORT_PADDING = 12;
+const ANCHOR_SIZE = 1;
+
+function readViewport() {
+  const viewport = window.visualViewport;
+  return {
+    left: viewport?.offsetLeft ?? 0,
+    top: viewport?.offsetTop ?? 0,
+    width: viewport?.width ?? window.innerWidth,
+    height: viewport?.height ?? window.innerHeight
+  };
+}
 
 export interface PointMenuProps {
   point: { x: number; y: number } | null;
@@ -16,9 +29,18 @@ export interface PointMenuProps {
  */
 export function PointMenu({ point, onOpenChange, popoverClassName, children }: PointMenuProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);
+  // 只在新坐标打开时规范化锚点；打开后的定位/resize仍由 RAC 管理。
+  const viewport = useMemo(readViewport, [point]);
+  // RAC 在主轴翻转时仍贴着锚点；边缘坐标须先落入同一安全区。
+  const clamp = (value: number, start: number, size: number) => {
+    const inset = Math.min(VIEWPORT_PADDING, Math.max(0, (size - ANCHOR_SIZE) / 2));
+    return Math.min(Math.max(value, start + inset), start + size - inset - ANCHOR_SIZE);
+  };
+  const left = clamp(point?.x ?? 0, viewport.left, viewport.width);
+  const top = clamp(point?.y ?? 0, viewport.top, viewport.height);
   return <>
-    <span ref={anchorRef} className={styles.anchor} aria-hidden="true" style={{ left: point?.x ?? 0, top: point?.y ?? 0 }} />
-    <MenuPopover triggerRef={anchorRef} isOpen={Boolean(point)} onOpenChange={onOpenChange} offset={0} containerPadding={12} className={popoverClassName}>
+    <span ref={anchorRef} className={styles.anchor} aria-hidden="true" style={{ left, top }} />
+    <MenuPopover triggerRef={anchorRef} isOpen={Boolean(point)} onOpenChange={onOpenChange} offset={0} containerPadding={VIEWPORT_PADDING} className={popoverClassName}>
       {children}
     </MenuPopover>
   </>;

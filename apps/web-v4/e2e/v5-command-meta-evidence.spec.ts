@@ -298,20 +298,45 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     focusChecks.push('检查器关闭/重开后归还原入口焦点；紧凑视口额外验证 Escape 关闭');
 
     await page.goto('/#/materials?folder=folder-1');
-    const trail = page.getByRole('navigation', { name: '当前位置', exact: true });
-    await expect(trail).toHaveAttribute('title', `笔记库 / ${parentFolderName} / ${folderName}`);
-    const current = trail.locator('[aria-current="page"]');
-    await expect(current).toHaveText(folderName);
-    await checkUiFont('top-path-current', current);
-    await current.scrollIntoViewIfNeeded(); await expect(current).toBeInViewport({ ratio: 0.95 });
-    await capture('15-top-path-horizontal-reachability');
-    const parent = trail.getByRole('button', { name: `跳转到「${parentFolderName}」`, exact: true });
-    await parent.scrollIntoViewIfNeeded(); await parent.focus(); await expect(parent).toBeInViewport({ ratio: 0.95 });
-    await checkUiFont('top-path-parent', parent);
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/#\/materials\?folder=folder-parent$/);
-    await expect(trail.locator('[aria-current="page"]')).toHaveText(parentFolderName);
-    readonlyChecks.push('长路径全称保留在可访问 title；当前段与父路径可正常横向到达，键盘 Enter 返回父目录');
+    if (viewport.width <= 560) {
+      const index = page.getByRole('article', { name: '笔记索引', exact: true });
+      const current = index.locator('header strong');
+      await expect(current).toHaveText(folderName);
+      await checkUiFont('top-path-current', current);
+      await expect(current).toBeInViewport({ ratio: 0.95 });
+      const more = index.getByRole('toolbar', { name: '笔记索引工具栏', exact: true }).getByRole('button', { name: '更多操作', exact: true });
+      await more.click();
+      await page.getByRole('menu', { name: '更多操作', exact: true }).getByRole('menuitem', { name: '路径导航', exact: true }).click();
+      const pathMenu = page.getByRole('menu', { name: '路径导航', exact: true });
+      await expect(pathMenu.getByRole('menuitem')).toHaveText(['笔记库', parentFolderName]);
+      await expect(pathMenu.getByRole('menuitem', { name: folderName, exact: true })).toHaveCount(0);
+      const parent = pathMenu.getByRole('menuitem', { name: parentFolderName, exact: true });
+      await parent.focus();
+      await expect(parent).toBeFocused();
+      await expect(parent).toBeInViewport({ ratio: 0.95 });
+      await checkUiFont('top-path-parent', parent);
+      await capture('15-top-path-menu-reachability', pathMenu);
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/#\/materials\?folder=folder-parent$/);
+      await expect(pathMenu).toBeHidden();
+      await expect(current).toHaveText(parentFolderName);
+      readonlyChecks.push('紧凑索引标题保留当前目录全称；更多操作的路径菜单保留根目录及父目录全称，父项可见且可键盘 Enter 返回，不重复当前目录');
+    } else {
+      const trail = page.getByRole('navigation', { name: '当前位置', exact: true });
+      await expect(trail).toHaveAttribute('title', `笔记库 / ${parentFolderName} / ${folderName}`);
+      const current = trail.locator('[aria-current="page"]');
+      await expect(current).toHaveText(folderName);
+      await checkUiFont('top-path-current', current);
+      await current.scrollIntoViewIfNeeded(); await expect(current).toBeInViewport({ ratio: 0.95 });
+      await capture('15-top-path-horizontal-reachability');
+      const parent = trail.getByRole('button', { name: `跳转到「${parentFolderName}」`, exact: true });
+      await parent.scrollIntoViewIfNeeded(); await parent.focus(); await expect(parent).toBeInViewport({ ratio: 0.95 });
+      await checkUiFont('top-path-parent', parent);
+      await page.keyboard.press('Enter');
+      await expect(page).toHaveURL(/#\/materials\?folder=folder-parent$/);
+      await expect(trail.locator('[aria-current="page"]')).toHaveText(parentFolderName);
+      readonlyChecks.push('长路径全称保留在可访问 title；当前段与父路径可正常横向到达，键盘 Enter 返回父目录');
+    }
 
     expect(scenarios).toHaveLength(15);
     expect(network.searchRequests.map(item => item.query)).toEqual(expect.arrayContaining([titleQuery, bodyQuery, loadingQuery, errorQuery, emptyQuery, longListQuery]));

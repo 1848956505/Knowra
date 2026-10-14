@@ -64,6 +64,9 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await skipLink.focus();
   const titlebarBounds = await titlebar.boundingBox();
   assert((await skipLink.boundingBox()).y >= titlebarBounds.y + titlebarBounds.height);
+  await skipLink.press('Enter');
+  await expect(page.locator('#feature-stage')).toBeFocused();
+  await expect.poll(() => skipLink.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
   assert((await tabs.boundingBox()).x >= 92);
   assert.equal(await tabs.getByRole('tab', { name: '标题栏验收笔记' }).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
   await expect(tabs.getByRole('button', { name: '查看全部标签页', exact: true })).toHaveCount(0);
