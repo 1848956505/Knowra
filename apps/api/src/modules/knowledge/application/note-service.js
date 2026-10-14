@@ -20,6 +20,7 @@ export function createNoteService({
   annotationRepository = null,
   runTransaction = (operation) => operation(),
   onNoteContentChanged = null,
+  onNoteIdentityChanged = null,
   onNoteDeleted = null,
   onBeforePermanentDelete = null
 } = {}) {
@@ -29,6 +30,8 @@ export function createNoteService({
       if (createVersion && noteVersionService) {
         const version = noteVersionService.ensureForNote(saved);
         onNoteContentChanged?.(saved, version, annotationChange);
+      } else if (annotationChange) {
+        onNoteIdentityChanged?.(saved, annotationChange);
       }
       return saved;
     });

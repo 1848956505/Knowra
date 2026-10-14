@@ -1,4 +1,3 @@
-import { calculateContentHash } from './hash.js';
 import { parseIdentityBlocks, validIdentityTable } from './identity-shadow.js';
 import { blockOffsetToSource, identityBlockModels, sourceToBlockOffset, tableCellAt } from './block-offsets.js';
 
@@ -19,9 +18,15 @@ function deepestIndex(blocks, offset, types) {
   return found;
 }
 
-function context(markdown, identity) {
-  if (!validIdentityTable(markdown, identity)) return null;
-  return { blocks: parseIdentityBlocks(markdown), models: identityBlockModels(markdown), ids: identity.blocks.map(block => block.id), contentHash: identity.contentHash };
+function context(markdown, identity, cache = null) {
+  // 内部保存调用可传入局部缓存；上下文只读，绝不跨保存持有正文或身份表。
+  const identitySignature = cache ? JSON.stringify(identity) : null;
+  if (cache?.markdown === markdown && cache.identitySignature === identitySignature) return cache.context;
+  const ctx = validIdentityTable(markdown, identity)
+    ? { blocks: parseIdentityBlocks(markdown), models: identityBlockModels(markdown), ids: identity.blocks.map(block => block.id), contentHash: identity.contentHash }
+    : null;
+  if (cache) Object.assign(cache, { markdown, identitySignature, context: ctx });
+  return ctx;
 }
 
 function pointFromSource(ctx, sourceOffset, edge) {
@@ -37,8 +42,8 @@ function pointFromSource(ctx, sourceOffset, edge) {
 }
 
 /** 由旧链路已定位的锚点推出绑定；无法精确换算时返回 null。 */
-export function bindingFromAnchor(markdown, identity, annotation) {
-  const ctx = context(markdown, identity);
+export function bindingFromAnchor(markdown, identity, annotation, cache = null) {
+  const ctx = context(markdown, identity, cache);
   const anchor = annotation?.anchor;
   if (!ctx || annotation?.anchorStatus !== 'resolved' || !anchor) return null;
   const start = Number.isInteger(anchor.sourceStart) ? anchor.sourceStart : annotation.fromPosition;
@@ -66,8 +71,11 @@ function validPoint(ctx, point) {
 }
 
 /** 绑定是否可在当前正文上使用：引用的块存在且类型符合；选区偏移可换算。 */
-export function validBinding(markdown, identity, binding) {
-  const ctx = context(markdown, identity);
+export function validBinding(markdown, identity, binding, cache = null) {
+  return validBindingInContext(context(markdown, identity, cache), binding);
+}
+
+function validBindingInContext(ctx, binding) {
   if (!ctx || !binding || binding.formatVersion !== IDENTITY_BINDING_FORMAT) return false;
   const typeOf = id => ctx.blocks[ctx.ids.indexOf(id)]?.type;
   if (binding.scopeType === 'section') return typeOf(binding.rootBlockId) === 'heading';
@@ -78,8 +86,11 @@ export function validBinding(markdown, identity, binding) {
 
 /** 选区绑定换算回源码范围；不可用时返回 null。 */
 export function bindingSourceRange(markdown, identity, binding) {
-  if (binding?.scopeType !== 'selection' || !validBinding(markdown, identity, binding)) return null;
-  const ctx = context(markdown, identity);
+  return sourceRangeInContext(context(markdown, identity), binding);
+}
+
+function sourceRangeInContext(ctx, binding) {
+  if (binding?.scopeType !== 'selection' || !validBindingInContext(ctx, binding)) return null;
   const model = point => ctx.models[ctx.ids.indexOf(point.blockId)];
   const sourceStart = blockOffsetToSource(model(binding.start), binding.start, 'start');
   const sourceEnd = blockOffsetToSource(model(binding.end), binding.end, 'end');
@@ -87,12 +98,14 @@ export function bindingSourceRange(markdown, identity, binding) {
 }
 
 /** 编辑器在保存快照中上报的绑定；与当前正文和身份表一致时采用。 */
-export function bindingFromEditor(markdown, identity, reported) {
-  if (!reported?.present || !validIdentityTable(markdown, identity)) return null;
-  const base = { formatVersion: IDENTITY_BINDING_FORMAT, contentHash: calculateContentHash(markdown), scopeType: reported.scopeType };
+export function bindingFromEditor(markdown, identity, reported, cache = null) {
+  if (!reported?.present) return null;
+  const ctx = context(markdown, identity, cache);
+  if (!ctx) return null;
+  const base = { formatVersion: IDENTITY_BINDING_FORMAT, contentHash: ctx.contentHash, scopeType: reported.scopeType };
   const binding = reported.scopeType === 'selection' ? { ...base, start: reported.start, end: reported.end }
     : reported.scopeType === 'blocks' ? { ...base, startBlockId: reported.startBlockId, endBlockId: reported.endBlockId }
       : { ...base, rootBlockId: reported.rootBlockId };
-  if (!validBinding(markdown, identity, binding)) return null;
-  return reported.scopeType === 'selection' && !bindingSourceRange(markdown, identity, binding) ? null : binding;
+  if (!validBindingInContext(ctx, binding)) return null;
+  return reported.scopeType === 'selection' && !sourceRangeInContext(ctx, binding) ? null : binding;
 }

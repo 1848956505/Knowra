@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { validateKnowledgeArtifactProvenance } from '../../modules/knowledge/domain/knowledge-artifact-provenance-contract.js';
 
 export function dbUser(user) {
@@ -104,7 +105,7 @@ export function dbAnnotation(annotation) {
     revision: annotation.revision ?? 1,
     anchor: annotation.anchor ?? null,
     originSnapshot: annotation.originSnapshot ?? null,
-    identityBinding: annotation.identityBinding ?? undefined,
+    identityBinding: annotation.identityBinding ?? Prisma.DbNull,
     resolvedContentHash: annotation.resolvedContentHash ?? null,
     boundaryFingerprint: annotation.boundaryFingerprint ?? null,
     requestHash: annotation.requestHash ?? null,

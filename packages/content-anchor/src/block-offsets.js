@@ -55,19 +55,19 @@ function delimiterMask(value) {
 }
 
 /** 把值中的字符逐一对齐到源码切片（跳过转义反斜杠等）；对不上时返回 null。 */
-function alignValue(value, source, from, to) {
-  const offsets = [];
+function alignValue(value, source, from, to, complete = false) {
+  const starts = [], ends = [];
   let cursor = from;
   for (const char of value) {
     let found = source.indexOf(char, cursor);
     if (found < 0 || found >= to) return null;
     // 只允许跳过转义反斜杠、缩进与换行续行前缀，避免跨过真实内容错配。
     if (!/^[\\\s>]*$/.test(source.slice(cursor, found))) return null;
-    for (let i = 0; i < char.length; i += 1) offsets.push(found + i);
+    for (let i = 0; i < char.length; i += 1) { starts.push(found + i); ends.push(found + i + 1); }
     cursor = found + char.length;
   }
-  offsets.push(cursor);
-  return offsets;
+  if (complete && !/^\s*$/.test(source.slice(cursor, to))) return null;
+  return { starts, ends };
 }
 
 /** 生成行内内容的偏移表：start[k]／end[k] 为偏移 k 作为范围起点／终点时的源码位置。 */
@@ -86,16 +86,16 @@ function inlineModel(children, source) {
       if (node.type === 'text' || node.type === 'inlineCode') {
         const inner = node.type === 'inlineCode' ? source.slice(from, to).match(/^`+/)[0].length : 0;
         const value = node.value ?? '';
-        const offsets = alignValue(value, source, from + inner, to - inner);
+        const offsets = alignValue(value, source, from + inner, to - inner, true);
         if (!offsets) return false;
         const keep = node.type === 'text' ? delimiterMask(value) : null;
-        for (let i = 0; i < offsets.length - 1; i += 1) if (!keep || keep[i]) push(offsets[i], offsets[i + 1]);
+        for (let i = 0; i < offsets.starts.length; i += 1) if (!keep || keep[i]) push(offsets.starts[i], offsets.ends[i]);
       } else if (node.type === 'inlineMath') {
         const delimiter = source.slice(from, to).match(/^\$+/)[0].length;
-        const offsets = alignValue(node.value ?? '', source, from + delimiter, to - delimiter);
+        const offsets = alignValue(node.value ?? '', source, from + delimiter, to - delimiter, true);
         if (!offsets) return false;
         push(from, from + delimiter);
-        for (let i = 0; i < offsets.length - 1; i += 1) push(offsets[i], offsets[i + 1]);
+        for (let i = 0; i < offsets.starts.length; i += 1) push(offsets.starts[i], offsets.ends[i]);
         push(to - delimiter, to);
       } else if (node.type === 'html' && BR_HTML.test(node.value ?? '')) {
         // Milkdown 的 remarkPreserveEmptyLine 删除所有 <br> 系列 HTML 节点，编辑器中不占位置。
@@ -120,9 +120,13 @@ function codeModel(node, source) {
   const index = body.indexOf(value, body.indexOf('\n') + 1);
   // 列表或引用内的代码块，值去掉了每行缩进：从围栏下一行开始逐字对齐，只允许跳过缩进空白。
   const contentStart = from + body.indexOf('\n') + 1;
-  const offsets = value ? (index >= 0 ? [...Array(value.length + 1).keys()].map(i => from + index + i) : alignValue(value, source, contentStart, to)) : [contentStart];
+  const offsets = index >= 0 ? {
+    starts: Array.from({ length: value.length }, (_, i) => from + index + i),
+    ends: Array.from({ length: value.length }, (_, i) => from + index + i + 1)
+  } : alignValue(value, source, contentStart, to);
   if (!offsets) return null;
-  return { size: value.length, start: offsets, end: offsets };
+  return { size: value.length, start: [...offsets.starts, offsets.ends.at(-1) ?? contentStart],
+    end: [offsets.starts[0] ?? contentStart, ...offsets.ends] };
 }
 
 function blockModel(node, source) {

@@ -62,3 +62,35 @@ test('编辑器上报的绑定与当前正文一致时采用，否则拒绝', ()
   assert.equal(bindingFromEditor(markdown, identity, { ...reported, present: false }), null);
   assert.equal(bindingFromEditor(markdown, identity, { id: 'b', scopeType: 'section', present: true, rootBlockId: ids[0] }).rootBlockId, ids[0]);
 });
+
+
+test('转义字符前的范围终点不吞反斜杠，选区绑定与锚点双向一致', () => {
+  const md = 'a\\*b';
+  const table = identityFromEditorState(md, { formatVersion: 2, targetContentHash: calculateContentHash(md),
+    blocks: [{ id: 'p', type: 'paragraph', empty: false }], annotations: [] });
+  const binding = bindingFromEditor(md, table, { scopeType: 'selection', present: true,
+    start: { blockId: 'p', offset: 0 }, end: { blockId: 'p', offset: 1 } });
+  assert.deepEqual(bindingSourceRange(md, table, binding), { sourceStart: 0, sourceEnd: 1 });
+  const anchor = anchorFromProjectedRange(projectMarkdown(md), 0, 1);
+  assert.deepEqual(bindingFromAnchor(md, table, resolved('selection', anchor)), binding);
+});
+
+
+test('单次局部上下文重用与独立调用等价，正文或身份表变化不能复用旧解析', () => {
+  const cache = {};
+  const reported = { scopeType: 'selection', present: true, start: { blockId: ids[1], offset: 0 }, end: { blockId: ids[1], offset: 2 } };
+  assert.deepEqual(bindingFromEditor(markdown, identity, reported, cache), bindingFromEditor(markdown, identity, reported));
+  const parsed = cache.context;
+  const annotation = resolved('selection', anchorFromProjectedRange(projection, ...projectedRange('加粗')));
+  assert.deepEqual(bindingFromAnchor(markdown, identity, annotation, cache), bindingFromAnchor(markdown, identity, annotation));
+  assert.equal(cache.context, parsed);
+  assert.equal(validBinding(markdown, identity, bindingFromEditor(markdown, identity, reported), cache), true);
+  assert.equal(cache.context, parsed);
+  assert.equal(bindingFromEditor(markdown + 'x', identity, reported, cache), null);
+  const nextIdentity = { ...identity, blocks: identity.blocks.map(block => ({ ...block, id: `new-${block.id}` })) };
+  assert.equal(bindingFromEditor(markdown, nextIdentity, reported, cache), null);
+  const nextReport = { ...reported, start: { ...reported.start, blockId: `new-${ids[1]}` }, end: { ...reported.end, blockId: `new-${ids[1]}` } };
+  assert.deepEqual(bindingFromEditor(markdown, nextIdentity, nextReport, cache), bindingFromEditor(markdown, nextIdentity, nextReport));
+  nextIdentity.blocks[1].id = 'mutated';
+  assert.equal(bindingFromEditor(markdown, nextIdentity, nextReport, cache), null);
+});

@@ -1,4 +1,4 @@
-import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable } from '@study-accelerator/content-anchor';
+import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable, validIdentityEditorState } from '@study-accelerator/content-anchor';
 
 /**
  * 稳定身份迁移 S2b-2：保存或创建后刷新重点绑定。影子阶段只记录，不改变重点状态、修订号或旧链路字段。
@@ -8,15 +8,19 @@ import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable 
 export function nextIdentityBindings(note, annotations, editorState = null) {
   const identity = note?.annotationStructure?.identity;
   if (!validIdentityTable(note?.rawMarkdown ?? '', identity)) return [];
-  const reportedById = new Map((Array.isArray(editorState?.annotations) ? editorState.annotations : []).map(item => [item?.id, item]));
+  const reportMatches = validIdentityEditorState(editorState) && editorState.targetContentHash === identity.contentHash
+    && editorState.blocks.length === identity.blocks.length
+    && editorState.blocks.every((block, index) => block.id === identity.blocks[index].id && block.type === identity.blocks[index].type);
+  const reportedById = new Map((reportMatches ? editorState.annotations : []).map(item => [item.id, item]));
   const changes = [];
+  const bindingContext = {}; // 仅本次保存共用同一份正文与身份表的不可变解析结果。
   for (const annotation of annotations) {
     if ((annotation.lifecycleStatus ?? 'active') !== 'active') continue;
     const reported = reportedById.get(annotation.id);
     const previous = annotation.identityBinding ?? null;
-    const next = (reported?.scopeType === annotation.scopeType ? bindingFromEditor(note.rawMarkdown, identity, reported) : null)
-      ?? bindingFromAnchor(note.rawMarkdown, identity, annotation)
-      ?? (previous && validBinding(note.rawMarkdown, identity, previous) ? previous : null);
+    const next = (reported?.scopeType === annotation.scopeType ? bindingFromEditor(note.rawMarkdown, identity, reported, bindingContext) : null)
+      ?? bindingFromAnchor(note.rawMarkdown, identity, annotation, bindingContext)
+      ?? (previous && validBinding(note.rawMarkdown, identity, previous, bindingContext) ? previous : null);
     if (JSON.stringify(next) !== JSON.stringify(previous)) changes.push({ annotation, identityBinding: next });
   }
   return changes;
@@ -60,6 +64,7 @@ export function withIdentityBindingRefresh(lifecycle, repository) {
   };
   return {
     ...lifecycle,
+    onNoteIdentityChanged: refresh,
     onNoteContentChanged: (note, version, annotationChange) => {
       const result = lifecycle.onNoteContentChanged(note, version, annotationChange);
       if (result && typeof result.then === 'function') return result.then(async value => { await refresh(note, annotationChange); return value; });

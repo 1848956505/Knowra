@@ -414,6 +414,9 @@ export function createPostgresKnowledgeModule({
     annotationRepository: contentAnnotationRepository,
     noteVersionService,
     runTransaction: async (operation) => runTransaction(async (transaction) => operation(buildNoteTransactionContext(transaction))),
+    onNoteIdentityChanged: async (note, annotationChange) => {
+      await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);
+    },
     onNoteContentChanged: async (note, version, annotationChange) => {
       const reconciliation = await contentAnnotationService.reconcileForNote(note.id, version?.contentHash ?? note.contentHash, annotationChange);
       await applyIdentityBindings(contentAnnotationRepository, note, await contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }), annotationChange?.editorState);

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Editor, defaultValueCtx, editorViewCtx, rootCtx, remarkStringifyOptionsCtx } from '@milkdown/kit/core';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
-import { alignIdentityBlocks, EDITOR_TO_MARKDOWN_BLOCK, identityBlockModels, parseIdentityBlocks } from '@study-accelerator/content-anchor';
+import { alignIdentityBlocks, EDITOR_TO_MARKDOWN_BLOCK, identityBlockModels, parseIdentityBlocks, sourceToBlockOffset } from '@study-accelerator/content-anchor';
 import { commonmarkPreset } from './editorHardbreakMarks';
 import { noteLinkSchema } from './editorNoteLinks';
 import { createCodeBlockBehavior } from './editorCodeBlock';
@@ -51,10 +51,14 @@ export function compareModels(doc: ProseNode, markdown: string): [number, Mismat
   const models = identityBlockModels(markdown);
   const mismatches: Mismatch[] = [];
   let checked = 0;
-  const checkInline = (block: number, type: string, content: ProseNode, model: { size: number; start: Array<number | null> } | null) => {
+  const checkInline = (block: number, type: string, content: ProseNode, model: { size: number; start: Array<number | null>; end: Array<number | null> } | null) => {
     if (!model) return void mismatches.push({ block, type, reason: 'noModel' });
     checked += 1;
     if (content.content.size !== model.size) return void mismatches.push({ block, type, reason: `size ${content.content.size}≠${model.size}` });
+    for (const edge of ['start', 'end'] as const) for (let i = 0; i <= model.size; i += 1) {
+      const source = model[edge][i];
+      if (source != null && sourceToBlockOffset(model, source, edge) !== i) mismatches.push({ block, type, reason: `${edge} roundtrip@${i}` });
+    }
     let offset = 0;
     const walk = (node: ProseNode) => {
       node.forEach(child => {
@@ -62,6 +66,8 @@ export function compareModels(doc: ProseNode, markdown: string): [number, Mismat
           for (let i = 0; i < child.text!.length; i += 1) {
             const expected = child.text![i];
             const at = model.start[offset + i];
+            const end = model.end[offset + i + 1];
+            if (end == null || markdown[end - 1] !== expected) mismatches.push({ block, type, reason: `endChar@${offset + i}` });
             if (at === null || at === undefined || markdown[at] !== expected) mismatches.push({ block, type, reason: `char@${offset + i} 编辑器「${expected}」源码「${at == null ? '∅' : markdown[at]}」` });
           }
           offset += child.text!.length;
@@ -95,6 +101,9 @@ const synthetic = [
   '图片 ![图](https://example.com/a.png) 之后 <span>行内html</span> 结尾',
   '* 列表项\n\n    ```\n    缩进代码\n      保留相对缩进\n    ```',
   '段落里<br />换行',
+  'a\\*b 与 **粗**尾和 *斜*尾，emoji 😀',
+  '> a\n> b\n> c',
+  '> ```\n> a\n> b\n> ```',
   '<div>块级 HTML</div>\n\n之后的段落 <span>行内</span>',
   '| <br /> | 表头 |\n| - | - |\n| 单元格<br />换行 | 值 |'
 ];
@@ -107,8 +116,7 @@ describe('块内偏移模型与编辑器一致', () => {
     expect(mismatches).toEqual([]);
   });
 
-  it('不支持的语法如实报告为无模型，而不是给出错误偏移', async () => {
-    const markdown = '正文[^1]\n\n[^1]: 脚注';
+  it.each(['正文[^1]\n\n[^1]: 脚注', 'a &amp; b', 'a &#42; b', '&amp;', '&#42;'])('不支持的语法如实报告为无模型：%s', async markdown => {
     const [, mismatches] = compareModels(await loadDoc(markdown), markdown);
     expect(mismatches.some(item => item.reason === 'noModel')).toBe(true);
   });
