@@ -7,13 +7,8 @@ import { createServer } from '../../src/server.js';
 import { createUnavailableAiRuntime } from '../../src/modules/ai/runtime.js';
 import { startHangProbe } from './ai-hang-probe.mjs';
 
-export const CORE_HTTP_SAMPLE_COUNT = 40;
-const WARMUP_COUNT = 3;
-export function p95(samples) {
-  assert(samples.length >= 40, 'p95 至少需要 40 个完整样本');
-  const sorted = [...samples].sort((a, b) => a - b);
-  return sorted[Math.ceil(sorted.length * .95) - 1];
-}
+import { CORE_HTTP_SAMPLE_COUNT, CORE_HTTP_WARMUP_COUNT as WARMUP_COUNT } from './http-latency-samples.mjs';
+export { CORE_HTTP_SAMPLE_COUNT, p95 } from './http-latency-samples.mjs';
 
 /** 每种模式从独立空库开始，使用完全相同的 ID/正文/操作序列，避免库与 journal 随组增长。 */
 export async function measureCoreHttp(mode) {
