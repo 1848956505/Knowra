@@ -1,6 +1,6 @@
 {
-  "baselineCommit": "8b40b35426fed3405947b1c2c5f7c25952eb2958",
-  "declarationsSha256": "0a93b567f4e110ea530abc3c112923ac3424e46cbea81f201ba5cdb566ba4a9d",
+  "baselineCommit": "dd09fe729f48a5d1014fc2a26730272d1ac27874",
+  "declarationsSha256": "3091cf6b8eaf0683201089525e437cc4a0aced5c67b7cb12547479ad01d8df6a",
   "packageContract": {
     "name": "@study-accelerator/content-anchor",
     "type": "module",
@@ -13,6 +13,7 @@
     "EDITOR_TO_MARKDOWN_BLOCK": "object",
     "IDENTITY_SHADOW_FORMAT": "number",
     "MARKDOWN_PROJECTION_VERSION": "number",
+    "adoptIdentityIds": "function",
     "alignIdentityBlocks": "function",
     "anchorForBlock": "function",
     "anchorForListItem": "function",
@@ -29,6 +30,7 @@
     "followListAnchorChanges": "function",
     "followSectionAnchor": "function",
     "headingPathForSourceOffset": "function",
+    "identityFromEditorState": "function",
     "identityQuoteHash": "function",
     "listTracking": "function",
     "parseIdentityBlocks": "function",
@@ -41,6 +43,7 @@
     "sourceEdits": "function",
     "updateStructure": "function",
     "validIdentityEditorState": "function",
+    "validIdentityTable": "function",
     "verifiedSourceEdits": "function"
   },
   "cases": {

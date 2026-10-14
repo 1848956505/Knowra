@@ -63,7 +63,7 @@ import {
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
 import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml, withoutIdentity } from './editorBlockIdentity';
-import { annotationShadowBehavior, captureIdentitySnapshot, type AnnotationIdentitySnapshot } from './annotationShadow';
+import { annotationShadowBehavior, applyBlockIdentity, captureIdentitySnapshot, type AnnotationIdentitySnapshot } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
 import {
   annotationPluginKey,
@@ -98,6 +98,8 @@ export interface MilkdownNoteEditorProps {
   focusedAnnotationId?: string | null;
   onCreateAnnotation?(scope: 'selection' | 'blocks' | 'section' | 'list', importance?: 'normal' | 'important' | 'core'): Promise<void>;
   onChange(markdown: string, options?: { editIntent?: import('./annotationEditJournal').AnnotationEditIntent; identity?: AnnotationIdentitySnapshot }): void;
+  /** 服务端保存的块身份表；只在加载笔记与整篇替换正文时沿用，之后以编辑器为准。 */
+  blockIdentity?: import('@study-accelerator/web-core').AnnotationIdentityTable | null;
   onSelectAnnotation?(annotationIds: string[]): void;
   onStatus?(message: string): void;
   onReady?(): void | Promise<void>;
@@ -105,10 +107,11 @@ export interface MilkdownNoteEditorProps {
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
-  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage, onRequestNoteLink, onOpenNoteLink, noteLinkStatuses }, ref) {
+  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, blockIdentity = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage, onRequestNoteLink, onOpenNoteLink, noteLinkStatuses }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
+    const blockIdentityRef = useRef(blockIdentity);
     const onStatusRef = useRef(onStatus);
     const noteLinkCallbacks = useRef({ onRequestNoteLink, onOpenNoteLink, noteLinkStatuses });
     noteLinkCallbacks.current = { onRequestNoteLink, onOpenNoteLink, noteLinkStatuses };
@@ -150,6 +153,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     const compositionFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
     onChangeRef.current = onChange;
+    blockIdentityRef.current = blockIdentity;
     onStatusRef.current = onStatus;
     onReadyRef.current = onReady;
     onUploadImageRef.current = onUploadImage;
@@ -517,6 +521,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         }
         const identityView = editor.ctx.get(editorViewCtx);
         identityView.dispatch(identityView.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
+        applyBlockIdentity(identityView, editorMarkdownRef.current, blockIdentityRef.current);
         readyRef.current = true;
         setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
         const selection = editor.ctx.get(editorViewCtx).state.selection;
@@ -559,7 +564,13 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       const scrollRoot = view.dom.closest<HTMLElement>('[data-editor-scroll-root]');
       const scrollTop = scrollRoot?.scrollTop;
       applyingRemoteRef.current = true;
-      try { editor.action(replaceAllMarkdown(markdown)); }
+      try {
+        // 远端整篇正文是新的编辑基线，不能混入本地撤销历史或沿用旧正文的重点范围快照。
+        editor.action(replaceAllMarkdown(markdown, true));
+        view.dispatch(view.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
+        applyBlockIdentity(view, markdown, blockIdentityRef.current);
+        setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
+      }
       finally { applyingRemoteRef.current = false; }
       latestLocalMarkdownRef.current = markdown;
       if (scrollRoot && scrollTop !== undefined) {

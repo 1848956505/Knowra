@@ -704,6 +704,7 @@ export function NoteEditorView({
           onCreateAnnotation: extendedWritesEnabled ? createCurrentAnnotation : undefined,
           annotations,
           focusedAnnotationId,
+          blockIdentity: note.annotationStructure?.identity ?? null,
           onChange: autosave.updateDraft,
           onSelectAnnotation: (ids) => {
             if (ids.length === 1) {

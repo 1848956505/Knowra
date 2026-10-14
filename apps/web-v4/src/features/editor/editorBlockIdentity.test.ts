@@ -3,7 +3,7 @@ import { Editor, defaultValueCtx, editorViewCtx, parserCtx, rootCtx, serializerC
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
-import { getHTML, getMarkdown } from '@milkdown/kit/utils';
+import { getHTML, getMarkdown, replaceAll as replaceAllMarkdown } from '@milkdown/kit/utils';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
@@ -16,13 +16,13 @@ import { commonmarkPreset } from './editorHardbreakMarks';
 import { mathBlockSchema } from './editorMathBlock';
 import { mathInlineSchema } from './editorMathInline';
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
-import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, setEditorAnnotations } from './editorAnnotations';
+import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, resolveAnnotationRange, setEditorAnnotations } from './editorAnnotations';
 import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
 } from './editorBlockIdentity';
-import { annotationShadowBehavior, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
-import { compareIdentityShadow } from '@study-accelerator/content-anchor';
+import { annotationShadowBehavior, applyBlockIdentity, buildIdentityEditorState, captureIdentitySnapshot, getAnnotationShadowReport, annotationShadowKey } from './annotationShadow';
+import { anchorFromProjectedRange, calculateContentHash, compareIdentityShadow, identityFromEditorState, projectMarkdown } from '@study-accelerator/content-anchor';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ClipboardEvent ??= class extends Event {
@@ -388,5 +388,136 @@ describe('影子比对', () => {
     if (tracked(e, annotation.id).missing) expect(divergence).toMatchObject({ annotationId: annotation.id, kind: 'trackedLost' });
     else expect(divergence).toBeUndefined();
     expect(marksIn(e.view.state.doc, 0, e.view.state.doc.content.size)).toEqual([annotation.id]);
+  });
+});
+
+describe('块身份表（S2b）', () => {
+  const markdown = '# 标题\n\n第一段\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n## 二\n\n尾段\n';
+  const tableFrom = (e: TestEditor) => identityFromEditorState(e.markdown(), buildIdentityEditorState(e.view.state.doc, new Map(), e.markdown()))!;
+
+  it('保存时生成的身份表在下次打开时交回编辑器，块 ID 跨会话不变', async () => {
+    const first = await createEditor(markdown);
+    const serialized = first.markdown();
+    const identity = tableFrom(first);
+    expect(identity).not.toBeNull();
+    const second = await createEditor(serialized);
+    const before = blockIds(second.view.state.doc);
+    expect(applyBlockIdentity(second.view, serialized, identity)).toBe(true);
+    const adopted = blockIds(second.view.state.doc);
+    expect(adopted).not.toEqual(before);
+    const editorIds = buildIdentityEditorState(second.view.state.doc, new Map(), serialized).blocks.map(block => block.id);
+    expect(identity.blocks.map(block => block.id).every(id => editorIds.includes(id))).toBe(true);
+    expect(tableFrom(second)).toEqual(identity);
+    expect(second.markdown()).toBe(serialized);
+  });
+
+  it('没有任何重点时也捕获身份快照，保证块身份随保存持久化', async () => {
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const snapshot = captureIdentitySnapshot(e.view.state, serialized);
+    expect(snapshot?.markdown).toBe(serialized);
+    const state = snapshot!.build();
+    expect(state.annotations).toEqual([]);
+    expect(identityFromEditorState(serialized, state)).not.toBeNull();
+  });
+
+  it('身份表与正文不对应时不沿用，保留编辑器自己的 ID', async () => {
+    const first = await createEditor(markdown);
+    const identity = tableFrom(first);
+    const changed = first.markdown().replace('尾段', '尾段改');
+    const second = await createEditor(changed);
+    const before = blockIds(second.view.state.doc);
+    expect(applyBlockIdentity(second.view, changed, identity)).toBe(false);
+    expect(blockIds(second.view.state.doc)).toEqual(before);
+  });
+
+  it('整篇替换正文后重置影子绑定，按新块 ID 重新绑定且不记录虚假分歧', async () => {
+    const source = '## 一\n\n正文\n\n## 二\n\n其他\n';
+    const e = await createEditor(source);
+    const serialized = e.markdown();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1)));
+    const selection = getAnnotationSelection(e.editor, serialized, 'section')!;
+    setEditorAnnotations(e.editor, [{ id: 'sec', scopeType: 'section', anchor: selection.anchor, quoteText: selection.quoteText, anchorStatus: 'resolved', lifecycleStatus: 'active' } as Annotation], null);
+    const oldRoot = getAnnotationShadowReport(e.view.state).bindings.get('sec')!.rootBlockId;
+    const remote = serialized.replace('正文', '远端改过的正文');
+    const parsed = e.editor.ctx.get(parserCtx)(remote) as ProseNode;
+    e.view.dispatch(e.view.state.tr.replaceWith(0, e.view.state.doc.content.size, parsed.content));
+    applyBlockIdentity(e.view, remote, null);
+    // 旧绑定已清空，不会拿失效的旧 ID 去比较。
+    expect(getAnnotationShadowReport(e.view.state).bindings.has('sec')).toBe(false);
+    e.view.dispatch(e.view.state.tr.insertText('改', e.view.state.doc.content.size - 1));
+    expect(getAnnotationShadowReport(e.view.state).divergences).toEqual([]);
+    // 重点按新正文重新解析后，以新块 ID 重新绑定。
+    const current = e.markdown();
+    e.view.dispatch(e.view.state.tr.setSelection(TextSelection.create(e.view.state.doc, 1)));
+    const relocated = getAnnotationSelection(e.editor, current, 'section')!;
+    setEditorAnnotations(e.editor, [{ id: 'sec', scopeType: 'section', anchor: relocated.anchor, quoteText: relocated.quoteText, anchorStatus: 'resolved', lifecycleStatus: 'active', noteContentHash: calculateContentHash(current) } as Annotation], null);
+    const rebound = getAnnotationShadowReport(e.view.state).bindings.get('sec');
+    expect(rebound?.scopeType).toBe('section');
+    expect(rebound?.rootBlockId).not.toBe(oldRoot);
+    expect(blockIds(e.view.state.doc)).toContain(rebound!.rootBlockId);
+  });
+
+  it('读取空 ID 身份表时回退到本会话 ID，正文和合法快照保持可用', async () => {
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const identity = tableFrom(e);
+    const invalid = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+    const before = blockIds(e.view.state.doc);
+    expect(applyBlockIdentity(e.view, serialized, invalid)).toBe(false);
+    expect(blockIds(e.view.state.doc)).toEqual(before);
+    expect(e.markdown()).toBe(serialized);
+    expect(tableFrom(e)).toEqual(identity);
+  });
+
+  it('身份回填后迟到重点可恢复，本地正文编辑后仍拒绝旧响应覆盖范围', async () => {
+    const source = '## 标题\n\n重要文字\n\n尾段：重要远端文字。';
+    const annotationFor = (content: string, quote: string): Annotation => {
+      const projection = projectMarkdown(content), start = projection.text.indexOf(quote);
+      return { id: 'late', schemaVersion: 2, scopeType: 'selection', anchorStatus: 'resolved', lifecycleStatus: 'active',
+        quoteText: quote, noteContentHash: calculateContentHash(content),
+        anchor: anchorFromProjectedRange(projection, start, start + quote.length) } as Annotation;
+    };
+    const e = await createEditor(source);
+    const initial = annotationFor(source, '重要文字');
+    setEditorAnnotations(e.editor, [initial], null);
+    const remote = source.replace('重要文字', '重要远端文字');
+    e.editor.action(replaceAllMarkdown(remote, true));
+    e.view.dispatch(e.view.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
+    applyBlockIdentity(e.view, remote, null);
+    setEditorAnnotations(e.editor, [initial], null);
+    expect(annotationPluginKey.getState(e.view.state)?.ranges.get('late')?.missing).toBe(true);
+    expect(annotationPluginKey.getState(e.view.state)?.snapshots.length).toBeGreaterThan(0);
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(0);
+    expect(calculateContentHash(e.markdown())).not.toBe(calculateContentHash(remote));
+    const updated = annotationFor(remote, '重要远端文字');
+    setEditorAnnotations(e.editor, [updated], null);
+    const markedText = () => e.view.dom.querySelector('[data-annotation-id="late"]')?.textContent;
+    expect(markedText()).toBe('重要远端文字');
+    const range = annotationPluginKey.getState(e.view.state)!.ranges.get('late')!;
+    e.view.dispatch(e.view.state.tr.insertText('本地', range.from + 1));
+    const local = { ...annotationPluginKey.getState(e.view.state)!.ranges.get('late')! };
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBeGreaterThan(0);
+    // 本地插字后，旧摘录仍在尾段唯一存在；去掉保护会真实命中尾段，而不是解析失败后保留范围。
+    const staleRange = resolveAnnotationRange(e.view.state.doc, updated);
+    const tailStart = child(e.view.state.doc, 2).start + '尾段：'.length;
+    expect(staleRange).toEqual({ from: tailStart, to: tailStart + updated.quoteText.length });
+    expect(e.view.state.doc.textBetween(staleRange!.from, staleRange!.to)).toBe(updated.quoteText);
+    expect(staleRange).not.toEqual({ from: local.from, to: local.to });
+    setEditorAnnotations(e.editor, [updated], null);
+    expect(annotationPluginKey.getState(e.view.state)?.ranges.get('late')).toEqual(local);
+    expect(markedText()).toBe('重本地要远端文字');
+  });
+
+  it('标题 ID 维护不通知保存，非历史正文编辑仍递增修订并通知保存', async () => {
+    const changes: string[] = [];
+    const e = await createEditor('## 标题\n\n正文', { onChange: markdown => changes.push(markdown) });
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(0);
+    expect(changes).toEqual([]);
+    const paragraph = child(e.view.state.doc, 1);
+    e.view.dispatch(e.view.state.tr.insertText('补充', paragraph.start).setMeta('addToHistory', false));
+    expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBe(1);
+    expect(changes).toEqual([e.markdown()]);
+    expect(e.markdown()).toContain('补充正文');
   });
 });

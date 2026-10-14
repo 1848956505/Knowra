@@ -66,8 +66,13 @@ export function parseIdentityBlocks(markdown: string): Array<{ type: string; dep
 export function alignIdentityBlocks(markdownBlocks: ReturnType<typeof parseIdentityBlocks>, editorBlocks: IdentityEditorBlock[]): { aligned: true; pairs: Map<number, number> } | { aligned: false; editorIndex: number; markdownIndex: number; editorType: string | null; markdownType: string | null };
 export function validIdentityEditorState(state: unknown): state is IdentityEditorState;
 export function identityQuoteHash(value: string | null | undefined): string;
+/** 块身份表：按 parseIdentityBlocks 顺序记录每个 Markdown 块的编辑器 ID，存放在 annotationStructure.identity。 */
+export interface IdentityTable { formatVersion: 2; contentHash: string; blocks: Array<{ id: string; type: string }> }
+export function identityFromEditorState(markdown: string, editorState: unknown): IdentityTable | null;
+export function validIdentityTable(markdown: string, identity: unknown): identity is IdentityTable;
+export function adoptIdentityIds(markdown: string, identity: unknown, editorBlocks: IdentityEditorBlock[]): Map<number, string> | null;
 export function compareIdentityShadow(input: { markdown: string; editorState: unknown; annotations: Array<Record<string, any>> }): IdentityShadowResult;
-export interface AnnotationStructure { formatVersion: 1; revision: number; contentHash: string; nodes: Array<{ id: string; path: string; type: string; sourceStart: number; sourceEnd: number }> }
+export interface AnnotationStructure { formatVersion: 1; revision: number; contentHash: string; nodes: Array<{ id: string; path: string; type: string; sourceStart: number; sourceEnd: number }>; identity?: IdentityTable }
 export function sourceEdit(before: string, after: string): SourceEdit;
 export function applySourceEdit(source: string, edit: SourceEdit): string;
 export function verifiedSourceEdits(before: string, after: string, mapping?: AnnotationMapping): SourceEdit[] | null;

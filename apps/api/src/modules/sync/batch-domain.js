@@ -1,4 +1,4 @@
-import { calculateContentHash as trackingHash, updateStructure } from '@study-accelerator/content-anchor';
+import { calculateContentHash as trackingHash, updateStructure, validIdentityTable } from '@study-accelerator/content-anchor';
 import { normalizeKnowledgeChange, validateKnowledgeBatch, validateKnowledgeLifecycleChange } from './knowledge-batch-domain.js';
 import { normalizeTrainingChange, reconcileTrainingChanges, validateTrainingBatch } from './training-batch-domain.js';
 import { buildCreateNoteDto } from '../knowledge/application/dto/note.dto.js';
@@ -95,6 +95,11 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
         assertNoInsecureImageUrls(value.rawMarkdown);
         if (value.annotationStructure?.contentHash !== trackingHash(value.rawMarkdown)) {
           value.annotationStructure = updateStructure(old?.rawMarkdown ?? '', value.rawMarkdown, old?.annotationStructure);
+        }
+        // 块身份表只是可选的诊断与迁移数据：与正文不对应时丢弃，不能拒绝整批同步。
+        else if (value.annotationStructure?.identity && !validIdentityTable(value.rawMarkdown, value.annotationStructure.identity)) {
+          const { identity: _invalid, ...structure } = value.annotationStructure;
+          value = { ...value, annotationStructure: structure };
         }
         value = { ...value, plainText: undefined, internalLinks: undefined, contentHash: sha(value.rawMarkdown) };
       }

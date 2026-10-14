@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { alignIdentityBlocks, calculateContentHash, compareIdentityShadow, identityQuoteHash, parseIdentityBlocks, validIdentityEditorState } from '../src/index.js';
+import { adoptIdentityIds, alignIdentityBlocks, calculateContentHash, compareIdentityShadow, identityFromEditorState, identityQuoteHash, parseIdentityBlocks, validIdentityEditorState, validIdentityTable } from '../src/index.js';
 
 const markdown = '# 标题\n\n第一段重点内容\n\n<br />\n\n* 甲\n  * 乙\n\n$$\nx^2\n$$\n\n## 二\n\n尾段\n';
 const editorBlocks = [
@@ -97,4 +97,36 @@ test('状态不合法、正文不一致或无法对齐时整体跳过', () => {
   assert.equal(validIdentityEditorState({ ...state([]), blocks: [{ id: 'x'.repeat(200), type: 'paragraph', empty: false }] }), false);
   assert.equal(validIdentityEditorState({ ...state([{ id: 'a', scopeType: 'other', present: true }]) }), false);
   assert.equal(validIdentityEditorState({ ...state([{ id: 'a', scopeType: 'selection', present: true, quoteHash: 'x'.repeat(200) }]) }), false);
+});
+
+test('身份表：由编辑器快照生成，按 Markdown 块顺序记录 ID，跳过无对应的空段落', () => {
+  const identity = identityFromEditorState(markdown, state([]));
+  assert.equal(identity.contentHash, calculateContentHash(markdown));
+  assert.deepEqual(identity.blocks.map(block => block.id), ['h1', 'p1', 'empty', 'li1', 'p-li1', 'li2', 'p-li2', 'm1', 'h2', 'p2']);
+  assert.deepEqual(identity.blocks.map(block => block.type), parseIdentityBlocks(markdown).map(block => block.type));
+  assert.equal(validIdentityTable(markdown, identity), true);
+});
+
+test('身份表：正文不一致、无法对齐或 ID 重复时不生成；内容或类型被篡改时视为无效', () => {
+  assert.equal(identityFromEditorState(markdown + 'x', state([])), null);
+  assert.equal(identityFromEditorState(markdown, { ...state([]), blocks: editorBlocks.slice(1) }), null);
+  assert.equal(identityFromEditorState(markdown, { ...state([]), blocks: editorBlocks.map(block => ({ ...block, id: 'same' })) }), null);
+  const identity = identityFromEditorState(markdown, state([]));
+  assert.equal(validIdentityTable(markdown + 'x', identity), false);
+  assert.equal(validIdentityTable(markdown, { ...identity, blocks: identity.blocks.slice(1) }), false);
+  assert.equal(validIdentityTable(markdown, { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, type: 'paragraph' } : block) }), false);
+  assert.equal(validIdentityTable(markdown, { ...identity, blocks: identity.blocks.map(block => ({ ...block, id: 'same' })) }), false);
+  assert.equal(validIdentityTable(markdown, null), false);
+  const emptyId = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+  assert.equal(validIdentityTable(markdown, emptyId), false);
+  assert.equal(adoptIdentityIds(markdown, emptyId, editorBlocks), null);
+});
+
+test('身份表：重新加载时把 ID 交回编辑器块；新编辑器的空段落仍可跳过', () => {
+  const identity = identityFromEditorState(markdown, state([]));
+  const reloaded = editorBlocks.map(block => ({ ...block, id: `new-${block.id}` }));
+  const adopted = adoptIdentityIds(markdown, identity, reloaded);
+  assert.deepEqual([...adopted.entries()], [[0, 'h1'], [1, 'p1'], [2, 'empty'], [3, 'li1'], [4, 'p-li1'], [5, 'li2'], [6, 'p-li2'], [7, 'm1'], [8, 'h2'], [9, 'p2']]);
+  assert.equal(adoptIdentityIds(markdown + 'x', identity, reloaded), null);
+  assert.equal(adoptIdentityIds(markdown, identity, reloaded.slice(2)), null);
 });

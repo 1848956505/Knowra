@@ -5,7 +5,8 @@ import { annotationPluginKey } from './editorAnnotations';
 import type { TrackedAnnotationRange } from './annotationTransactionRanges';
 import { listItemAt } from './editorListAnnotations';
 import { ANNOTATION_MARK, IDENTITY_META } from './editorBlockIdentity';
-import { calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK, identityQuoteHash } from '@study-accelerator/content-anchor';
+import { adoptIdentityIds, calculateContentHash, EDITOR_TO_MARKDOWN_BLOCK, identityQuoteHash } from '@study-accelerator/content-anchor';
+import type { EditorView } from '@milkdown/kit/prose/view';
 import type { AnnotationIdentityEditorState } from '@study-accelerator/web-core';
 
 /**
@@ -32,7 +33,7 @@ interface ShadowState {
   /** 每条重点最近一次的比对结论，只在结论变化时记录新的分歧。 */
   latest: ReadonlyMap<string, AnnotationShadowDivergence['kind'] | null>;
 }
-interface ShadowMeta { bindings?: Array<[string, AnnotationIdentityBinding]>; divergences?: AnnotationShadowDivergence[]; latest?: Array<[string, AnnotationShadowDivergence['kind'] | null]> }
+interface ShadowMeta { reset?: boolean; bindings?: Array<[string, AnnotationIdentityBinding]>; divergences?: AnnotationShadowDivergence[]; latest?: Array<[string, AnnotationShadowDivergence['kind'] | null]> }
 
 export const annotationShadowKey = new PluginKey<ShadowState>('KNOWRA_ANNOTATION_SHADOW');
 const MAX_DIVERGENCES = 50;
@@ -127,10 +128,12 @@ export const annotationShadowBehavior = $prose(() => new Plugin<ShadowState>({
     apply(transaction, previous) {
       const meta = transaction.getMeta(annotationShadowKey) as ShadowMeta | undefined;
       if (!meta) return previous;
+      // 整篇替换或沿用服务端块身份后，旧绑定指向的 ID 已不存在：清空后按新 ID 重新绑定。
+      const base = meta.reset ? { ...previous, bindings: new Map(), latest: new Map() } : previous;
       return {
-        bindings: meta.bindings ? new Map([...previous.bindings, ...meta.bindings]) : previous.bindings,
-        divergences: meta.divergences ? [...previous.divergences, ...meta.divergences].slice(-MAX_DIVERGENCES) : previous.divergences,
-        latest: meta.latest ? new Map([...previous.latest, ...meta.latest]) : previous.latest
+        bindings: meta.bindings ? new Map([...base.bindings, ...meta.bindings]) : base.bindings,
+        divergences: meta.divergences ? [...base.divergences, ...meta.divergences].slice(-MAX_DIVERGENCES) : base.divergences,
+        latest: meta.latest ? new Map([...base.latest, ...meta.latest]) : base.latest
       };
     }
   },
@@ -177,15 +180,34 @@ export const annotationShadowBehavior = $prose(() => new Plugin<ShadowState>({
 /** 保存时随正文提交的身份快照；捕获不可变文档与绑定，到真正保存时才计算。 */
 export interface AnnotationIdentitySnapshot { markdown: string; build(): AnnotationIdentityEditorState }
 
-function editorIdentityBlocks(doc: ProseNode): AnnotationIdentityEditorState['blocks'] {
-  const blocks: AnnotationIdentityEditorState['blocks'] = [];
-  doc.descendants(node => {
+function editorIdentityEntries(doc: ProseNode) {
+  const entries: Array<AnnotationIdentityEditorState['blocks'][number] & { position: number }> = [];
+  doc.descendants((node, position) => {
     const type = EDITOR_TO_MARKDOWN_BLOCK[node.type.name];
-    if (type && node.attrs.blockId) blocks.push({ id: node.attrs.blockId, type, empty: node.type.name === 'paragraph' && node.content.size === 0 });
+    if (type && node.attrs.blockId) entries.push({ id: node.attrs.blockId, type, empty: node.type.name === 'paragraph' && node.content.size === 0, position });
     // 与服务端一致：表格整体参与对齐，单元格内部不展开。
     return node.type.name !== 'table';
   });
-  return blocks;
+  return entries;
+}
+
+function editorIdentityBlocks(doc: ProseNode): AnnotationIdentityEditorState['blocks'] {
+  return editorIdentityEntries(doc).map(({ id, type, empty }) => ({ id, type, empty }));
+}
+
+/**
+ * 加载笔记或整篇替换正文后调用：身份表与正文对应时沿用服务端块 ID；无论是否沿用，都重置影子绑定。
+ * 返回是否沿用了身份表。只改身份，不进入撤销历史，也不触发保存。
+ */
+export function applyBlockIdentity(view: EditorView, markdown: string, identity: unknown): boolean {
+  const entries = editorIdentityEntries(view.state.doc);
+  const adopted = identity ? adoptIdentityIds(markdown, identity, entries) : null;
+  const tr = view.state.tr;
+  for (const [index, id] of adopted ?? []) {
+    if (entries[index].id !== id) tr.setNodeAttribute(entries[index].position, 'blockId', id);
+  }
+  view.dispatch(tr.setMeta(annotationShadowKey, { reset: true } satisfies ShadowMeta).setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
+  return Boolean(adopted);
 }
 
 /** 服务端把表格作为整体对齐：单元格内的块统一报告为所在表格的 ID。 */
@@ -222,8 +244,8 @@ export function buildIdentityEditorState(doc: ProseNode, bindings: ReadonlyMap<s
 }
 
 export function captureIdentitySnapshot(state: EditorState, markdown: string): AnnotationIdentitySnapshot | undefined {
-  const bindings = annotationShadowKey.getState(state)?.bindings;
-  if (!bindings?.size) return undefined;
+  // 没有重点时也要捕获：块身份表（S2b）随每次保存持久化，不依赖笔记里是否有重点。
+  const bindings = annotationShadowKey.getState(state)?.bindings ?? new Map<string, AnnotationIdentityBinding>();
   const doc = state.doc;
   return { markdown, build: () => buildIdentityEditorState(doc, bindings, markdown) };
 }
