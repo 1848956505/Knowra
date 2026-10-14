@@ -84,7 +84,6 @@ export const SearchField = forwardRef<HTMLDivElement, SearchFieldProps>(function
   return (
     <RASearchField
       ref={ref}
-      aria-label={label}
       className={cx(styles.field, className)}
       value={currentValue}
       onChange={handleChange as RASearchFieldProps['onChange']}

@@ -70,9 +70,9 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     if (allowEllipsis) expect(result.textOverflow).toBe('ellipsis');
     else expect(result.overflowX, `${name} 应换行而非横向裁掉正文`).toBeLessThanOrEqual(2);
   };
-  const searchTrigger = () => page.getByRole('button', {
-    name: viewport.width < 768 ? '打开全局搜索' : '搜索笔记', exact: true
-  });
+  const searchTrigger = () => viewport.width < 768
+    ? page.getByRole('navigation', { name: '移动端模块导航', exact: true }).getByRole('button', { name: '打开全局搜索', exact: true })
+    : page.getByRole('complementary', { name: '笔记上下文导航', exact: true }).getByRole('button', { name: '搜索笔记', exact: true });
   const dialog = page.getByRole('dialog', { name: '全局搜索', exact: true });
   const input = dialog.getByRole('combobox', { name: '搜索关键字', exact: true });
   const resultList = dialog.locator('#search-command-results');

@@ -42,7 +42,10 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   });
   assert.equal(notes.length, 7);
   await page.reload();
-  await page.getByRole('button', { name: '打开 标题栏验收笔记', exact: true }).click();
+  // 首页仅展示最近6篇；经“查看全部”打开精确夹具，保留真实UI导航。
+  await page.getByRole('region', { name: '最近编辑', exact: true }).getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.getByRole('article', { name: '笔记索引', exact: true })
+    .locator(`[data-entry-key="note:${notes[0].id}"]`).locator('button[data-index-primary]').click();
 
   const titlebar = page.getByLabel('Mac 窗口标题栏');
   const tabs = titlebar.getByRole('tablist', { name: '打开的笔记' });
@@ -70,7 +73,10 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await expect(page.locator('.ProseMirror')).toContainText('正文');
 
   await page.getByRole('button', { name: '知境工作区' }).click();
-  await page.getByRole('button', { name: '打开 第二篇笔记', exact: true }).click();
+  // 首页仅展示最近6篇；经“查看全部”打开精确夹具，保留真实UI导航。
+  await page.getByRole('region', { name: '最近编辑', exact: true }).getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.getByRole('article', { name: '笔记索引', exact: true })
+    .locator(`[data-entry-key="note:${notes[1].id}"]`).locator('button[data-index-primary]').click();
   await expect(tabs.getByRole('tab', { name: '第二篇笔记' })).toBeVisible();
   await tabs.getByRole('tab', { name: '标题栏验收笔记' }).click();
   await expect(tabs.getByRole('tab', { name: '标题栏验收笔记' })).toHaveAttribute('aria-selected', 'true');

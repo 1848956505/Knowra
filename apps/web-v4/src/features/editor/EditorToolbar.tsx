@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
+import { EditorToolbarMenu as ToolbarMenu } from './EditorToolbarMenu';
 import { PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/overlay';
 import {
@@ -82,50 +83,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </div>
     </div>
   );
-}
-
-/**
- * 悬停即开：指针移入按钮打开、移出 140ms 后关闭，可移入浮层继续操作。
- * 悬停打开后再点击按钮视为“固定”：菜单保持打开，直到点击外部、按 Esc 或选择菜单项；点击打开的菜单同样固定。
- */
-const HOVER_CLOSE_DELAY = 140;
-function ToolbarMenu({ label, children, disabled = false }: { label: string; children: ReactNode; disabled?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  const overTrigger = useRef(false);
-  const hoverOpened = useRef(false);
-  const pinned = useRef(false);
-  const cancel = () => { window.clearTimeout(timer.current); };
-  const scheduleClose = () => {
-    cancel();
-    if (pinned.current) return;
-    timer.current = window.setTimeout(() => { hoverOpened.current = false; setOpen(false); }, HOVER_CLOSE_DELAY);
-  };
-  useEffect(() => cancel, []);
-  // Esc 一次即关：不论焦点在按钮、菜单还是页面其它位置，也不会被“悬停后点击=固定”的逻辑吞掉。
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      cancel(); hoverOpened.current = false; pinned.current = false; setOpen(false);
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
-  return <MenuTrigger isOpen={open} onOpenChange={next => {
-    cancel();
-    if (!next && overTrigger.current && hoverOpened.current) { hoverOpened.current = false; pinned.current = true; return; }
-    if (next) { hoverOpened.current = false; pinned.current = true; } else { hoverOpened.current = false; pinned.current = false; }
-    setOpen(next);
-  }}>
-    <PressableButton isDisabled={disabled}
-      onHoverStart={() => { overTrigger.current = true; cancel(); if (!disabled && !open) { hoverOpened.current = true; pinned.current = false; setOpen(true); } }}
-      onHoverEnd={() => { overTrigger.current = false; scheduleClose(); }}>{label}</PressableButton>
-    {/* 非模态：没有遮罩，指针才能在相邻菜单按钮之间直接切换。 */}
-    <MenuPopover isNonModal>
-      <div onPointerEnter={cancel} onPointerLeave={scheduleClose}><Menu ariaLabel={`${label}菜单`}>{children}</Menu></div>
-    </MenuPopover>
-  </MenuTrigger>;
 }
 
 function FormatButton({ label, optional = false, disabled = false, title, onPress, children }: {

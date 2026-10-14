@@ -126,7 +126,16 @@
 }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .toolItem { height: var(--touch-target); min-height: var(--touch-target); }
+  /* 最长一排6个图标：6个触点 + 5处2px间距 + 12px内边距 + 2px边框。
+   * 极窄视口仍受 menu 的 max-width 约束，工具项换行而不是缩小触点。 */
+  .menu { width: calc(6 * var(--touch-target) + 24px); }
+  .toolRow { flex-wrap: wrap; }
+  .toolItem {
+    flex: 1 0 var(--touch-target);
+    min-width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+  }
   .submenuTrigger,
   .menu > :global([role='menuitem']),
   .submenu [role='menuitem'] { min-height: var(--touch-target); }

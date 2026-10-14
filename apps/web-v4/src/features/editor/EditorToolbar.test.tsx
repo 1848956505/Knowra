@@ -50,3 +50,32 @@ describe('EditorToolbar 菜单', () => {
     await waitFor(() => expect(screen.queryByRole('menu', { name: '文件' })).not.toBeInTheDocument());
   });
 });
+
+it('悬停已打开后按下固定，移出超过悬停关闭时间仍可选择菜单项', async () => {
+  const user = userEvent.setup();
+  const onFileAction = vi.fn();
+  render(<EditorToolbar {...props} onFileAction={onFileAction} />);
+  const trigger = screen.getByRole('button', { name: '文件' });
+  await user.hover(trigger);
+  await screen.findByRole('menu', { name: '文件' });
+  await user.click(trigger);
+  await user.unhover(trigger);
+  await new Promise(resolve => setTimeout(resolve, 250));
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await user.click(screen.getByRole('menuitem', { name: '导入 Markdown' }));
+  expect(onFileAction).toHaveBeenCalledWith('import-markdown');
+  await waitFor(() => expect(screen.queryByRole('menu', { name: '文件' })).not.toBeInTheDocument());
+});
+
+it('文件固定后悬停编辑只保留一个展开菜单', async () => {
+  const user = userEvent.setup();
+  render(<EditorToolbar {...props} />);
+  const file = screen.getByRole('button', { name: '文件' });
+  const edit = screen.getByRole('button', { name: '编辑' });
+  await user.click(file);
+  await user.hover(edit);
+  await waitFor(() => expect(screen.getAllByRole('menu')).toHaveLength(1));
+  expect(screen.getByRole('menu', { name: '编辑' })).toBeVisible();
+  expect(file).toHaveAttribute('aria-expanded', 'false');
+  expect(edit).toHaveAttribute('aria-expanded', 'true');
+});

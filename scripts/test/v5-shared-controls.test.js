@@ -26,6 +26,18 @@ function declarations(source, selector) {
 
 /* 只锁定 V5 共享视觉契约；点击、校验与键盘导航由各组件行为测试覆盖。 */
 describe('V5 shared control styles', () => {
+  it('inherits the complete cross-platform UI font stack in themed shells and portals', () => {
+    const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
+    const tokens = readFileSync(join(directory, '../../styles/tokens.css'), 'utf8');
+    assert.match(declarations(theme, '.theme'), /font-family:\s*var\(--font-ui\)/);
+    assert.doesNotMatch(theme, /--font-ui\s*:/, '局部外观不得覆盖共享字体栈');
+    const stack = tokens.match(/--font-ui\s*:\s*([^;]+);/)?.[1];
+    assert.ok(stack);
+    for (const family of ['PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'WenQuanYi Zen Hei']) {
+      assert.ok(stack.includes(family), `缺少跨平台中文后备字体 ${family}`);
+    }
+  });
+
   it('keeps notes button shapes scoped through the shared semantic radius', () => {
     const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
     assert.ok(declarations(theme, '.theme').includes('--radius-control: var(--ni-control-radius)'));

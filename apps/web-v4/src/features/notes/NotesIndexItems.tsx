@@ -81,7 +81,8 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       />
     ) : null}</td> : null}
     <td className={styles.nameData}>
-      <button type="button" data-index-primary className={styles.nameCell} aria-label={name || '未命名笔记'} disabled={isRecycleView && !isFolder}
+      <button type="button" data-index-primary className={styles.nameCell} aria-label={name || '未命名笔记'}
+        aria-description={properties.updated ? `最近更新${formatUpdatedAt(updatedAt)}` : undefined} disabled={isRecycleView && !isFolder}
         draggable={canWrite && !isRecycleView && !selectionMode}
         onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id })}
         onDragEnd={() => dragDrop?.end()}
@@ -143,8 +144,9 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
         type="button"
         className={styles.tile}
         data-index-primary
-        aria-label={`${isFolder ? item.folder.name : item.note.title || '未命名笔记'}${isFolder ? `${count} 项` : properties.updated ? formatUpdatedAt(entity.updatedAt) : ''}`}
-        aria-description={isFolder ? undefined : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name)].filter(Boolean).join('，')}
+        aria-label={isFolder ? item.folder.name : item.note.title || '未命名笔记'}
+        aria-description={isFolder ? `${count} 项` : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name),
+          properties.updated ? `最近更新${formatUpdatedAt(entity.updatedAt)}` : ''].filter(Boolean).join('，')}
         disabled={isRecycleView && !isFolder}
         data-selected={!isFolder && (selectedNoteId === entity.id || selected) ? true : undefined}
         data-drop-active={folderDrop.isOver || undefined}

@@ -62,6 +62,25 @@ describe('共享多行字段', () => {
 });
 
 describe('V4-04 SearchField', () => {
+  it('uses the visible label exactly once in the searchbox accessible name', () => {
+    render(<SearchField label="搜索" placeholder="按标题、标签或正文" />);
+    const input = screen.getByRole('searchbox', { name: '搜索' });
+    expect(input).toHaveAccessibleName('搜索');
+    expect(screen.getByLabelText('搜索')).toBe(input);
+  });
+
+  it('preserves an explicitly supplied aria-label and React Aria label composition', () => {
+    render(<SearchField label="搜索" aria-label="当前空间" />);
+    const input = screen.getByRole('searchbox', { name: '当前空间 搜索' });
+    expect(input).toHaveAttribute('aria-label', '当前空间');
+    expect(input).toHaveAccessibleName('当前空间 搜索');
+  });
+
+  it('keeps the explicit accessible name when no visible label text is supplied', () => {
+    render(<SearchField label="" aria-label="搜索资料" />);
+    expect(screen.getByRole('searchbox', { name: '搜索资料' })).toHaveAccessibleName('搜索资料');
+  });
+
   it('updates the value through controlled onChange', async () => {
     const user = userEvent.setup();
     function Demo() {

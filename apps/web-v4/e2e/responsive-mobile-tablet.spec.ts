@@ -89,7 +89,8 @@ for (const viewport of viewports) {
       await expect(scopeTitle).toHaveText('全部笔记');
       await expect(scopeTitle).toBeVisible();
       await expectShellContained(page);
-      const noteButton = index.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last();
+      const noteButton = index.locator('[data-entry-key="note:note-1"]')
+        .getByRole('button', { name: '编辑器验收笔记', exact: true }).and(index.locator('[data-index-primary]'));
       await expect(noteButton).toBeEnabled();
       if (viewport.height <= 560) {
         const content = page.getByTestId('notes-index-scroll');
@@ -190,7 +191,7 @@ for (const viewport of viewports) {
       if (compact) {
         await activate(page.getByRole('button', { name: '笔记列表', exact: true }));
         await expect(page).toHaveURL(/#\/materials$/);
-        await activate(page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last());
+        await activate(noteButton);
       } else await page.reload();
       await expect(editor).toContainText('合成保存验收');
       await expectShellContained(page);

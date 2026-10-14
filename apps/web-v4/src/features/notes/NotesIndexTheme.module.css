@@ -220,7 +220,7 @@ color-scheme:dark;
   --radius-tab: var(--ni-control-radius);
   --ni-control-radius: 999px;
   --ni-icon-radius: 50%;
-  font-family: var(--ni-ui);
+  font-family: var(--font-ui);
   color: var(--ni-ink);
 }
 .theme[data-ni-shape="rounded"] { --ni-control-radius: 7px; --ni-icon-radius: 7px; }

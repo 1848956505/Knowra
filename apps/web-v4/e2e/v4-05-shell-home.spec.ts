@@ -233,7 +233,19 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     const selectedCategory = page.getByRole('navigation', { name: '设置分类' }).getByRole('button', { name: /全部设置/ });
     await expect(selectedCategory).toHaveAttribute('aria-pressed', 'true');
     expect(await selectedCategory.evaluate((element) => { const style = getComputedStyle(element); return Number.parseFloat(style.borderLeftWidth) <= 1 && style.borderLeftWidth === style.borderRightWidth && style.borderLeftColor === style.borderRightColor; })).toBe(true);
-    expect(await selectedCategory.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 255, 255)');
+    const selectionBackground = await selectedCategory.evaluate(element => {
+      // 在被测控件的主题作用域解析令牌，保留已定稿的渐变选中态。
+      const probe = document.createElement('span');
+      probe.style.background = 'var(--nav-selected-bg, var(--surface-raised))';
+      element.append(probe);
+      const actual = getComputedStyle(element), expected = getComputedStyle(probe);
+      const result = { actual: { image: actual.backgroundImage, color: actual.backgroundColor },
+        expected: { image: expected.backgroundImage, color: expected.backgroundColor } };
+      probe.remove();
+      return result;
+    });
+    expect(selectionBackground.expected.image).toContain('linear-gradient');
+    expect(selectionBackground.actual).toEqual(selectionBackground.expected);
     await expect(page.getByText('显示 8 / 8 项设置')).toBeVisible();
     await expect(page.getByRole('heading', { name: '模型接入' })).toBeVisible();
     await expect(page.getByText('尚未配置')).toBeVisible();
@@ -282,7 +294,7 @@ test.describe('V4-05 公共 Shell 与主页', () => {
     await page.goto('/');
     await expect(page.getByRole('navigation', { name: '移动端模块导航' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: '工作域导航' })).toBeHidden();
-    await expect(page.getByRole('button', { name: '打开全局搜索' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '移动端模块导航', exact: true }).getByRole('button', { name: '打开全局搜索', exact: true })).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(2);
 
     await page.setViewportSize({ width: 1280, height: 720 });

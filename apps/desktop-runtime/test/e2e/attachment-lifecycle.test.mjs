@@ -21,7 +21,7 @@ test('真实 V4 附件缺失核验、原文件恢复、删除预检与本机保�
   const space = (await (await context.request.post(`${runtime.origin}/api/knowledge/spaces/default`, { data: {} })).json()).data;
   const note = (await (await context.request.post(`${runtime.origin}/api/knowledge/notes`, { data: { spaceId: space.id, title: '附件页面验收', rawMarkdown: '正文无附件引用' } })).json()).data;
   await page.reload();
-  await page.getByRole('button', { name: '打开 附件页面验收', exact: true }).click();
+  await page.getByRole('article', { name: '继续上次编辑', exact: true }).getByRole('button', { name: '继续编辑 附件页面验收', exact: true }).click();
   await expect(page.locator('.ProseMirror')).toContainText('正文无附件引用');
   if (!await page.getByRole('button', { name: '上传附件', exact: true }).isVisible()) await page.getByRole('button', { name: '切换文档检查器' }).click();
   await page.getByLabel('选择要上传的附件').setInputFiles({ name: '原文件.txt', mimeType: 'text/plain', buffer: Buffer.from('original') });
