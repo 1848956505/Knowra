@@ -234,12 +234,15 @@ test('工具执行期间外发被紧急关闭：返回前复核，不返回正�
 });
 
 test('限流与大小：超限返回稳定错误与重试时间，不静默截断，且不进入 AI 预算账本', async t => {
-  let current = Date.parse('2026-10-06T10:00:00Z');
+  // 授权服务使用真实日期；以当天固定 UTC 时刻创建未来授权，并避免限流推进跨过午夜。
+  let current = new Date().setUTCHours(10, 0, 0, 0);
   const env = await setup(t, { limits: { perMinute: 3, perDay: 5, concurrent: 1, maxResultBytes: 700 }, now: () => new Date(current) });
   const target = await env.note('限流', { rawMarkdown: '限'.repeat(400) });
   const ledger = () => env.runtime.store.readSync(db => ['ai_usage_records', 'ai_jobs', 'ai_job_attempts'].map(table => db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n));
   const ledgerBefore = ledger();
-  const client = connectMcpRuntime({ pairingFile: (await env.pair()).data.pairingFile });
+  const created = await env.pair();
+  assert.equal(created.status, 201, `配对前置失败：${created.error?.code ?? '未知错误'}`);
+  const client = connectMcpRuntime({ pairingFile: created.data.pairingFile });
   for (let index = 0; index < 3; index += 1) assert.equal((await client.call('read_slice', { noteId: target.id, start: 0, end: 3 })).fragments.length, 1);
   const limited = await client.call('read_slice', { noteId: target.id, start: 0, end: 3 }).catch(error => error);
   assert.equal(limited.code, 'MCP_RATE_LIMITED'); assert(limited.retryAfterSeconds >= 1 && limited.retryAfterSeconds <= 60);
