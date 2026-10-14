@@ -128,23 +128,13 @@
 .form > * { width: 100%; min-width: 0; }
 .error { color: var(--color-danger); font-size: 12px; overflow-wrap: anywhere; }
 
-@media (max-width: 1050px) {
-  .filters { flex-wrap: wrap; }
-  .filters > label:first-child { flex-basis: 100%; }
-}
 @media (max-width: 767px) {
   .groups { padding: 18px 14px 30px; gap: 22px; }
-  .filters { gap: 9px; }
   .groupHeader { gap: var(--space-2); }
-}
-@media (max-width: 480px) {
-  .filters > [role='group'] { width: 100%; }
-  .filters > [role='group'] button { flex: 1; }
 }
 
 /* 桌面版工具栏：类型/使用情况在左，搜索与分组、排序靠右（对应笔记索引的桌面布局）。 */
-.toolbarSpacer { flex: 1; min-width: 2px; }
-.toolbarField { flex: 0 0 auto; width: 148px; }
+.deskTools { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .searchSlot { width: 240px; min-width: 120px; }
 
 /* 平板/手机版：标题与工具合为一行；搜索默认收成图标，点按/聚焦或已有关键词时展开。 */

@@ -61,6 +61,10 @@ describe('TagManagerView 标签使用统计', () => {
     return data;
   }
 
+  /* 筛选、使用情况与排序都在“筛选与排序”浮层里；先打开再操作，Esc 关闭。 */
+  const openOptions = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: '筛选与排序' }));
+  const closeOptions = (user: ReturnType<typeof userEvent.setup>) => user.keyboard('{Escape}');
+
   it('仅按存活笔记去重计数，按使用量稳定排序并筛选全部零使用标签', async () => {
     const user = userEvent.setup();
     setUsageData();
@@ -68,19 +72,23 @@ describe('TagManagerView 标签使用统计', () => {
     for (const [name, count] of [['常用', 2], ['重复引用', 1], ['相同用量', 1], ['未使用', 0], ['仅回收站', 0]] as const) {
       expect(screen.getByText(name, { selector: 'article *' }).closest('article')).toHaveTextContent(`${count} 篇笔记`);
     }
+    await openOptions(user);
     expect(screen.getByRole('button', { name: /未使用\s*2/ })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /标签排序/ }));
-    await user.click(screen.getByRole('option', { name: '按使用量' }));
+    await user.click(screen.getByRole('button', { name: '按使用量' }));
+    await closeOptions(user);
     const visibleNames = () => screen.getAllByRole('article').map((card) => within(card).getByText(/^(常用|重复引用|相同用量|未使用|仅回收站)$/).textContent);
     expect(visibleNames()).toEqual(['常用', '重复引用', '相同用量', '未使用', '仅回收站']);
 
+    await openOptions(user);
     await user.click(screen.getByRole('button', { name: /未使用\s*2/ }));
+    await closeOptions(user);
     expect(visibleNames()).toEqual(['未使用', '仅回收站']);
     expect(screen.getByText('显示 2 / 5 个标签')).toBeInTheDocument();
     expect(screen.getByText('1 个分组 · 2 个未使用')).toBeInTheDocument();
 
+    await openOptions(user);
     await user.click(screen.getByRole('button', { name: /全部\s*5/ }));
+    await closeOptions(user);
     expect(visibleNames()).toEqual(['常用', '重复引用', '相同用量', '未使用', '仅回收站']);
   });
 
@@ -88,7 +96,9 @@ describe('TagManagerView 标签使用统计', () => {
     const user = userEvent.setup();
     const data = setUsageData();
     const view = render(<TagManagerView />);
+    await openOptions(user);
     await user.click(screen.getByRole('button', { name: /未使用\s*2/ }));
+    await closeOptions(user);
 
     mocked.state.serverData = { ...data, notes: [
       ...data.notes,
@@ -98,10 +108,11 @@ describe('TagManagerView 标签使用统计', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1);
     expect(screen.getByText('仅回收站')).toBeInTheDocument();
     expect(screen.queryByText('未使用', { selector: 'article *' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /未使用\s*1/ })).toBeInTheDocument();
     expect(screen.getByText('显示 1 / 5 个标签')).toBeInTheDocument();
-
+    await openOptions(user);
+    expect(screen.getByRole('button', { name: /未使用\s*1/ })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /全部\s*5/ }));
+    await closeOptions(user);
     const updatedCard = screen.getByText('未使用', { selector: 'article *' }).closest('article')!;
     expect(updatedCard).toHaveTextContent('1 篇笔记');
     await user.click(within(updatedCard).getByRole('button', { name: /的更多操作$/ }));
@@ -128,7 +139,9 @@ describe('TagManagerView 标签使用统计', () => {
     const prototypeCard = screen.getByText('原型标签').closest('article')!;
     expect(prototypeCard).toHaveTextContent('1 篇笔记');
     expect(screen.getByText('构造标签').closest('article')).toHaveTextContent('2 篇笔记');
+    await openOptions(user);
     expect(screen.getByRole('button', { name: /未使用\s*0/ })).toBeInTheDocument();
+    await closeOptions(user);
 
     await user.click(within(prototypeCard).getByRole('button', { name: /的更多操作$/ }));
     await user.click(screen.getByRole('menuitem', { name: '删除…' }));
