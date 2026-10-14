@@ -47,7 +47,7 @@ test('全局定稿外观跨页面和浮层生效，明暗切换在刷新后保�
   await expect(page.getByRole('button', { name: '切换深色模式' })).toBeVisible();
 });
 
-test('默认图标布局与卡片文件夹按原型展示，放大的类型筛选保留切换行为', async ({ page }, info) => {
+test('默认图标布局与卡片文件夹按原型展示，类型筛选收进显示选项', async ({ page }, info) => {
   await mockEditorWorkspace(page, []);
   const folders = ['工作', '灵感箱', '学习资料', '生活'].map((name, index) => ({ id: `folder-${index + 1}`, name, parentId: null, children: [] }));
   const notes = [14, 7, 10, 3].flatMap((count, index) => Array.from({ length: count }, (_, number) => createNote('', false, `note-${index}-${number}`, `资料 ${index + 1}-${number + 1}`, folders[index].id)));
@@ -58,10 +58,10 @@ test('默认图标布局与卡片文件夹按原型展示，放大的类型筛�
   const index = page.getByRole('article', { name: '笔记索引' });
   const toolbar = index.getByRole('toolbar', { name: '笔记索引工具栏' });
   await expect(toolbar.getByRole('button', { name: '图标视图' })).toHaveAttribute('aria-pressed', 'true');
-  const types = toolbar.getByRole('group', { name: '类型筛选' });
-  await expect(types.getByRole('button', { name: '全部', exact: true })).toHaveCSS('min-height', '28px');
   await expect(toolbar.getByRole('button', { name: '图标视图' })).toHaveCSS('min-height', '22px');
-  await types.getByRole('button', { name: '文件夹', exact: true }).click();
+  await toolbar.getByRole('button', { name: /^显示选项/ }).click();
+  await page.getByRole('group', { name: '类型' }).getByRole('button', { name: /^文件夹/ }).click();
+  await page.keyboard.press('Escape');
   await expect(index.locator('[data-entry-item]')).toHaveCount(4);
   await expect(index.locator('[data-folder-style="illustrated"]')).toHaveCount(4);
   await expect(index.locator('[data-kind="folder"]').filter({ hasText: '工作' }).locator('[data-folder-paper]')).toHaveCount(3);
@@ -82,7 +82,6 @@ test('默认图标布局与卡片文件夹按原型展示，放大的类型筛�
   await page.screenshot({ path: info.outputPath('folder-cards-dark.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 844 });
   // 窄屏：标题与工具合为一行，类型筛选与布局切换收进“显示选项”。
-  await expect(toolbar.getByRole('group', { name: '类型筛选' })).toHaveCount(0);
   const displayOptions = toolbar.getByRole('button', { name: /^显示选项/ });
   await expect(displayOptions).toHaveCSS('min-height', '44px');
   await expect(badge.first()).toBeInViewport();

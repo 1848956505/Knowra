@@ -5,7 +5,7 @@ import { WorkspacePanel, WorkspacePanelBody } from '../../components/workspace/W
 import type { PathSegment } from '../../shell/path';
 import { LOCAL_PERMANENT_DELETE_REASON } from '../../store/workspaceCapabilities';
 import { NotesIndexHeader } from './NotesIndexHeader';
-import { NotesIndexCompactTools, NotesIndexToolbar } from './NotesIndexToolbar';
+import { NotesIndexCompactTools, NotesIndexDesktopTools } from './NotesIndexToolbar';
 import { useCompactLayout } from '../../shell/useCompactLayout';
 import { NotesIndexDialogs } from './NotesIndexDialogs';
 import { NotesIndexPreview } from './NotesIndexPreview';
@@ -42,8 +42,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
       onOpenSpaces={() => c.navigate('/materials/spaces')} selectionMode={c.selectionMode}
       onToggleSelection={() => { c.setSelectionMode(value => !value); c.setSelectedNoteIds(new Set()); }}
       onImport={() => c.setImportOpen(true)} onCreate={mode => c.treeOperations.openCreate(mode, c.navigation.selectedFolderId)}
-      renderTools={compact ? slots => <NotesIndexCompactTools c={c} {...slots} /> : undefined} />
-    {compact ? null : <NotesIndexToolbar c={c} />}
+      renderTools={slots => compact ? <NotesIndexCompactTools c={c} {...slots} /> : <NotesIndexDesktopTools c={c} {...slots} />} />
     <NotesIndexFilterChips c={c} />
     <NotesIndexFilterMenu c={c} />
     {c.isRecycleView ? <p className={styles.capabilityNotice}>{c.supportsPermanentDelete ? '回收站里的笔记不会出现在其他位置，可以恢复或在确认后永久删除。' : LOCAL_PERMANENT_DELETE_REASON}</p> : null}

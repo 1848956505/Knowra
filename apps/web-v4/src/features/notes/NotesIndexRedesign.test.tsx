@@ -38,6 +38,13 @@ async function setup(options: { notes?: Note[]; readOnly?: boolean; view?: 'list
   return { ...view, api, store, onOpenNote, user: userEvent.setup() };
 }
 
+async function chooseType(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
+  const dialog = screen.getByRole('dialog', { name: '索引显示选项' });
+  await user.click(within(within(dialog).getByRole('group', { name: '类型' })).getByRole('button', { name: new RegExp(`^${label}`) }));
+  await user.keyboard('{Escape}');
+}
+
 async function chooseGroup(user: ReturnType<typeof userEvent.setup>, label: string) {
   await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
   const dialog = screen.getByRole('dialog', { name: '索引显示选项' });
@@ -129,8 +136,7 @@ describe('笔记索引新版真实交互', () => {
 
   it('缓存只读下禁止新建、导入、批量和行内写入，仍能预览', async () => {
     const { user, api } = await setup({ readOnly: true });
-    expect(screen.getByRole('button', { name: '新建笔记' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '导入' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '新建' })).toBeDisabled();
     expect(screen.getByRole('button', { name: title })).toHaveAttribute('draggable', 'false');
     await user.click(screen.getByRole('button', { name: '更多操作' }));
     expect(screen.getByRole('menuitem', { name: '批量管理' })).toHaveAttribute('aria-disabled', 'true');
@@ -166,7 +172,7 @@ describe('笔记索引新版真实交互', () => {
   it('跨页先按完整状态分组，折叠后重排分页且全部折叠仍保留标题', async () => {
     const notes = Array.from({ length: 40 }, (_, index) => createNote(`grouped-${index}`, { status: index % 2 ? 'active' : 'draft' }));
     const { user } = await setup({ notes, readOnly: true });
-    await user.click(screen.getByRole('button', { name: '笔记' }));
+    await chooseType(user, '笔记');
     await chooseGroup(user, '状态');
     expect(screen.getByRole('button', { name: /^草稿\s*20$/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^进行中\s*20$/ })).not.toBeInTheDocument();
@@ -190,7 +196,7 @@ describe('笔记索引新版真实交互', () => {
   it('末页折叠到单页后重新展开仍停留第1页，不恢复过期页码', async () => {
     const notes = Array.from({ length: 40 }, (_, index) => createNote(`collapse-${index}`));
     const { user } = await setup({ notes, readOnly: true });
-    await user.click(screen.getByRole('button', { name: '笔记' }));
+    await chooseType(user, '笔记');
     await chooseGroup(user, '状态');
     await user.click(screen.getByRole('button', { name: '第 2 页' }));
     expect(screen.getByRole('button', { name: '第 2 页' })).toHaveAttribute('aria-current', 'page');

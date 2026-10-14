@@ -59,7 +59,8 @@ describe('Notes index skeleton', () => {
 
   it('opens the existing Markdown importer from the index', async () => {
     renderWithStore(<NotesIndexView path={[]} />);
-    await userEvent.click(screen.getByRole('button', { name: '导入' }));
+    await userEvent.click(screen.getByRole('button', { name: '新建' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: '导入 Markdown' }));
     expect(screen.getByRole('dialog', { name: '导入 Markdown' })).toBeInTheDocument();
   });
 
@@ -193,11 +194,19 @@ describe('Notes index skeleton', () => {
     expect(screen.getByText('第 1 / 2 页 · 共 6 条')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '第 2 页' }));
     expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: '全部' })).toHaveTextContent('6');
-    await user.click(screen.getByRole('button', { name: '文件夹' }));
+    async function chooseType(label: string) {
+      await user.click(screen.getByRole('button', { name: /^显示选项/ }));
+      const dialog = screen.getByRole('dialog', { name: '索引显示选项' });
+      const group = within(dialog).getByRole('group', { name: '类型' });
+      const button = within(group).getByRole('button', { name: new RegExp(`^${label}`) });
+      await user.click(button);
+      await user.keyboard('{Escape}');
+      return button;
+    }
+    expect((await chooseType('全部'))).toHaveTextContent('6');
+    await chooseType('文件夹');
     expect(screen.getByText('第 1 / 1 页 · 共 3 条')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '笔记' })).toHaveTextContent('3');
-    await user.click(screen.getByRole('button', { name: '全部' }));
+    await chooseType('全部');
     await user.click(screen.getByRole('button', { name: '每页条数' }));
     await user.click(screen.getByRole('menuitemradio', { name: '每页 20 条' }));
     expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(6);

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { CreateEntryMenu } from './CreateEntryMenu';
-import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Tooltip, TooltipTrigger } from '../../components/ui';
+import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
-import { UploadIcon, PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon, ChevronDownIcon } from '../../components/icons/knowra';
+import { PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon } from '../../components/icons/knowra';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
 import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import styles from './NotesIndexView.module.css';
@@ -22,18 +22,14 @@ export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selecti
     </Menu></MenuPopover>
   </MenuTrigger>;
   const create = <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate} onImport={onImport}>
-    <GhostIconButton variant="glass" aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></GhostIconButton>
+    <GhostIconButton variant="glass" className={styles.createGlow} aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></GhostIconButton>
   </CreateEntryMenu>;
   return <header className={styles.header}>
     <div className={styles.heading}><NoteIcon size={17} /><strong>{path.at(-1)?.label ?? '笔记索引'}</strong><span title="当前已加载范围内的项目数，包含笔记与文件夹" aria-label={`已加载 ${count} 项`}>{count}</span></div>
     <nav className={styles.breadcrumb} aria-label="当前位置" title={path.map(segment => segment.label).join(' / ')}><PathTrail path={path} variant="top" /></nav>
     {renderTools ? renderTools({ more, create }) : <div className={styles.headerActions} aria-label="笔记操作">
-      <TooltipTrigger><Button size="workspace" variant="ghost" iconOnly aria-label="导入" isDisabled={!canWrite || isRecycleView} onPress={onImport}><UploadIcon size={16} /></Button><Tooltip>导入 Markdown</Tooltip></TooltipTrigger>
       {more}
-      <div className={styles.createGroup}>
-        <Button size="workspace" variant="accent" isDisabled={!canWrite || isRecycleView} onPress={() => onCreate('note')}><PlusIcon size={16} />新建笔记</Button>
-        <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate}><Button size="workspace" variant="accent" iconOnly aria-label="更多新建选项" isDisabled={!canWrite || isRecycleView}><ChevronDownIcon size={12} /></Button></CreateEntryMenu>
-      </div>
+      {create}
     </div>}
   </header>;
 }
