@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { parseBody } from '../../../api/src/http/request.js';
 import { McpError } from './mcp-error.mjs';
 import { prepareSocketDirectory, removeStaleSocket } from './socket-path.mjs';
+import { createHttpShutdown } from '../http-shutdown.mjs';
 
 export const serverProof = (verifier, pairingId, nonce) => createHmac('sha256', verifier)
   .update(`knowra-mcp-v1|${pairingId}|${nonce}`).digest('hex');
@@ -19,8 +20,14 @@ const fail = (response, error) => send(response, error.status ?? 500,
 export async function startMcpSocketServer({ socketPath, pairings, gate, logger = console }) {
   prepareSocketDirectory(socketPath);
   removeStaleSocket(socketPath);
+  const activeRequests = new Set();
+  let closing;
   const server = http.createServer(async (request, response) => {
+    let finishRequest;
+    const requestDone = new Promise(resolve => { finishRequest = resolve; });
+    activeRequests.add(requestDone);
     try {
+      if (closing) throw new McpError('MCP_CLOSING', '本地服务正在关闭。', { status: 503 });
       if (request.method !== 'POST' || request.headers.origin) throw new McpError('MCP_REQUEST_INVALID', '请求无效。', { status: 400 });
       if (request.url === '/mcp/v1/handshake') {
         const body = await parseBody(request, { limitBytes: 1024 });
@@ -47,15 +54,19 @@ export async function startMcpSocketServer({ socketPath, pairings, gate, logger 
         return fail(response, new McpError(status === 500 ? 'MCP_INTERNAL' : 'MCP_REQUEST_INVALID', status === 500 ? '外部调用失败。' : '请求无效。', { status }));
       }
       fail(response, error);
-    }
+    } finally { activeRequests.delete(requestDone); finishRequest(); }
   });
+  const closeHttp = createHttpShutdown(server, activeRequests);
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(socketPath, resolve); });
   fs.chmodSync(socketPath, 0o600);
   return {
     socketPath,
-    close: () => new Promise((resolve, reject) => server.close(error => {
-      try { fs.rmSync(socketPath, { force: true }); } catch { /* 目录将随运行端退出重建 */ }
-      error && error.code !== 'ERR_SERVER_NOT_RUNNING' ? reject(error) : resolve();
-    }))
+    close() {
+      if (!closing) closing = (async () => {
+        await closeHttp();
+        try { fs.rmSync(socketPath, { force: true }); } catch { /* 目录将随运行端退出重建 */ }
+      })();
+      return closing;
+    }
   };
 }

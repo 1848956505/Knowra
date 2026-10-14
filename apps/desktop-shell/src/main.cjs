@@ -124,6 +124,9 @@ else {
     ]));
     child = utilityProcess.fork(path.join(root, 'runtime.mjs'), [dataDirectory, path.join(root, 'web')], { serviceName: 'Knowra 本地资料服务', stdio: 'pipe' });
     child.on('message', message => {
+      if (message?.type === 'shutdown-stage' && ['mcp', 'http', 'sync', 'ai', 'store', 'released'].includes(message.stage)) {
+        log(`本地服务关闭阶段：${message.stage}`);
+      }
       handleAiCredentialRequest(message, { modelSettings, postMessage: reply => child?.postMessage(reply) });
       backupRpc.onMessage(message);
     });

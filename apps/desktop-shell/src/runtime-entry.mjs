@@ -14,7 +14,8 @@ const mcpAdapter = fs.existsSync(adapterScript) && fs.existsSync(appExecutable)
   ? { command: appExecutable, args: [adapterScript], env: { ELECTRON_RUN_AS_NODE: '1' } } : null;
 const credentials = createAiCredentialBridge(process.parentPort);
 try {
-  runtime = await startLocalRuntime({ dataDirectory, distRoot, credentialSource: credentials, mcpAdapter, logger: {
+  runtime = await startLocalRuntime({ dataDirectory, distRoot, credentialSource: credentials, mcpAdapter,
+    onCloseStage: stage => process.parentPort.postMessage({ type: 'shutdown-stage', stage }), logger: {
     error(_message, error) {
       process.parentPort.postMessage({ type: 'diagnostic', code: error?.code ?? 'INTERNAL_SERVER_ERROR',
         // 排除异常首行及请求参数，只记录错误码和代码栈位置。
