@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  anchorForSection, anchorFromProjectedRange, bindingSourceRange, calculateContentHash, parseIdentityBlocks, projectMarkdown, sourceEdit
+  anchorForSection, anchorFromProjectedRange, bindingSourceRange, calculateContentHash, identityFromEditorState, parseIdentityBlocks, projectMarkdown, sourceEdit
 } from '@study-accelerator/content-anchor';
 import { prepareBatchState } from '../src/modules/sync/batch-domain.js';
 import { applyPostgresState } from '../src/modules/sync/postgres-batch.js';
@@ -38,6 +38,27 @@ function noteWithIdentity(module, spaceId = 'space') {
 }
 
 export const annotationIdentityBindingTests = [
+  ...[
+    { markdown: 'abc\n\n<div>html</div>', blocks: [{ id: 'p', type: 'paragraph', empty: false }, { id: 'html', type: 'paragraph', empty: false }], name: '块级 HTML 与编辑器段落对齐' },
+    { markdown: 'abc', blocks: [{ id: 'p', type: 'paragraph', empty: false }, { id: 'extra', type: 'paragraph', empty: true }], name: '编辑器额外尾部空段落' }
+  ].map(({ markdown: md, blocks, name }) => ({
+    name: `重点绑定：${name}的合法上报优先于旧锚点，错 ID 仍拒绝`,
+    run() {
+      const state = { formatVersion: 2, targetContentHash: calculateContentHash(md), blocks, annotations: [
+        { id: 'selection', scopeType: 'selection', present: true, start: { blockId: 'p', offset: 1 }, end: { blockId: 'p', offset: 2 } }
+      ] };
+      const identity = identityFromEditorState(md, state);
+      assert.ok(identity, '与正文对齐的编辑器快照可以生成身份表');
+      const note = { rawMarkdown: md, annotationStructure: { identity } };
+      const anchor = anchorFromProjectedRange(projectMarkdown(md), 0, 1);
+      const annotation = { id: 'selection', scopeType: 'selection', anchorStatus: 'resolved', anchor };
+      const [change] = nextIdentityBindings(note, [annotation], state);
+      assert.deepEqual(bindingSourceRange(md, identity, change.identityBinding), { sourceStart: 1, sourceEnd: 2 });
+      const wrongIds = { ...state, blocks: blocks.map(block => ({ ...block, id: `wrong-${block.id}` })) };
+      const [fallback] = nextIdentityBindings(note, [annotation], wrongIds);
+      assert.deepEqual(bindingSourceRange(md, identity, fallback.identityBinding), { sourceStart: 0, sourceEnd: 1 });
+    }
+  })),
   { name: '重点绑定：过期编辑器快照不可覆盖同正文保留的身份表，刷新不跨正文复用', run() {
     const module = createKnowledgeModule();
     const note = noteWithIdentity(module);

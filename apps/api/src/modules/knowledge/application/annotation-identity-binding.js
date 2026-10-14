@@ -1,4 +1,4 @@
-import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable, validIdentityEditorState } from '@study-accelerator/content-anchor';
+import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable, identityFromEditorState } from '@study-accelerator/content-anchor';
 
 /**
  * 稳定身份迁移 S2b-2：保存或创建后刷新重点绑定。影子阶段只记录，不改变重点状态、修订号或旧链路字段。
@@ -8,9 +8,9 @@ import { bindingFromAnchor, bindingFromEditor, validBinding, validIdentityTable,
 export function nextIdentityBindings(note, annotations, editorState = null) {
   const identity = note?.annotationStructure?.identity;
   if (!validIdentityTable(note?.rawMarkdown ?? '', identity)) return [];
-  const reportMatches = validIdentityEditorState(editorState) && editorState.targetContentHash === identity.contentHash
-    && editorState.blocks.length === identity.blocks.length
-    && editorState.blocks.every((block, index) => block.id === identity.blocks[index].id && block.type === identity.blocks[index].type);
+  const reportedIdentity = identityFromEditorState(note.rawMarkdown, editorState);
+  const reportMatches = reportedIdentity?.blocks.length === identity.blocks.length
+    && reportedIdentity.blocks.every((block, index) => block.id === identity.blocks[index].id && block.type === identity.blocks[index].type);
   const reportedById = new Map((reportMatches ? editorState.annotations : []).map(item => [item.id, item]));
   const changes = [];
   const bindingContext = {}; // 仅本次保存共用同一份正文与身份表的不可变解析结果。
