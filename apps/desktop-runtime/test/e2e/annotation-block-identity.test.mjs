@@ -53,10 +53,16 @@ test('真实SQLite页面：保存后块身份写入服务端，整页重开沿�
   assert.deepEqual(await blockIds(), before);
 });
 
-for (const trailingNewline of [false, true]) test(`真实SQLite页面：带重点的远端整篇替换后编辑与撤销保留快照、修订和可见状态（末尾换行=${trailingNewline}）`, { timeout: 60000 }, async t => {
+for (const { trailingNewline, delayedAnnotation } of [
+  { trailingNewline: false, delayedAnnotation: false },
+  { trailingNewline: true, delayedAnnotation: false },
+  { trailingNewline: false, delayedAnnotation: true }
+]) test(`真实SQLite页面：带重点的远端整篇替换后编辑与撤销保留快照、修订和可见状态（末尾换行=${trailingNewline}，标注迟到=${delayedAnnotation}）`, { timeout: 60000 }, async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-identity-sync-'));
-  let runtime, browser, cloud, remote, engine;
+  let runtime, browser, cloud, remote, engine, releaseAnnotations;
+  let delayedResponseReady = false;
   t.after(async () => {
+    releaseAnnotations?.();
     await browser?.close(); await runtime?.close(); await engine?.close(); remote?.store.close();
     if (cloud) await new Promise(resolve => cloud.close(resolve));
     fs.rmSync(directory, { recursive: true, force: true });
@@ -99,7 +105,9 @@ for (const trailingNewline of [false, true]) test(`真实SQLite页面：带重�
   engine = createSyncEngine(remote.store, { autoSync: false, noteService: remote.knowledge.noteService,
     entityTransfer: createAttachmentTransfer({ uploadsDir: path.join(remoteDirectory, 'uploads'), storageRootDir: remoteDirectory }) });
   await engine.configure({ serverUrl });
-  const before = remote.knowledge.noteService.getNote(note.id), after = `${before.rawMarkdown.trimEnd()}\n\n远端追加${trailingNewline ? '\n' : ''}`;
+  const before = remote.knowledge.noteService.getNote(note.id);
+  const remoteQuote = delayedAnnotation ? '重要远端文字' : '重要文字';
+  const after = `${before.rawMarkdown.trimEnd().replace('重要文字', remoteQuote)}\n\n远端追加${trailingNewline ? '\n' : ''}`;
   remote.knowledge.noteService.updateNote(note.id, { expectedUpdatedAt: before.updatedAt, rawMarkdown: after,
     annotationMapping: { formatVersion: 1, operationId: 'remote-identity', baseContentHash: calculateContentHash(before.rawMarkdown),
       targetContentHash: calculateContentHash(after), edits: sourceEdits(before.rawMarkdown, after),
@@ -107,12 +115,25 @@ for (const trailingNewline of [false, true]) test(`真实SQLite页面：带重�
         blocks: parseIdentityBlocks(after).map((block, index) => ({ id: `remote-${index}`, type: block.type, empty: false })) } } });
   await engine.sync(); assert.equal(engine.status().error, null);
   const remoteAnnotation = remote.knowledge.contentAnnotationService.getAnnotation(annotation.id);
+  assert.equal(remoteAnnotation.anchorStatus, 'resolved', '有明确来源编辑映射的重点继续由旧链路自动跟随');
+  assert.equal(remoteAnnotation.quoteText, remoteQuote);
+  if (delayedAnnotation) {
+    const gate = new Promise(resolve => { releaseAnnotations = resolve; });
+    await page.route('**/api/knowledge/annotations?*', async route => {
+      const response = await route.fetch();
+      delayedResponseReady = true;
+      await gate;
+      await route.fulfill({ response });
+    });
+  }
   assert.equal((await post('/api/local-runtime/sync/retry', {})).error, null);
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   assert.equal((await read(`/api/knowledge/notes/${note.id}`)).rawMarkdown, after, '接收设备已持久化远端正文');
   await expect(editor).toContainText('远端追加', { timeout: 15000 });
+  if (delayedAnnotation) await expect.poll(() => delayedResponseReady).toBe(true);
+  releaseAnnotations?.();
   assert.equal(await mountedEditor.evaluate(element => element.isConnected), true, '原位整篇替换，不重建编辑器');
-  await expect(highlight).toHaveText('重要文字');
+  await expect(highlight).toHaveText(remoteQuote);
   await expect.poll(() => editor.locator('[data-block-id]').evaluateAll(elements => elements.map(element => element.getAttribute('data-block-id'))))
     .toEqual(parseIdentityBlocks(after).map((_, index) => `remote-${index}`));
   const adopted = await current();
@@ -128,14 +149,15 @@ for (const trailingNewline of [false, true]) test(`真实SQLite页面：带重�
     document.dispatchEvent(new Event('selectionchange'));
   });
   await page.keyboard.insertText('新增');
-  await expect.poll(async () => (await current()).quoteText).toBe('重新增要文字');
-  await expect(highlight).toHaveText('重新增要文字');
+  const editedQuote = `${remoteQuote.slice(0, 1)}新增${remoteQuote.slice(1)}`;
+  await expect.poll(async () => (await current()).quoteText).toBe(editedQuote);
+  await expect(highlight).toHaveText(editedQuote);
   const edited = await current();
   assert.equal(edited.revision, adopted.revision + 1);
   assert.equal(edited.anchorStatus, 'resolved'); assert.deepEqual(edited.originSnapshot, original.originSnapshot);
   await page.keyboard.press('ControlOrMeta+z');
-  await expect.poll(async () => (await current()).quoteText).toBe('重要文字');
-  await expect(highlight).toHaveText('重要文字');
+  await expect.poll(async () => (await current()).quoteText).toBe(remoteQuote);
+  await expect(highlight).toHaveText(remoteQuote);
   const undone = await current();
   assert.equal(undone.revision, edited.revision + 1);
   assert.equal(undone.anchorStatus, 'resolved'); assert.deepEqual(undone.originSnapshot, original.originSnapshot);
