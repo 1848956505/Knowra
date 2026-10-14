@@ -16,7 +16,7 @@ import { commonmarkPreset } from './editorHardbreakMarks';
 import { mathBlockSchema } from './editorMathBlock';
 import { mathInlineSchema } from './editorMathInline';
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
-import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, setEditorAnnotations } from './editorAnnotations';
+import { annotationPluginKey, createAnnotationHighlightBehavior, getAnnotationSelection, resolveAnnotationRange, setEditorAnnotations } from './editorAnnotations';
 import {
   ANNOTATION_MARK, IDENTITY_META, annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema,
   createBlockIdentityBehavior, stripIdentityFromHtml, withoutIdentity
@@ -471,7 +471,7 @@ describe('块身份表（S2b）', () => {
   });
 
   it('身份回填后迟到重点可恢复，本地正文编辑后仍拒绝旧响应覆盖范围', async () => {
-    const source = '## 标题\n\n重要文字\n\n尾段';
+    const source = '## 标题\n\n重要文字\n\n尾段：重要远端文字。';
     const annotationFor = (content: string, quote: string): Annotation => {
       const projection = projectMarkdown(content), start = projection.text.indexOf(quote);
       return { id: 'late', schemaVersion: 2, scopeType: 'selection', anchorStatus: 'resolved', lifecycleStatus: 'active',
@@ -498,6 +498,12 @@ describe('块身份表（S2b）', () => {
     e.view.dispatch(e.view.state.tr.insertText('本地', range.from + 1));
     const local = { ...annotationPluginKey.getState(e.view.state)!.ranges.get('late')! };
     expect(annotationPluginKey.getState(e.view.state)?.contentRevision).toBeGreaterThan(0);
+    // 本地插字后，旧摘录仍在尾段唯一存在；去掉保护会真实命中尾段，而不是解析失败后保留范围。
+    const staleRange = resolveAnnotationRange(e.view.state.doc, updated);
+    const tailStart = child(e.view.state.doc, 2).start + '尾段：'.length;
+    expect(staleRange).toEqual({ from: tailStart, to: tailStart + updated.quoteText.length });
+    expect(e.view.state.doc.textBetween(staleRange!.from, staleRange!.to)).toBe(updated.quoteText);
+    expect(staleRange).not.toEqual({ from: local.from, to: local.to });
     setEditorAnnotations(e.editor, [updated], null);
     expect(annotationPluginKey.getState(e.view.state)?.ranges.get('late')).toEqual(local);
     expect(markedText()).toBe('重本地要远端文字');
