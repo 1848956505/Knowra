@@ -33,12 +33,14 @@ test('全局定稿外观跨页面和浮层生效，明暗切换在刷新后保�
   await expect(shell).toHaveAttribute('data-ni-mode', 'dark');
   await page.screenshot({ path: info.outputPath('settings-dark.png'), animations: 'disabled' });
   await page.goto('/#/materials');
-  await page.getByRole('button', { name: '更多新建选项' }).click();
-  const menu = page.getByRole('menu', { name: '更多新建选项', exact: true });
+  const create = page.getByRole('article', { name: '笔记索引' }).getByRole('toolbar', { name: '笔记索引工具栏' }).getByRole('button', { name: '新建', exact: true });
+  await create.click();
+  const menu = page.getByRole('menu', { name: '新建', exact: true });
   await expect(menu).toBeVisible();
   await expect(menu.locator('..')).toHaveAttribute('data-ni-mode', 'dark');
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
+  await expect(create).toBeFocused();
   await page.getByRole('button', { name: '切换浅色模式' }).click();
   await expect(shell).toHaveAttribute('data-ni-mode', 'light');
   await expect(page.locator('#feature-stage')).toHaveCSS('background-color', 'rgb(251, 252, 253)');
@@ -92,7 +94,7 @@ test('默认图标布局与卡片文件夹按原型展示，类型筛选收进�
   await expect(page.getByRole('group', { name: '布局' }).getByRole('button', { name: '图标' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('热力图随标签区域滚动，新建按钮两半在桌面和窄屏保持等高', async ({ page }, info) => {
+test('热力图随标签区域滚动，桌面和窄屏新建入口保持尺寸及完整菜单', async ({ page }, info) => {
   await mockEditorWorkspace(page, []);
   await page.route(url => url.pathname === '/api/knowledge/folders/tree', route => route.fulfill({ json: { data: Array.from({ length: 30 }, (_, index) => ({ id: `folder-${index + 1}`, name: `目录 ${index + 1}`, parentId: null, children: [] })) } }));
   await page.setViewportSize({ width: 1440, height: 700 });
@@ -111,25 +113,76 @@ test('热力图随标签区域滚动，新建按钮两半在桌面和窄屏保�
   expect((await trash.boundingBox())!.y).toBe(trashBefore!.y);
   await expect(distribution).toBeInViewport();
   await page.screenshot({ path: info.outputPath('sidebar-scroll.png') });
-  await page.setViewportSize({ width: 1440, height: 844 });
-  const actions = page.getByRole('article', { name: '笔记索引' }).getByLabel('笔记操作', { exact: true });
-  const create = actions.getByRole('button', { name: '新建笔记', exact: true });
-  const more = actions.getByRole('button', { name: '更多新建选项' });
-  const left = await create.boundingBox();
-  const right = await more.boundingBox();
-  expect(left!.height).toBe(28);
-  expect(right!.height).toBe(left!.height);
-  expect(right!.y).toBe(left!.y);
-  await more.click();
-  await expect(page.getByRole('menu', { name: '更多新建选项', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
+  for (const { width, targetSize } of [{ width: 1440, targetSize: 30 }, { width: 390, targetSize: 44 }]) {
+    await page.setViewportSize({ width, height: 844 });
+    const toolbar = page.getByRole('article', { name: '笔记索引' }).getByRole('toolbar', { name: '笔记索引工具栏' });
+    const create = toolbar.getByRole('button', { name: '新建', exact: true });
+    await expect(create).toBeVisible();
+    const box = await create.boundingBox();
+    expect(box!.width).toBe(targetSize);
+    expect(box!.height).toBe(targetSize);
+    await create.click();
+    const menu = page.getByRole('menu', { name: '新建', exact: true });
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('menuitem')).toHaveText(['新建笔记', '新建文件夹', '导入 Markdown']);
+    for (const name of ['新建笔记', '新建文件夹', '导入 Markdown']) {
+      await expect(menu.getByRole('menuitem', { name, exact: true })).toBeEnabled();
+    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(create).toBeFocused();
+    // 关闭后仍可通过键盘重新打开，不遗留失效触发器或焦点。
+    await page.keyboard.press('Space');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(create).toBeFocused();
+  }
+});
 
-  // 窄屏：新建收成圆形“+”，菜单里含新建笔记、新建文件夹、导入 Markdown。
-  await page.setViewportSize({ width: 390, height: 844 });
-  const compactCreate = page.getByRole('article', { name: '笔记索引' }).getByRole('button', { name: '新建', exact: true });
-  await expect(compactCreate).toBeVisible();
-  await compactCreate.click();
-  const menu = page.getByRole('menu', { name: '新建', exact: true });
-  await expect(menu.getByRole('menuitem')).toHaveText(['新建笔记', '新建文件夹', '导入 Markdown']);
-  await page.keyboard.press('Escape');
+for (const { label, hasTouch, viewport } of [
+  { label: '窄屏', hasTouch: false, viewport: { width: 390, height: 844 } },
+  { label: '宽屏触屏', hasTouch: true, viewport: { width: 1024, height: 900 } }
+]) {
+  test.describe(`${label}共享图标按钮`, () => {
+    // 复用 fixture context，确保 syntheticNetwork 的请求和 WebSocket 隔离始终生效。
+    test.use({ hasTouch, viewport });
+    test('保留44px点击区域', async ({ page }) => {
+      await mockEditorWorkspace(page, []);
+      await page.goto('/#/materials');
+      const index = page.getByRole('article', { name: '笔记索引' });
+      for (const button of [
+        index.getByRole('button', { name: '筛选', exact: true }),
+        index.getByRole('button', { name: /^显示选项/ }),
+        index.getByRole('button', { name: '上一页', exact: true }),
+        index.getByRole('button', { name: '下一页', exact: true })
+      ]) {
+        await expect(button).toBeVisible();
+        const box = await button.boundingBox();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+      }
+    });
+  });
+}
+
+test('强制色保留页签和表单焦点，错误字段继续报告校验错误', async ({ page }) => {
+  await mockEditorWorkspace(page, []);
+  await page.goto('/#/showcase');
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.keyboard.press('Tab');
+  const title = page.getByRole('textbox', { name: '标题', exact: true });
+  const invalid = page.getByRole('textbox', { name: '路径', exact: true });
+  const search = page.getByRole('searchbox', { name: '搜索', exact: true });
+  const select = page.getByRole('button', { name: /排序方式/ });
+  const tab = page.getByRole('tab', { name: '概览', exact: true });
+  for (const control of [title, invalid, search, select, tab]) {
+    await control.focus();
+    await expect(control).toBeFocused();
+    const ring = control === title || control === invalid || control === search ? control.locator('..') : control;
+    await expect(ring).toHaveCSS('outline-style', 'solid');
+    await expect(ring).toHaveCSS('outline-width', '2px');
+  }
+  await expect(invalid).toHaveAttribute('aria-invalid', 'true');
+  await expect(invalid).toHaveAccessibleDescription(/路径已被占用/);
 });

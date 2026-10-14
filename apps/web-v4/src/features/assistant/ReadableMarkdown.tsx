@@ -3,18 +3,23 @@ import { MathBlock, MathText } from '../../components/math/MathText';
 import styles from './ReadableMarkdown.module.css';
 
 // 独占一行的块公式：`$$…$$`，或以 `$$` / `\[` 开头、`$$` / `\]` 结尾的多行公式。
-function readMathBlock(lines: string[], start: number): { source: string; next: number } | null {
+function readMathBlock(lines: string[], start: number): { source: string; raw: string; next: number } | null {
   const first = lines[start]!.trim();
   const open = first.startsWith('$$') ? '$$' : first.startsWith('\\[') ? '\\[' : '';
   if (!open) return null;
   const close = open === '$$' ? '$$' : '\\]';
-  const rest = first.slice(2);
-  if (rest.trimEnd().endsWith(close) && rest.trim().length > 2) return { source: rest.trimEnd().slice(0, -2), next: start + 1 };
-  const body = rest ? [rest] : [];
-  for (let index = start + 1; index < lines.length; index++) {
-    const line = lines[index]!.trimEnd();
+  const body: string[] = [];
+  for (let index = start; index < lines.length; index++) {
+    const line = index === start ? first.slice(2) : lines[index]!;
     if (line.trimStart().startsWith('```')) return null;
-    if (line.endsWith(close)) { body.push(line.slice(0, -2)); const source = body.join('\n'); return source.trim() ? { source, next: index + 1 } : null; }
+    const end = line.indexOf(close);
+    if (end >= 0) {
+      // 第一个闭合符之后仍有正文时，整行交给 MathText 分段，不能继续吞后面的公式。
+      if (line.slice(end + close.length).trim()) return null;
+      body.push(line.slice(0, end));
+      const source = body.join('\n');
+      return source.trim() ? { source, raw: lines.slice(start, index + 1).join('\n'), next: index + 1 } : null;
+    }
     body.push(line);
   }
   return null;
@@ -44,7 +49,7 @@ export function ReadableMarkdown({ text }: { text: string }) {
       continue;
     }
     const mathBlock = readMathBlock(lines, index);
-    if (mathBlock) { blocks.push(<MathBlock key={index} source={mathBlock.source} />); index = mathBlock.next; continue; }
+    if (mathBlock) { blocks.push(<MathBlock key={index} source={mathBlock.source} raw={mathBlock.raw} />); index = mathBlock.next; continue; }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading) {
       const start = index++;

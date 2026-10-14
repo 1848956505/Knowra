@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Note } from '@study-accelerator/web-core';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { useLocation, useNavigate } from '../../app/router';
@@ -7,9 +7,10 @@ import { buildIndexPath, indexRoute } from './notesIndexNavigation';
 import { useNotesIndexData } from './useNotesIndexData';
 import { useSidebarTreeOperations } from './useSidebarTreeOperations';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
-import { DEFAULT_DISPLAY_PROPERTIES, itemKey, type ViewMode, type TypeFilter, type SortMode, type GroupMode, type IndexItem } from './notesIndexPresentation';
+import { DEFAULT_DISPLAY_PROPERTIES, type ViewMode, type TypeFilter, type SortMode, type GroupMode, type IndexItem } from './notesIndexPresentation';
 import { filterIndexItems, type FilterLevel, type IndexFilters } from './notesIndexFilters';
 import { groupIndexItems, paginateIndexGroups } from './notesIndexGroups';
+import { useNotesIndexKeyboard } from './useNotesIndexKeyboard';
 
 /** 数据、路由与异步操作保持原有 store 所有权；这里仅编排索引局部状态。 */
 export function useNotesIndexController(onOpenNote?: (id: string) => void) {
@@ -84,25 +85,6 @@ export function useNotesIndexController(onOpenNote?: (id: string) => void) {
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
   }, []);
-  // 焦点不在列表条目上时（刚进入页面、点了空白处），J/K 先把焦点送进列表：已预览的条目优先，否则第一项。
-  const peekKeyRef = useRef(peekKey);
-  peekKeyRef.current = peekKey;
-  useEffect(() => {
-    const enterList = (event: KeyboardEvent) => {
-      const key = event.key.toLowerCase();
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || (key !== 'j' && key !== 'k')) return;
-      const target = event.target instanceof Element ? event.target : null;
-      if (!target || target.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [data-entry-item]')) return;
-      if (target !== document.body && !target.closest('[aria-label="笔记索引"]')) return;
-      const entries = Array.from(contentRef.current?.querySelectorAll<HTMLElement>('[data-entry-item]') ?? []);
-      const entry = entries.find(value => value.dataset.entryKey === peekKeyRef.current) ?? entries[0];
-      const button = entry?.querySelector<HTMLElement>('button:not([disabled])');
-      if (!button) return;
-      event.preventDefault(); button.focus();
-    };
-    window.addEventListener('keydown', enterList);
-    return () => window.removeEventListener('keydown', enterList);
-  }, []);
   useEffect(() => { if (page !== currentPage) setPage(currentPage); }, [page, currentPage]);
   useEffect(() => { contentRef.current?.scrollTo?.({ top: 0 }); }, [navigation.selectedFolderId, notesIndex.scope, page, view, typeFilter]);
   useEffect(() => {
@@ -123,46 +105,10 @@ export function useNotesIndexController(onOpenNote?: (id: string) => void) {
     setSelectionMode(true);
     setSelectedNoteIds(current => { const next = new Set(current); if (selected) next.add(id); else next.delete(id); return next; });
   }
-  /** 列表快捷键：J/K 移动、X 选择、Space 预览；Enter 沿用按钮自身的“打开”。 */
-  function handleEntryKeys(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-    const target = event.target as Element;
-    if (target.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"]')) return;
-    const entry = target.closest<HTMLElement>('[data-entry-item]');
-    if (!entry) return;
-    const key = event.key.toLowerCase();
-    if (key === 'j' || key === 'k') {
-      const entries = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[data-entry-item]'));
-      const next = entries[entries.indexOf(entry) + (key === 'j' ? 1 : -1)];
-      event.preventDefault();
-      next?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
-      return;
-    }
-    const item = allItems.find(value => itemKey(value) === entry.dataset.entryKey);
-    if (event.key === 'Enter' && peekOpen && item && target === entry.querySelector('button')) {
-      // 预览栏开着时点击只切换预览；Enter 始终是“打开”。
-      event.preventDefault(); event.stopPropagation();
-      if (item.kind === 'folder') selectFolder(item.folder.id); else openNote(item.note.id);
-      return;
-    }
-    if (key === 'x') {
-      event.preventDefault();
-      if (item?.kind === 'note' && canWrite && !isRecycleView) toggleNoteSelection(item.note.id, !selectedNoteIds.has(item.note.id));
-    } else if (event.key === ' ') {
-      // 阻止按钮把空格当作“按下”，改为预览。
-      event.preventDefault(); event.stopPropagation();
-      if (!item) return;
-      const itemId = itemKey(item);
-      if (peekOpen && peekKey === itemId) setPeekOpen(false);
-      else { setPeekOpen(true); setPeekKey(itemId); }
-    }
-  }
-  function swallowEntrySpace(event: ReactKeyboardEvent<HTMLElement>) {
-    if (event.key !== ' ' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-    const target = event.target as Element;
-    if (target.closest('input, textarea, select, [role="menu"], [role="dialog"]') || !target.closest('[data-entry-item]')) return;
-    event.preventDefault(); event.stopPropagation();
-  }
+  const { handleEntryKeys, swallowEntrySpace } = useNotesIndexKeyboard({
+    contentRef, peekKey, peekOpen, setPeekOpen, setPeekKey, allItems, canWrite, isRecycleView,
+    selectedNoteIds, toggleNoteSelection, selectFolder, openNote
+  });
   async function runBatch(action: () => Promise<void>) {
     if (!canWrite || batchPending) return false;
     setBatchPending(true); setBatchError('');

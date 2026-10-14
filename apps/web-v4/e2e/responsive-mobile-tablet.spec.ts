@@ -82,8 +82,15 @@ for (const viewport of viewports) {
       const saved: string[] = [];
       await mockEditorWorkspace(page, saved, [], markdown);
       await page.goto('/#/materials');
-      await expect(page.getByText('笔记索引', { exact: true })).toBeVisible();
-      const noteButton = page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last();
+      const index = page.getByRole('article', { name: '笔记索引', exact: true });
+      await expect(index).toBeVisible();
+      // 页头显示当前范围，索引模块身份保留在 article 的可访问名称上。
+      const scopeTitle = index.locator('header').first().locator('strong');
+      await expect(scopeTitle).toHaveText('全部笔记');
+      await expect(scopeTitle).toBeVisible();
+      await expectShellContained(page);
+      const noteButton = index.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last();
+      await expect(noteButton).toBeEnabled();
       if (viewport.height <= 560) {
         const content = page.getByTestId('notes-index-scroll');
         expect((await content.boundingBox())!.height, '低高度下索引内容不能被工具栏和分页压没').toBeGreaterThanOrEqual(140);

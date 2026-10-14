@@ -110,3 +110,12 @@
 .switch[data-focus-visible] .switchTrack { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
 .switch[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
 @media (prefers-reduced-motion: reduce) { .switchTrack, .switchThumb { transition: none; } }
+
+/* 强制色会移除阴影；系统色描边保留键盘焦点，常规主题仍使用柔和焦点环。 */
+@media (forced-colors: active) {
+  .field[data-invalid]:not([data-disabled]):focus-within .inputShell,
+  .field[data-invalid] .selectTrigger[data-focus-visible],
+  .field[data-invalid]:focus-within .selectTrigger,
+  .field:not([data-disabled]):focus-within .inputShell,
+  .selectTrigger[data-focus-visible] { outline: 2px solid Highlight; outline-offset: 2px; }
+}

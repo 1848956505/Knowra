@@ -24,7 +24,7 @@ function IndexFilterButton({ c }: { c: NotesIndexController }) {
 /** 触屏/窄屏：搜索（默认收成图标）、筛选、显示选项并入标题行；类型筛选收进显示选项。 */
 export function NotesIndexCompactTools({ c, more, create }: { c: NotesIndexController; more: ReactNode; create: ReactNode }) {
   return <div className={styles.compactTools} role="toolbar" aria-label="笔记索引工具栏">
-    <IndexFilterButton c={c} /><NotesIndexDisplayMenu c={c} showType /><IndexSearch c={c} />{more}{create}
+    <IndexFilterButton c={c} /><NotesIndexDisplayMenu c={c} showType showPreview /><IndexSearch c={c} />{more}{create}
   </div>;
 }
 

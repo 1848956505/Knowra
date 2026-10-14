@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Annotation } from '@study-accelerator/web-core';
@@ -384,3 +384,104 @@ function createInspector(overrides: Partial<Parameters<typeof EditorInspector>[0
     onReanchorAnnotation={overrides.onReanchorAnnotation ?? vi.fn().mockResolvedValue(undefined)}
   />;
 }
+
+
+it('快速状态切换在请求完成前禁用，完成后可继续操作', async () => {
+  const user = userEvent.setup();
+  let complete!: () => void;
+  const onOrganizeNote = vi.fn(() => new Promise<void>(resolve => { complete = resolve; }));
+  renderInspector({ onOrganizeNote });
+  const trigger = screen.getByRole('button', { name: /状态：.*点击切换/ });
+  await user.click(trigger);
+  await user.click(screen.getByRole('menuitem', { name: '进行中' }));
+  expect(trigger).toBeDisabled();
+  await user.click(trigger);
+  expect(onOrganizeNote).toHaveBeenCalledTimes(1);
+  await act(async () => complete());
+  expect(trigger).toBeEnabled();
+});
+
+it('快速状态切换失败显示错误并允许重试', async () => {
+  const user = userEvent.setup();
+  const onOrganizeNote = vi.fn().mockRejectedValueOnce(new Error('网络中断')).mockResolvedValue(undefined);
+  renderInspector({ onOrganizeNote });
+  const trigger = screen.getByRole('button', { name: /状态：.*点击切换/ });
+  await user.click(trigger);
+  await user.click(screen.getByRole('menuitem', { name: '进行中' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('网络中断，请重新选择状态重试');
+  expect(trigger).toBeEnabled();
+  await user.click(trigger);
+  await user.click(screen.getByRole('menuitem', { name: '进行中' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  expect(onOrganizeNote).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['resolve', 'open'], ['reject', 'open'],
+  ['resolve', 'pending'], ['reject', 'pending']
+] as const)('切换笔记后 A %s 不污染 B 的 %s 状态', async (outcome, state) => {
+  const user = userEvent.setup();
+  let resolveA!: () => void;
+  let rejectA!: (error: Error) => void;
+  let resolveB!: () => void;
+  const saveA = vi.fn(() => new Promise<void>((resolve, reject) => { resolveA = resolve; rejectA = reject; }));
+  const saveB = vi.fn(() => new Promise<void>(resolve => { resolveB = resolve; }));
+  const view = renderInspector({ onOrganizeNote: saveA });
+  await user.click(screen.getByRole('button', { name: /状态：.*点击切换/ }));
+  await user.click(screen.getByRole('menuitem', { name: '进行中' }));
+  expect(screen.getByRole('button', { name: /状态：.*点击切换/ })).toBeDisabled();
+
+  view.rerenderInspector({ note: { ...related, status: 'published' }, onOrganizeNote: saveB });
+  const triggerB = screen.getByRole('button', { name: '状态：已发布，点击切换' });
+  expect(triggerB).toBeEnabled();
+  await user.click(triggerB);
+  if (state === 'pending') await user.click(screen.getByRole('menuitem', { name: '已归档' }));
+  else expect(screen.getByRole('menu')).toBeVisible();
+
+  await act(async () => { if (outcome === 'reject') rejectA(new Error('A 的迟到失败')); else resolveA(); });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(triggerB).toHaveAccessibleName('状态：已发布，点击切换');
+  expect(saveA).toHaveBeenCalledTimes(1);
+  expect(saveA).toHaveBeenCalledWith({ folderId: folder.id, status: 'active' });
+  if (state === 'open') {
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(triggerB).toBeEnabled();
+    expect(saveB).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('menuitem', { name: '已归档' }));
+  }
+  expect(triggerB).toBeDisabled();
+  expect(saveB).toHaveBeenCalledTimes(1);
+  expect(saveB).toHaveBeenCalledWith({ folderId: related.folderId, status: 'archived' });
+  await act(async () => resolveB());
+  expect(triggerB).toBeEnabled();
+});
+
+it.each([['resolve', 'open'], ['reject', 'open'], ['resolve', 'pending'], ['reject', 'pending']] as const)('标签面板切笔记后 A %s 不污染 B 的 %s 会话', async (outcome, state) => {
+  const user = userEvent.setup();
+  let resolveA!: () => void;
+  let rejectA!: (error: Error) => void;
+  const saveA = vi.fn(() => new Promise<void>((resolve, reject) => { resolveA = resolve; rejectA = reject; }));
+  let resolveB!: () => void;
+  const saveB = vi.fn(() => new Promise<void>(resolve => { resolveB = resolve; }));
+  const view = renderInspector({ onSetTags: saveA });
+  await user.click(screen.getByRole('button', { name: '编辑' }));
+  await user.click(screen.getByRole('button', { name: '移除标签 AI' }));
+  await user.click(screen.getByRole('button', { name: '保存到笔记' }));
+  expect(saveA).toHaveBeenCalledWith(['tag-study']);
+
+  view.rerenderInspector({ note: { ...related, tagIds: ['tag-ai'] }, onSetTags: saveB });
+  const panelB = screen.getByRole('dialog', { name: '编辑笔记标签' });
+  expect(within(panelB).getByRole('button', { name: '保存到笔记' })).toBeEnabled();
+  expect(within(panelB).queryByRole('button', { name: '移除标签 学习' })).not.toBeInTheDocument();
+  expect(within(panelB).getByRole('button', { name: '移除标签 AI' })).toBeInTheDocument();
+  if (state === 'pending') await user.click(within(panelB).getByRole('button', { name: '保存到笔记' }));
+  await act(async () => { outcome === 'resolve' ? resolveA() : rejectA(new Error('A 的迟到失败')); });
+  expect(screen.getByRole('dialog', { name: '编辑笔记标签' })).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  if (state === 'open') expect(saveB).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '保存到笔记' }));
+  expect(saveB).toHaveBeenCalledExactlyOnceWith(['tag-ai']);
+  expect(saveA).toHaveBeenCalledTimes(1);
+  await act(async () => resolveB());
+  expect(screen.queryByRole('dialog', { name: '编辑笔记标签' })).not.toBeInTheDocument();
+});

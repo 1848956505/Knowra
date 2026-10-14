@@ -10,8 +10,6 @@
 .createGlow { --glow:var(--ni-accent,var(--accent)); color:var(--glow); box-shadow:0 0 18px 2px color-mix(in srgb,var(--glow) 16%,transparent),0 0 42px 6px color-mix(in srgb,var(--glow) 9%,transparent),0 1px 2px rgba(24,30,48,.06); transition:box-shadow .45s ease; }
 .createGlow:hover:not(:disabled), .createGlow[aria-expanded='true']:not(:disabled) { box-shadow:0 0 22px 3px color-mix(in srgb,var(--glow) 24%,transparent),0 0 52px 10px color-mix(in srgb,var(--glow) 13%,transparent),0 1px 2px rgba(24,30,48,.06); }
 .createGlow:disabled { box-shadow:none; }
-.toolbar { gap:4px; min-height:44px; padding:0 20px; flex-wrap:nowrap; }
-.toolbarSpacer { flex:1; min-width:2px; }
 .searchSlot { width:205px; min-width:100px; }
 .separator { height:14px; width:1px; flex:none; margin:0 3px; background:var(--ni-line-2); }
 .indexWrap { flex:1; min-height:0; min-width:0; display:flex; position:relative; }
@@ -95,7 +93,6 @@
   .panel .searchSlot:not(:focus-within) kbd { display:none; }
   .panel .header:has(.searchSlot:focus-within) > :not(.compactTools), .panel .compactTools:has(.searchSlot:focus-within) > :not(.searchSlot) { display:none; }
   .panel .header:has(.searchSlot:focus-within) > .compactTools { flex:1 1 auto; }
-  .panel .compactTools + .headerActions { margin-left:0; }
 }
 @media (prefers-reduced-motion:reduce) { .groupHeading > svg { transition:none; } }
 
@@ -103,9 +100,6 @@
 @media (max-height: 560px) {
   .panel { overflow-y:auto; overscroll-behavior:contain; }
   .header { padding-block:5px; gap:4px 12px; }
-  .toolbar { flex-wrap:nowrap; overflow-x:auto; padding-block:4px; }
-  .toolbar > * { flex-shrink:0; }
-  .toolbarSpacer { display:none; }
   .searchSlot { margin-left:0; }
   .indexWrap { flex:1 0 220px; min-height:220px; }
   .content { min-height:140px; }

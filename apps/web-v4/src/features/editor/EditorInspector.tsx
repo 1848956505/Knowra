@@ -125,7 +125,9 @@ export function EditorInspector(props: EditorInspectorProps) {
           </div>
         )}
       </Tabs>
+      {/* 标签草稿和异步操作归属当前笔记，切换笔记必须创建独立会话。 */}
       <TagPickerDialog
+        key={props.note.id}
         isOpen={tagEditorOpen}
         triggerRef={tagTriggerRef}
         tags={props.tags}

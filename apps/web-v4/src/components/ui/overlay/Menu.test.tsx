@@ -4,6 +4,21 @@ import { Button, Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger, Pressa
 import styles from './Overlay.module.css';
 
 describe('V4-04 Menu', () => {
+  it('keeps rich item names separate from their accessible descriptions', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(<MenuTrigger><Button>新建</Button><MenuPopover>
+      <Menu ariaLabel="新建选项" variant="rich" onAction={onAction}>
+        <MenuItem id="folder" textValue="新建文件夹" description="在当前位置创建">新建文件夹</MenuItem>
+      </Menu>
+    </MenuPopover></MenuTrigger>);
+    await user.click(screen.getByRole('button', { name: '新建' }));
+    const item = await screen.findByRole('menuitem', { name: '新建文件夹' });
+    expect(item).toHaveAccessibleDescription('在当前位置创建');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(onAction.mock.calls.map(([key]) => key)).toEqual(['folder']);
+  });
+
   it('toggles the menu between closed and open via the trigger', async () => {
     const user = userEvent.setup();
     render(

@@ -183,5 +183,5 @@
 
 @media (max-width: 767px), (any-pointer: coarse) {
   .btn { --button-min-height: 44px; min-height: var(--button-min-height); }
-  .icon, .iconOnly { min-width: 44px; width: 44px; }
+  .icon, .iconOnly, .toolbar.iconOnly, .footer.iconOnly { min-width: 44px; width: 44px; }
 }

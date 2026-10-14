@@ -24,7 +24,7 @@ function Field<T extends string>({ label, value, options, onChange }: { label: s
 }
 
 /** 显示选项：布局、图标大小、分组、排序与属性开关合并在一个浮层里；偏离默认分组/排序时按钮亮点。 */
-export function NotesIndexDisplayMenu({ c, showType = false }: { c: NotesIndexController; showType?: boolean }) {
+export function NotesIndexDisplayMenu({ c, showType = false, showPreview = false }: { c: NotesIndexController; showType?: boolean; showPreview?: boolean }) {
   const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
   const customized = c.sort !== 'updated-desc' || c.group !== 'updated';
   // 菜单展开时卸载提示，避免提示在触发器被浮层接管后失去锚点而落到页面左上角。
@@ -41,6 +41,7 @@ export function NotesIndexDisplayMenu({ c, showType = false }: { c: NotesIndexCo
           <Field label="分组" value={c.group} options={GROUPS} onChange={value => { c.setGroup(value); c.setCollapsed(new Set()); }} />
           <Field label="排序" value={SORTS.find(([, , modes]) => modes.includes(c.sort))?.[0] ?? 'updated-desc'} options={SORTS.map(([key, text]) => [key, key === 'name-asc' ? `${text}${NAME_ARROW[c.sort] ?? ''}` : text] as [SortMode, string])}
             onChange={value => c.setSort(value === 'name-asc' && c.sort === 'name-asc' ? 'name-desc' : value)} />
+          {showPreview ? <Switch isSelected={c.peekOpen} onChange={c.setPeekOpen}>预览栏</Switch> : null}
           <hr className={styles.sep} />
           <div className={styles.propsHead}>显示属性</div>
           {PROPERTIES.map(([key, text]) => <Switch key={key} isSelected={c.properties[key]}

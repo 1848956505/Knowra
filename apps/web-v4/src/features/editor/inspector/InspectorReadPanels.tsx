@@ -2,11 +2,9 @@ import type { RefObject } from 'react';
 import { MathText } from '../../../components/math/MathText';
 import type { Tag } from '@study-accelerator/web-core';
 import { Button } from '../../../components/ui';
-import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../../components/ui/overlay';
-import { ChevronDownIcon } from '../../../components/icons/knowra';
-import { ItemStatus } from '../../notes/NotesIndexItemMeta';
+import { NoteStatusControl } from './NoteStatusControl';
 import { NoteIcon, TagIcon, LinkIcon, PaperclipIcon } from '../../../components/icons/knowra';
-import { buildFolderPath, getSourceLabel, getStatusLabel, formatInspectorDay, formatInspectorMoment, type getDocumentStats, type InspectorHeading, type InspectorRelations } from '../editorInspectorModel';
+import { buildFolderPath, getSourceLabel, formatInspectorDay, formatInspectorMoment, type getDocumentStats, type InspectorHeading, type InspectorRelations } from '../editorInspectorModel';
 import { EditorAttachmentPanel } from '../EditorAttachmentPanel';
 import { TagChip } from '../../tags';
 import type { EditorInspectorProps } from './types';
@@ -34,7 +32,7 @@ export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 
         action={<Button size="mini" isDisabled={!props.canWrite} onPress={props.onOrganize}>整理</Button>}
       >
         <dl className={styles.metadata}>
-          <Metadata label="状态" value={<StatusControl status={props.note.status} disabled={!props.canWrite} onChange={status => props.onOrganizeNote({ folderId: props.note.folderId ?? null, status })} />} />
+          <Metadata label="状态" value={<NoteStatusControl key={props.note.id} status={props.note.status} disabled={!props.canWrite} onChange={status => props.onOrganizeNote({ folderId: props.note.folderId ?? null, status })} />} />
           <Metadata label="位置" value={folderPath} />
           <Metadata label="篇幅" value={<span className={styles.mono}>{props.stats.characterCount.toLocaleString('zh-CN')} 字 · {props.stats.readingMinutes > 0 ? `约 ${props.stats.readingMinutes} 分钟` : '少于 1 分钟'}</span>} />
           <Metadata label="时间" value={<span className={styles.mono} title={`创建于 ${formatInspectorMoment(props.note.createdAt)}`}>更新 {formatInspectorMoment(props.note.updatedAt)} · 创建 {formatInspectorDay(props.note.createdAt)}</span>} />
@@ -76,28 +74,6 @@ export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 
       </InspectorSection>
     </>
   );
-}
-
-const STATUS_CHOICES = [
-  { id: 'draft', label: '待整理' },
-  { id: 'active', label: '进行中' },
-  { id: 'published', label: '已发布' },
-  { id: 'archived', label: '已归档' }
-];
-
-/** 状态可直接切换，不必先打开“整理”对话框。 */
-function StatusControl({ status, disabled, onChange }: { status?: string; disabled: boolean; onChange(status: string): void }) {
-  const current = status || 'draft';
-  return <MenuTrigger>
-    <Button size="mini" variant="ghost" className={styles.statusButton} isDisabled={disabled} aria-label={`状态：${getStatusLabel(status)}，点击切换`}>
-      <ItemStatus status={getStatusLabel(status)} /><ChevronDownIcon size={11} />
-    </Button>
-    <MenuPopover placement="bottom start">
-      <Menu ariaLabel="切换状态" onAction={key => { if (String(key) !== current) onChange(String(key)); }}>
-        {STATUS_CHOICES.map(choice => <MenuItem id={choice.id} key={choice.id} kbd={choice.id === current ? '当前' : undefined}>{choice.label}</MenuItem>)}
-      </Menu>
-    </MenuPopover>
-  </MenuTrigger>;
 }
 
 export function OutlinePanel({ outline, onNavigate }: {

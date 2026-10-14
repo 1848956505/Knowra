@@ -40,3 +40,9 @@
   .shell[data-size='field'], .shell[data-size='sidebar'] { min-height: 44px; }
   .input, .shell[data-size='command'] .input, .shell[data-size='field'] .input { font-size: 16px; }
 }
+
+/* 强制色会移除阴影；系统色描边保留键盘焦点，常规主题仍使用柔和焦点环。 */
+@media (forced-colors: active) {
+  .shell[data-invalid]:not([data-disabled]):focus-within,
+  .shell:not([data-disabled]):focus-within { outline: 2px solid Highlight; outline-offset: 2px; }
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { CreateEntryMenu } from './CreateEntryMenu';
-import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
+import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, MenuSeparator, SubmenuTrigger } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
 import { PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon } from '../../components/icons/knowra';
@@ -15,8 +15,17 @@ export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selecti
   onToggleSelection(): void; onImport(): void; onCreate(mode: 'note' | 'folder'): void; onOpenSpaces(): void;
 }) {
   const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
+  // 容器可因桌面侧栏变窄；菜单路径始终可达，不依赖视口断点。
+  const ancestors = path.filter((segment, index) => index < path.length - 1 && !segment.current && segment.onNavigate);
   const more = <MenuTrigger><Button size="workspace" variant="ghost" iconOnly aria-label="更多操作" aria-pressed={selectionMode}><MoreHorizontalIcon size={16} /></Button>
-    <MenuPopover {...theme}><Menu ariaLabel="更多操作" onAction={key => { if (key === 'spaces') onOpenSpaces(); else onToggleSelection(); }}>
+    <MenuPopover {...theme}><Menu ariaLabel="更多操作" onAction={key => { if (key === 'spaces') onOpenSpaces(); else if (key === 'batch') onToggleSelection(); }}>
+      {ancestors.length ? <SubmenuTrigger>
+        <MenuItem id="path-navigation">路径导航</MenuItem>
+        <MenuPopover {...theme}><Menu ariaLabel="路径导航" onAction={key => ancestors.find(segment => segment.id === key)?.onNavigate?.()}>
+          {ancestors.map(segment => <MenuItem id={segment.id} key={segment.id}>{segment.label}</MenuItem>)}
+        </Menu></MenuPopover>
+      </SubmenuTrigger> : null}
+      {ancestors.length ? <MenuSeparator /> : null}
       <MenuItem id="spaces" icon={<SettingsIcon size={14} />}>空间管理</MenuItem>
       <MenuItem id="batch" icon={<CheckIcon size={14} />} isDisabled={!canWrite || isRecycleView}>{selectionMode ? '退出批量管理' : '批量管理'}</MenuItem>
     </Menu></MenuPopover>

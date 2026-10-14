@@ -81,7 +81,7 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       />
     ) : null}</td> : null}
     <td className={styles.nameData}>
-      <button type="button" className={styles.nameCell} aria-label={name || '未命名笔记'} disabled={isRecycleView && !isFolder}
+      <button type="button" data-index-primary className={styles.nameCell} aria-label={name || '未命名笔记'} disabled={isRecycleView && !isFolder}
         draggable={canWrite && !isRecycleView && !selectionMode}
         onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id })}
         onDragEnd={() => dragDrop?.end()}
@@ -142,6 +142,7 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
       <button
         type="button"
         className={styles.tile}
+        data-index-primary
         aria-label={`${isFolder ? item.folder.name : item.note.title || '未命名笔记'}${isFolder ? `${count} 项` : properties.updated ? formatUpdatedAt(entity.updatedAt) : ''}`}
         aria-description={isFolder ? undefined : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name)].filter(Boolean).join('，')}
         disabled={isRecycleView && !isFolder}

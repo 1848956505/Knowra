@@ -2,32 +2,25 @@
 // 所有数字、时间、标签均来自工作区数据；训练域尚未上线时保持锁定。
 
 import { useMemo, type ReactNode } from 'react';
-import { version as appVersion } from '../../../../package.json';
 import type { Note, Folder, Tag } from '@study-accelerator/web-core';
 import { Button } from '../components/ui/button/Button';
 import { EmptyState, LoadingState } from '../components/ui/status';
-import { PixelFace } from '../components/companion';
 import { cx } from '../components/ui/classnames';
 import { MathText } from '../components/math/MathText';
-import { NotesIndexArt } from '../features/notes/NotesIndexArt';
-import { notePreview } from '../features/notes/NotesIndexItemMeta';
-import { NOTE_STATUS_LABELS, normalizeNoteStatus, updatedDayAge } from '../features/notes/notesIndexFilters';
-import { buildNoteUpdateDistribution } from '../features/notes/notesIndexUpdateDistribution';
-import { TagChip } from '../features/tags';
 import {
   ArrowUpRightIcon,
-  CalendarIcon,
   ClockIcon,
   FolderIcon,
   NodesIcon,
   NoteIcon,
-  PlusIcon,
   RefreshIcon,
-  SearchIcon,
   TargetIcon,
   type KnowraIconProps
 } from '../components/icons/knowra';
 import styles from './HomeView.module.css';
+import { FeaturedNote, ActivityPanel } from './HomeActivity';
+import { HomeHeader } from './HomeHeader';
+import { computeStats, greetingFor, formatToday, formatRecentTime, statusLabel, summaryLine } from './homeViewModel';
 
 interface DomainCardEntry {
   id: 'materials' | 'knowledge' | 'training';
@@ -188,120 +181,6 @@ export function HomeView({
   );
 }
 
-interface HomeHeaderProps {
-  id: string;
-  today: string;
-  title: string;
-  subtitle: string;
-  onOpenCreate?: () => void;
-  onOpenSchedule?: () => void;
-  onOpenSearch?: () => void;
-}
-
-function HomeHeader({ id, today, title, subtitle, onOpenCreate, onOpenSchedule, onOpenSearch }: HomeHeaderProps) {
-  return (
-    <header className={styles.header}>
-      <div className={styles.headerLead}>
-        <PixelFace className={styles.headerFace} proximity={120} idleAfterMs={25000} />
-        <p className={styles.kicker}>{today}<span className={styles.version}>版本 v{appVersion}</span></p>
-        <h1 id={id} className={styles.title}>{title}</h1>
-        <p className={styles.subtitle}>{subtitle}</p>
-      </div>
-      <div className={styles.headerActions}>
-        {onOpenSearch ? (
-          <Button className={styles.searchButton} onClick={onOpenSearch} aria-label="打开全局搜索">
-            <SearchIcon size={15} />
-            <span>搜索</span>
-            <kbd>Ctrl+K</kbd>
-          </Button>
-        ) : null}
-        <Button className={styles.scheduleButton} onClick={onOpenSchedule} isDisabled={!onOpenSchedule} aria-label="打开日程">
-          <CalendarIcon size={16} />
-          <span>日程</span>
-        </Button>
-        <Button variant="accent" className={styles.createButton} onClick={onOpenCreate} isDisabled={!onOpenCreate} aria-label="新建笔记（Ctrl+N）">
-          <PlusIcon size={16} />
-          <span>新建笔记</span>
-          <kbd>Ctrl+N</kbd>
-        </Button>
-      </div>
-    </header>
-  );
-}
-
-function FeaturedNote({ note, tags, onOpen }: { note: Note; tags: Tag[]; onOpen?: (noteId: string, title: string) => void }) {
-  const title = note.title || '无标题';
-  const noteTags = note.tagIds.map(id => tags.find(tag => tag.id === id)).filter((tag): tag is Tag => Boolean(tag));
-  const preview = notePreview(note);
-  const open = onOpen ? () => onOpen(note.id, title) : undefined;
-  return (
-    <article className={styles.featured} aria-label="继续上次编辑">
-      <div className={styles.featuredArt}><NotesIndexArt item={{ kind: 'note', note }} tags={noteTags} /></div>
-      <div className={styles.featuredBody}>
-        <p className={styles.eyebrow}>
-          继续上次编辑 · <time dateTime={note.updatedAt ?? note.createdAt ?? ''}>{formatRecentTime(note.updatedAt ?? note.createdAt)}</time>
-        </p>
-        <h3 className={styles.featuredTitle}>
-          <button type="button" className={styles.featuredLink} onClick={open} disabled={!open}><MathText text={title} inlineOnly /></button>
-        </h3>
-        {preview ? <p className={styles.featuredSummary}><MathText text={preview} inlineOnly /></p> : <p className={styles.featuredSummaryEmpty}>这篇笔记还没有内容。</p>}
-        <div className={styles.featuredMeta}>
-          <span className={styles.statusPill} data-status={normalizeNoteStatus(note.status)}>{statusLabel(note)}</span>
-          {noteTags.slice(0, 3).map(tag => <TagChip key={tag.id} tag={tag} />)}
-          <Button className={styles.continueButton} variant="accent" size="compact" onClick={open} isDisabled={!open} aria-label={`继续编辑 ${title}`}>
-            继续编辑<ArrowUpRightIcon size={14} />
-          </Button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ActivityPanel({ stats, notes, tags }: { stats: Stats; notes: Note[]; tags: Tag[] }) {
-  const { days, total } = useMemo(() => buildNoteUpdateDistribution(notes), [notes]);
-  const statusTotal = stats.statusSegments.reduce((sum, segment) => sum + segment.count, 0);
-  return (
-    <aside className={styles.activity} aria-label="活动概览">
-      <dl className={styles.tiles}>
-        <div><dt>笔记</dt><dd>{stats.activeNotes}</dd></div>
-        <div><dt>文件夹</dt><dd>{stats.folderCount}</dd></div>
-        <div><dt>标签</dt><dd>{tags.length}</dd></div>
-        <div><dt>收藏</dt><dd>{stats.favoriteCount}</dd></div>
-      </dl>
-
-      <section className={styles.block} aria-label="近 12 周更新分布">
-        <header className={styles.blockHead}><h3>近 12 周</h3><span>{total} 篇有更新</span></header>
-        <div className={styles.heat} role="img" aria-label={`已加载笔记中，${total} 篇的最近更新时间在近 12 周内`}>
-          {days.map(day => <span key={day.date} data-level={day.level} data-today={day.today || undefined} data-future={day.future || undefined} title={`${day.date}：${day.count} 篇`} />)}
-        </div>
-      </section>
-
-      <section className={styles.block} aria-label="状态分布">
-        <header className={styles.blockHead}><h3>状态</h3><span>{statusTotal} 篇</span></header>
-        {statusTotal ? (
-          <>
-            <div className={styles.statusBar} role="img" aria-label={stats.statusSegments.map(item => `${item.label} ${item.count}`).join('，')}>
-              {stats.statusSegments.map(item => <i key={item.key} data-status={item.key} style={{ flexGrow: item.count }} />)}
-            </div>
-            <ul className={styles.statusLegend}>
-              {stats.statusSegments.map(item => <li key={item.key}><i data-status={item.key} aria-hidden="true" />{item.label}<b>{item.count}</b></li>)}
-            </ul>
-          </>
-        ) : <p className={styles.muted}>暂无笔记。</p>}
-      </section>
-
-      <section className={styles.block} aria-label="常用标签">
-        <header className={styles.blockHead}><h3>常用标签</h3></header>
-        {stats.topTags.length ? (
-          <ul className={styles.topTags}>
-            {stats.topTags.map(({ tag, count }) => <li key={tag.id}><TagChip tag={tag} /><small>{count}</small></li>)}
-          </ul>
-        ) : <p className={styles.muted}>还没有给笔记打标签。</p>}
-      </section>
-    </aside>
-  );
-}
-
 interface WorkbenchCardProps {
   entry: DomainCardEntry;
   activeNoteCount: number;
@@ -335,81 +214,4 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
       {entry.available ? <ArrowUpRightIcon size={16} className={styles.workbenchArrow} aria-hidden="true" /> : null}
     </button>
   );
-}
-
-interface Stats {
-  activeNotes: number;
-  favoriteCount: number;
-  folderCount: number;
-  todayCount: number;
-  weekCount: number;
-  recentNotes: Note[];
-  statusSegments: { key: string; label: string; count: number }[];
-  topTags: { tag: Tag; count: number }[];
-}
-
-function computeStats(notes: Note[], folders: Folder[], tags: Tag[]): Stats {
-  const active = notes.filter(note => !note.deleted);
-  const recentNotes = [...active].sort((a, b) => timeOf(b) - timeOf(a)).slice(0, 8);
-  const now = Date.now();
-  const age = (note: Note) => updatedDayAge(note.updatedAt ?? note.createdAt, now);
-  const counts = new Map<string, number>();
-  const tagCounts = new Map<string, number>();
-  for (const note of active) {
-    const key = normalizeNoteStatus(note.status);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    for (const id of note.tagIds) tagCounts.set(id, (tagCounts.get(id) ?? 0) + 1);
-  }
-  const order = ['active', 'draft', 'completed', 'published', 'archived'];
-  const statusSegments = [...counts.entries()]
-    .sort(([a], [b]) => (order.indexOf(a) + 99) % 100 - (order.indexOf(b) + 99) % 100)
-    .map(([key, count]) => ({ key, label: NOTE_STATUS_LABELS[key] ?? key, count }));
-  const topTags = [...tagCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .flatMap(([id, count]) => { const tag = tags.find(item => item.id === id); return tag ? [{ tag, count }] : []; })
-    .slice(0, 6);
-  return {
-    activeNotes: active.length,
-    favoriteCount: active.filter(note => note.favorite).length,
-    folderCount: folders.length,
-    todayCount: active.filter(note => age(note) === 0).length,
-    weekCount: active.filter(note => { const value = age(note); return value !== null && value <= 6; }).length,
-    recentNotes,
-    statusSegments,
-    topTags
-  };
-}
-
-const timeOf = (note: Note) => new Date(note.updatedAt ?? note.createdAt ?? 0).getTime();
-
-function statusLabel(note: Note): string {
-  const key = normalizeNoteStatus(note.status);
-  return NOTE_STATUS_LABELS[key] ?? key;
-}
-
-function summaryLine(stats: Stats): string {
-  if (!stats.activeNotes) return '还没有笔记，从新建第一篇开始吧。';
-  const today = stats.todayCount ? `今天更新了 ${stats.todayCount} 篇` : '今天还没有更新';
-  return `${today}，本周 ${stats.weekCount} 篇 · 共 ${stats.activeNotes} 篇笔记。`;
-}
-
-function greetingFor(date: Date): string {
-  const hour = date.getHours();
-  const word = hour < 5 ? '夜深了' : hour < 11 ? '早安' : hour < 14 ? '午安' : hour < 18 ? '下午好' : '晚上好';
-  return `${word}，创造者。`;
-}
-
-function formatToday(): string {
-  return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
-}
-
-function formatRecentTime(input: string | undefined | null): string {
-  if (!input) return '—';
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return input;
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
-  if (elapsedMinutes < 60) return `${Math.max(1, elapsedMinutes)}分钟前`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}小时前`;
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date).replaceAll('-', '/');
 }

@@ -19,6 +19,8 @@ describe('V4-04 TextField', () => {
   it('renders the error message when isInvalid is set', () => {
     render(<TextField label="标题" isInvalid errorMessage="标题已被占用" defaultValue="重复" />);
     expect(screen.getByText('标题已被占用')).toBeInTheDocument();
+    expect(screen.getByLabelText('标题')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('标题')).toHaveAccessibleDescription('标题已被占用');
   });
 
   it('keeps shadow ownership on the outer shell, not the native input', () => {

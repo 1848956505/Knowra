@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Tag, TagGroup } from '@study-accelerator/web-core';
@@ -17,6 +17,26 @@ const initialTags: Tag[] = [
 ];
 
 describe('TagPickerDialog', () => {
+  it('保存期间阻止关闭和管理，失败后保留草稿并允许重试', async () => {
+    const user = userEvent.setup();
+    let reject!: (error: Error) => void;
+    const onSave = vi.fn(() => new Promise<void>((_, fail) => { reject = fail; }));
+    const onOpenChange = vi.fn();
+    renderPicker({ onSave, onOpenChange });
+    await user.click(screen.getByRole('button', { name: '多模态' }));
+    await user.click(screen.getByRole('button', { name: '保存到笔记' }));
+    await user.click(screen.getByRole('button', { name: '关闭' }));
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await user.click(screen.getByRole('button', { name: '管理标签库' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '保存到笔记' })).toBeInTheDocument();
+    await act(async () => reject(new Error('暂时失败')));
+    expect(screen.getByRole('alert')).toHaveTextContent('暂时失败');
+    expect(screen.getAllByRole('button', { name: '多模态' }).some(button => button.getAttribute('aria-pressed') === 'true')).toBe(true);
+    await user.click(screen.getByRole('button', { name: '关闭' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('直接提供新建和管理入口，不需要先输入搜索词', () => {
     renderPicker();
 
@@ -90,7 +110,7 @@ function renderPicker(overrides: Partial<Parameters<typeof TagPickerDialog>[0]> 
       selectedTagIds={['tag-paper']}
       usageCounts={{ 'tag-paper': 3 }}
       canWrite
-      onOpenChange={vi.fn()}
+      onOpenChange={overrides.onOpenChange ?? vi.fn()}
       onCreateTag={async (input) => {
         const created = await onCreateTag(input) as Tag | undefined ?? { id: 'tag-new', spaceId: 'space-1', ...input, isSystem: false, sortOrder: tags.length };
         setTags((current) => [...current, created]);

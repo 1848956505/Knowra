@@ -35,6 +35,6 @@ export function MathText({ text, inlineOnly = false }: { text: string; inlineOnl
 }
 
 /** 独占一段的块公式。 */
-export function MathBlock({ source }: { source: string }) {
-  return <div className={styles.block}><MathSpan source={source} display raw={source} /></div>;
+export function MathBlock({ source, raw = source }: { source: string; raw?: string }) {
+  return <div className={styles.block}><MathSpan source={source} display raw={raw} /></div>;
 }

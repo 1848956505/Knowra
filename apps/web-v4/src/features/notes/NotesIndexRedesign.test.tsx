@@ -268,6 +268,29 @@ describe('笔记索引新版真实交互', () => {
     expect(onOpenNote).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['list', 'grid', 'card'] as const)('附属菜单按钮保留 Space 激活（%s）', async view => {
+    const { user } = await setup({ view: view === 'card' ? 'grid' : view });
+    if (view === 'card') await user.click(screen.getByRole('button', { name: '卡片视图' }));
+    const trigger = document.querySelector<HTMLButtonElement>('[data-index-item-menu-trigger]')!;
+    trigger.focus();
+    await user.keyboard(' ');
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: '笔记预览' })).not.toBeInTheDocument();
+  });
+
+  it('触屏紧凑工具通过显示选项开启预览', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn(query => ({ matches: query.includes('coarse'), media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })) as typeof window.matchMedia;
+    try {
+      const { user } = await setup({ view: 'grid' });
+      await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
+      await user.click(screen.getByRole('switch', { name: '预览栏' }));
+      await user.keyboard('{Escape}');
+      expect(screen.getByRole('complementary', { name: '笔记预览' })).toBeInTheDocument();
+    } finally { window.matchMedia = original; }
+  });
+
   it('名称降序使用服务端排序，不只倒序当前页', async () => {
     const { user, api } = await setup();
     await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));

@@ -104,3 +104,8 @@
   .gridCell[data-col='status'], .gridCell[data-col='folder'], .gridCell[data-col='updated'], .gridCell[data-col='location'] { display: inline-flex; flex: 0 1 auto; border: 0; padding: 0; }
   .gridCell[data-col='folder'], .gridCell[data-col='location'] { flex-grow: 1; }
 }
+
+/* 强制色会移除阴影；系统色描边保留键盘焦点，常规主题仍使用柔和焦点环。 */
+@media (forced-colors: active) {
+  .tab[data-focus-visible] { outline: 2px solid Highlight; outline-offset: 2px; }
+}

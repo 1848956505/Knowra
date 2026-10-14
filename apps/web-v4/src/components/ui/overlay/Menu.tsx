@@ -6,6 +6,7 @@
 import { forwardRef, type ReactNode } from 'react';
 import {
   Menu as RAMenu,
+  Text as RAText,
   Header as RAHeader,
   MenuItem as RAMenuItem,
   MenuSection as RAMenuSection,
@@ -48,7 +49,7 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuI
     >
       {icon ? <span className={styles.itemIcon}>{icon}</span> : null}
       {description
-        ? <span className={styles.itemText}><span>{children}</span><span className={styles.itemDesc}>{description}</span></span>
+        ? <span className={styles.itemText}><RAText slot="label">{children}</RAText><RAText slot="description" className={styles.itemDesc}>{description}</RAText></span>
         : <span>{children}</span>}
       {kbd ? <span className={styles.itemKbd}>{kbd}</span> : null}
     </RAMenuItem>
