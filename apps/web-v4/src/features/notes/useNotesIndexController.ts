@@ -84,6 +84,25 @@ export function useNotesIndexController(onOpenNote?: (id: string) => void) {
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
   }, []);
+  // 焦点不在列表条目上时（刚进入页面、点了空白处），J/K 先把焦点送进列表：已预览的条目优先，否则第一项。
+  const peekKeyRef = useRef(peekKey);
+  peekKeyRef.current = peekKey;
+  useEffect(() => {
+    const enterList = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || (key !== 'j' && key !== 'k')) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target || target.closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"], [data-entry-item]')) return;
+      if (target !== document.body && !target.closest('[aria-label="笔记索引"]')) return;
+      const entries = Array.from(contentRef.current?.querySelectorAll<HTMLElement>('[data-entry-item]') ?? []);
+      const entry = entries.find(value => value.dataset.entryKey === peekKeyRef.current) ?? entries[0];
+      const button = entry?.querySelector<HTMLElement>('button:not([disabled])');
+      if (!button) return;
+      event.preventDefault(); button.focus();
+    };
+    window.addEventListener('keydown', enterList);
+    return () => window.removeEventListener('keydown', enterList);
+  }, []);
   useEffect(() => { if (page !== currentPage) setPage(currentPage); }, [page, currentPage]);
   useEffect(() => { contentRef.current?.scrollTo?.({ top: 0 }); }, [navigation.selectedFolderId, notesIndex.scope, page, view, typeFilter]);
   useEffect(() => {
