@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { useEffect, useState } from 'react';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter } from '../../components/ui';
 import { sourceStatusLabel, sourceTypeLabel, type QuestionSource } from './questionDetailModel';
@@ -24,7 +25,7 @@ export function QuestionSourceComparison({ source, onLoad, onClose, onOpenNote, 
     <DialogBody>
       <div className={styles.meta}><strong>{sourceTypeLabel(source.sourceType)}</strong><span>{sourceStatusLabel(source.status)}</span></div>
       <div className={styles.comparison}>
-        <section aria-label="编题时保存的摘录"><h3>编题时保存的摘录</h3><blockquote className={styles.prose}>{source.quote || '该来源未保存文字摘录。'}</blockquote></section>
+        <section aria-label="编题时保存的摘录"><h3>编题时保存的摘录</h3><blockquote className={styles.prose}>{source.quote ? <MathText text={source.quote} /> : '该来源未保存文字摘录。'}</blockquote></section>
         <section aria-label="来源内容"><h3>{content?.contentLabel || '关联来源内容'}</h3>
           {loading ? <p role="status" className={styles.hint}>正在读取来源…</p> : null}
           {error ? <><p role="alert" className={styles.error}>{error}</p><Button size="compact" onPress={() => setGeneration(value => value + 1)}>重新读取来源</Button></> : null}

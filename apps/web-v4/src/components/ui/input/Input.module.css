@@ -2,7 +2,7 @@
 .field { display: inline-flex; flex-direction: column; gap: 6px; min-width: 0; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .toolbarSelect { flex: 0 1 170px; min-width: 130px; }
-.toolbarSelect .selectTrigger { height: var(--index-size-34); color: var(--text-secondary); font-size: 12px; }
+.toolbarSelect .selectTrigger { height: 28px; padding: 0 9px; color: var(--text-secondary); font-size: 12px; }
 .selectLeadingIcon { display: inline-flex; flex: 0 0 auto; align-items: center; pointer-events: none; }
 
 .label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
@@ -20,9 +20,9 @@
   transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
-.field:not([data-disabled]):focus-within .inputShell { outline: 2px solid var(--accent-text); outline-offset: 2px; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.field:not([data-disabled]):focus-within .inputShell { outline: 0; border-color: color-mix(in srgb, var(--accent) 34%, transparent); box-shadow: var(--focus-soft); }
 .field[data-invalid] .inputShell { border-color: var(--ink-danger); background: var(--ink-danger-soft); box-shadow: none; }
-.field[data-invalid]:not([data-disabled]):focus-within .inputShell { outline-color: var(--ink-danger); border-color: var(--ink-danger); box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
+.field[data-invalid]:not([data-disabled]):focus-within .inputShell { outline: 0; border-color: var(--ink-danger); box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
 
 .input {
   display: inline-flex;
@@ -44,7 +44,7 @@
 
 .input[data-focused] { outline: 0; }
 .input::placeholder, .textarea::placeholder { color: var(--text-placeholder, var(--text-muted)); font-weight: 400; }
-.textareaShell { height: auto; align-items: stretch; }
+.textareaShell { height: auto; align-items: stretch; border-radius: var(--radius-popover); }
 .textarea { width: 100%; min-height: 96px; padding: 10px 11px; resize: vertical; border: 0; border-radius: inherit; outline: 0; background: transparent; color: var(--text-primary); font: 400 13px/1.6 var(--font-ui); }
 .field[data-disabled] .inputShell { color: var(--text-muted); background: var(--surface-hover); border-color: var(--border-subtle); box-shadow: none; cursor: not-allowed; }
 .field[data-disabled] .input, .input[data-disabled], .field[data-disabled] .textarea { color: var(--text-muted); cursor: not-allowed; }
@@ -82,10 +82,10 @@
 .selectTrigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 36px; padding: 0 11px; font-family: var(--font-ui); font-size: 13px; font-weight: 400; color: var(--text-primary); background: var(--surface-page); border: 1px solid var(--border-strong); border-radius: var(--radius-control); box-shadow: var(--shadow-control); cursor: pointer; transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease); }
 .selectTrigger[data-hovered]:not([data-disabled]) { background: var(--surface-hover); }
 .selectTrigger[data-pressed]:not([data-disabled]) { background: var(--surface-pressed); }
-.selectTrigger[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.selectTrigger[data-focus-visible] { outline: 0; border-color: color-mix(in srgb, var(--accent) 34%, transparent); box-shadow: var(--focus-soft); }
 .field[data-invalid] .selectTrigger { border-color: var(--ink-danger); background: var(--ink-danger-soft); box-shadow: none; }
 .field[data-invalid] .selectTrigger[data-focus-visible],
-.field[data-invalid]:focus-within .selectTrigger { outline-color: var(--ink-danger); box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
+.field[data-invalid]:focus-within .selectTrigger { outline: 0; box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
 .field[data-disabled] .selectTrigger, .selectTrigger[data-disabled] { color: var(--text-muted); background: var(--surface-hover); border-color: var(--border-subtle); box-shadow: none; cursor: not-allowed; }
 .selectChevron { width: 12px; height: 12px; color: var(--text-muted); pointer-events: none; }
 .selectValue { flex: 1 1 auto; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -99,3 +99,23 @@
   .input, .textarea { font-size: max(16px, 1em); }
 }
 @media (max-height: 600px) { .composerField .textarea { min-height: 44px; max-height: 80px; padding-top: 8px; } }
+
+/* Switch：标签居左、轨道居右，整行可点击。 */
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; cursor: pointer; user-select: none; color: var(--text-primary); font: 400 13px/1.4 var(--font-ui); }
+.switchLabel { min-width: 0; }
+.switchTrack { flex: 0 0 auto; position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--surface-pressed); transition: background var(--motion-fast) var(--motion-ease); }
+.switchThumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 22%); transition: transform var(--motion-fast) var(--motion-ease); }
+.switch[data-selected] .switchTrack { background: var(--accent-solid); }
+.switch[data-selected] .switchThumb { transform: translateX(14px); }
+.switch[data-focus-visible] .switchTrack { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.switch[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .switchTrack, .switchThumb { transition: none; } }
+
+/* 强制色会移除阴影；系统色描边保留键盘焦点，常规主题仍使用柔和焦点环。 */
+@media (forced-colors: active) {
+  .field[data-invalid]:not([data-disabled]):focus-within .inputShell,
+  .field[data-invalid] .selectTrigger[data-focus-visible],
+  .field[data-invalid]:focus-within .selectTrigger,
+  .field:not([data-disabled]):focus-within .inputShell,
+  .selectTrigger[data-focus-visible] { outline: 2px solid Highlight; outline-offset: 2px; }
+}

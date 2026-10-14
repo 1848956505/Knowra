@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import styles from './QuestionDetailPanel.module.css';
 
 const FIELD_LABELS: Record<string, string> = {
@@ -9,7 +10,7 @@ const FIELD_LABELS: Record<string, string> = {
 /** Rubric has no frozen schema. Preserve every value without inventing grading rules. */
 export function QuestionValue({ value, empty = '尚未填写', depth = 0 }: { value: unknown; empty?: string; depth?: number }) {
   if (value === null || value === undefined || value === '') return <p className={styles.hint}>{empty}</p>;
-  if (typeof value !== 'object') return <p className={styles.prose}>{typeof value === 'boolean' ? value ? '是' : '否' : String(value)}</p>;
+  if (typeof value !== 'object') return <p className={styles.prose}>{typeof value === 'boolean' ? value ? '是' : '否' : typeof value === 'string' ? <MathText text={value} /> : String(value)}</p>;
   if (depth >= 8) return <pre className={styles.prose}>{JSON.stringify(value, null, 2)}</pre>;
   if (Array.isArray(value)) return value.length ? <ol className={styles.values}>{value.map((item, index) => <li key={index}><QuestionValue value={item} depth={depth + 1} /></li>)}</ol> : <p className={styles.hint}>{empty}</p>;
   const entries = Object.entries(value);

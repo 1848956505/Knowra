@@ -2,14 +2,13 @@ import { useSyncExternalStore } from 'react';
 
 export interface NotesIndexAppearance {
   mode: 'light' | 'dark';
-  theme: 'orange' | 'mono';
-  shape: 'pill' | 'rounded';
-  deco: 'full' | 'off';
+  theme: 'orange';
+  shape: 'pill';
 }
 
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';
 export const DEFAULT_NOTES_INDEX_APPEARANCE: Readonly<NotesIndexAppearance> = {
-  mode: 'light', theme: 'orange', shape: 'pill', deco: 'full'
+  mode: 'light', theme: 'orange', shape: 'pill'
 };
 const listeners = new Set<() => void>();
 let snapshot = readAppearance();
@@ -19,9 +18,9 @@ export function parseNotesIndexAppearance(value: unknown): NotesIndexAppearance 
   const candidate = value && typeof value === 'object' ? value as Partial<NotesIndexAppearance> : {};
   return {
     mode: candidate.mode === 'dark' ? 'dark' : 'light',
-    theme: candidate.theme === 'mono' ? 'mono' : 'orange',
-    shape: candidate.shape === 'rounded' ? 'rounded' : 'pill',
-    deco: candidate.deco === 'off' ? 'off' : 'full'
+    // 原型对比选项已定稿；兼容旧存储的明暗模式，统一胶囊和橙色，装饰恒为完整。
+    theme: 'orange',
+    shape: 'pill'
   };
 }
 

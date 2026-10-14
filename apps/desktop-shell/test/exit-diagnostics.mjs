@@ -17,7 +17,8 @@ export function sanitizeDesktopLog(text) {
     if (!match) return '[省略非标准日志行]';
     const [, time, message] = match;
     if (fixedLogMessages.has(message) || /^启动完成，Electron [\d.]+，Node [\d.]+$/.test(message)
-      || /^本地服务退出：-?\d+$/.test(message)) return `${time} ${message}`;
+      || /^本地服务退出：-?\d+$/.test(message)
+      || /^本地服务关闭阶段：(mcp|http|sync|ai|store|released)$/.test(message)) return `${time} ${message}`;
     return `${time} [省略非白名单诊断内容]`;
   }).join('\n');
 }

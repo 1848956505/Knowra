@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { useRef, useState } from 'react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Tag, TagGroup } from '@study-accelerator/web-core';
@@ -17,6 +17,26 @@ const initialTags: Tag[] = [
 ];
 
 describe('TagPickerDialog', () => {
+  it('保存期间阻止关闭和管理，失败后保留草稿并允许重试', async () => {
+    const user = userEvent.setup();
+    let reject!: (error: Error) => void;
+    const onSave = vi.fn(() => new Promise<void>((_, fail) => { reject = fail; }));
+    const onOpenChange = vi.fn();
+    renderPicker({ onSave, onOpenChange });
+    await user.click(screen.getByRole('button', { name: '多模态' }));
+    await user.click(screen.getByRole('button', { name: '保存到笔记' }));
+    await user.click(screen.getByRole('button', { name: '关闭' }));
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await user.click(screen.getByRole('button', { name: '管理标签库' }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '保存到笔记' })).toBeInTheDocument();
+    await act(async () => reject(new Error('暂时失败')));
+    expect(screen.getByRole('alert')).toHaveTextContent('暂时失败');
+    expect(screen.getAllByRole('button', { name: '多模态' }).some(button => button.getAttribute('aria-pressed') === 'true')).toBe(true);
+    await user.click(screen.getByRole('button', { name: '关闭' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('直接提供新建和管理入口，不需要先输入搜索词', () => {
     renderPicker();
 
@@ -48,12 +68,10 @@ describe('TagPickerDialog', () => {
     renderPicker({ onDeleteTag });
 
     await user.click(screen.getByRole('button', { name: '管理标签库' }));
-    expect(screen.getAllByRole('button', { name: '删除' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^删除标签 / })).toHaveLength(2);
     expect(screen.getByText('内置标签不可删除')).toBeInTheDocument();
 
-    const paperRow = screen.getByText('论文').closest('article');
-    expect(paperRow).not.toBeNull();
-    await user.click(paperRow!.querySelector('button:last-of-type') as HTMLButtonElement);
+    await user.click(screen.getByRole('button', { name: '删除标签 论文' }));
     expect(screen.getByRole('dialog', { name: '删除标签' })).toBeInTheDocument();
     expect(screen.getByText('这个标签正在被 3 篇笔记使用。你可以先合并，或从这些笔记中移除后删除。')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '从 3 篇笔记移除并删除' }));
@@ -82,15 +100,17 @@ function renderPicker(overrides: Partial<Parameters<typeof TagPickerDialog>[0]> 
 
   function Harness() {
     const [tags, setTags] = useState(initialTags);
-    return <TagPickerDialog
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    return <><button ref={triggerRef} type="button">打开标签</button><TagPickerDialog
       {...overrides}
       isOpen
+      triggerRef={triggerRef}
       tags={tags}
       groups={groups}
       selectedTagIds={['tag-paper']}
       usageCounts={{ 'tag-paper': 3 }}
       canWrite
-      onOpenChange={vi.fn()}
+      onOpenChange={overrides.onOpenChange ?? vi.fn()}
       onCreateTag={async (input) => {
         const created = await onCreateTag(input) as Tag | undefined ?? { id: 'tag-new', spaceId: 'space-1', ...input, isSystem: false, sortOrder: tags.length };
         setTags((current) => [...current, created]);
@@ -100,7 +120,7 @@ function renderPicker(overrides: Partial<Parameters<typeof TagPickerDialog>[0]> 
       onDeleteTag={async (id) => { await onDeleteTag(id); setTags((current) => current.filter((tag) => tag.id !== id)); }}
       onMergeTags={onMergeTags}
       onSave={overrides.onSave ?? vi.fn().mockResolvedValue(undefined)}
-    />;
+    /></>;
   }
 
   return render(<Harness />);

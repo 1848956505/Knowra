@@ -35,6 +35,13 @@
 .segment[aria-pressed='true'] .count { color: var(--text-secondary); }
 .iconOnly { width: var(--index-size-34); padding: 0; }
 
+.compactGroup { gap: 0; padding: 2px; }
+.compactGroup .segment { min-height: 22px; padding: 0 8px; font-weight: 450; }
+.compactGroup .iconOnly { width: 26px; padding: 0; }
+
+.comfortableGroup .segment { min-height: 28px; padding: 0 12px; font-size: 13px; }
+.comfortableGroup .count { font-size: 11px; }
+
 .underline { gap: 12px; padding: 0; border-radius: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; }
 .underline .segment { gap: 4px; min-width: 0; padding: 0 2px; border-radius: 0; border-bottom: 2px solid transparent; background: transparent; font-weight: 400; }
 .underline .segment[data-hovered]:not([data-disabled]) { background: var(--surface-hover); color: var(--text-primary); }
@@ -45,5 +52,6 @@
 
 @media (max-width: 767px), (any-pointer: coarse) {
   .segment { min-height: var(--index-size-44); }
-  .iconOnly { width: var(--index-size-44); }
+  .iconOnly, .compactGroup .iconOnly { width: var(--index-size-44); }
+  .compactGroup .segment, .comfortableGroup .segment { min-height: var(--index-size-44); }
 }

@@ -37,7 +37,12 @@ async function expectShellContained(page: Page) {
   }));
   expect(bounds).toEqual({ width: 0, height: 0, windowY: 0, stageY: 0 });
 }
+/** 浮层有入场缩放动画；量尺寸前等它结束，避免把 94% 起始缩放当成真实尺寸。 */
+async function settleAnimations(locator: Locator) {
+  await locator.evaluate((element) => Promise.all(element.ownerDocument.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
+}
 async function expectTouchTarget(locator: Locator) {
+  await settleAnimations(locator);
   const rect = (await locator.boundingBox())!;
   test.info().annotations.push({ type: 'touch-target', description: JSON.stringify({
     label: await locator.getAttribute('aria-label') ?? (await locator.textContent())?.trim(),
@@ -48,6 +53,7 @@ async function expectTouchTarget(locator: Locator) {
   expect(Number(rect.height.toFixed(3))).toBeGreaterThanOrEqual(44);
 }
 async function expectInViewport(page: Page, locator: Locator) {
+  await settleAnimations(locator);
   const rect = (await locator.boundingBox())!;
   const size = page.viewportSize()!;
   expect(rect.x).toBeGreaterThanOrEqual(0);
@@ -76,8 +82,16 @@ for (const viewport of viewports) {
       const saved: string[] = [];
       await mockEditorWorkspace(page, saved, [], markdown);
       await page.goto('/#/materials');
-      await expect(page.getByText('笔记索引', { exact: true })).toBeVisible();
-      const noteButton = page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last();
+      const index = page.getByRole('article', { name: '笔记索引', exact: true });
+      await expect(index).toBeVisible();
+      // 页头显示当前范围，索引模块身份保留在 article 的可访问名称上。
+      const scopeTitle = index.locator('header').first().locator('strong');
+      await expect(scopeTitle).toHaveText('全部笔记');
+      await expect(scopeTitle).toBeVisible();
+      await expectShellContained(page);
+      const noteButton = index.locator('[data-entry-key="note:note-1"]')
+        .getByRole('button', { name: '编辑器验收笔记', exact: true }).and(index.locator('[data-index-primary]'));
+      await expect(noteButton).toBeEnabled();
       if (viewport.height <= 560) {
         const content = page.getByTestId('notes-index-scroll');
         expect((await content.boundingBox())!.height, '低高度下索引内容不能被工具栏和分页压没').toBeGreaterThanOrEqual(140);
@@ -177,7 +191,7 @@ for (const viewport of viewports) {
       if (compact) {
         await activate(page.getByRole('button', { name: '笔记列表', exact: true }));
         await expect(page).toHaveURL(/#\/materials$/);
-        await activate(page.getByRole('button', { name: /^编辑器验收笔记(?: \d|$)/ }).last());
+        await activate(noteButton);
       } else await page.reload();
       await expect(editor).toContainText('合成保存验收');
       await expectShellContained(page);

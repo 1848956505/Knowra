@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within, type RenderResult } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { RouterContext } from '../../app/router';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createEmptyWorkspaceSnapshot, type Tag, type WorkspaceApi } from '@study-accelerator/web-core';
@@ -46,7 +47,8 @@ describe('Notes index skeleton', () => {
   it('keeps the content scroll area between fixed controls and pagination', () => {
     renderWithStore(<NotesIndexView path={[]} />);
     const content = screen.getByTestId('notes-index-scroll');
-    expect(within(content).getAllByRole('table').length).toBeGreaterThan(0);
+    expect(within(content).getAllByLabelText('笔记图标视图').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: '图标视图' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('navigation', { name: '笔记分页' })).toBeInTheDocument();
     expect(within(content).queryByRole('toolbar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '后退' })).not.toBeInTheDocument();
@@ -57,31 +59,31 @@ describe('Notes index skeleton', () => {
 
   it('opens the existing Markdown importer from the index', async () => {
     renderWithStore(<NotesIndexView path={[]} />);
-    await userEvent.click(screen.getByRole('button', { name: '导入' }));
+    await userEvent.click(screen.getByRole('button', { name: '新建' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: '导入 Markdown' }));
     expect(screen.getByRole('dialog', { name: '导入 Markdown' })).toBeInTheDocument();
   });
 
-  it('removes the summary block and toggles the tag filter row from the toolbar', async () => {
+  it('removes the summary block and applies the tag filter from the filter menu', async () => {
     const user = userEvent.setup();
-    renderWithStore(<NotesIndexView path={[]} />, {
+    renderWithStore(<StatefulRouter><NotesIndexView path={[]} /></StatefulRouter>, {
       tags: [{ id: 'tag-1', name: '重点', color: 'orange' }]
     });
 
     expect(screen.queryByText(/个文件夹/)).not.toBeInTheDocument();
     expect(screen.queryByText(/篇文稿/)).not.toBeInTheDocument();
-    const toggle = screen.getByRole('button', { name: '展开标签筛选' });
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('标签筛选条件')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '已启用的筛选' })).not.toBeInTheDocument();
 
-    await user.click(toggle);
-    const expandedToggle = screen.getByRole('button', { name: '收起标签筛选' });
-    expect(expandedToggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText('标签筛选条件')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '重点' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '筛选' }));
+    await user.click(screen.getByRole('menuitem', { name: /标签/ }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /重点/ }));
+    await user.keyboard('{Escape}');
+    const chips = screen.getByRole('group', { name: '已启用的筛选' });
+    expect(chips).toHaveTextContent('标签');
+    expect(chips).toHaveTextContent('重点');
 
-    await user.click(expandedToggle);
-    expect(screen.getByRole('button', { name: '展开标签筛选' })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('标签筛选条件')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '移除标签筛选' }));
+    expect(screen.queryByRole('group', { name: '已启用的筛选' })).not.toBeInTheDocument();
   });
 
   it('delegates note opening without coupling the index to routing', async () => {
@@ -118,7 +120,7 @@ describe('Notes index skeleton', () => {
     const iconViewAfterToggle = screen.getByTestId('notes-index-scroll');
     expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="folder"]')).toHaveLength(3);
     expect(iconViewAfterToggle.querySelectorAll('[data-art-kind="document"]')).toHaveLength(3);
-    expect(screen.getByRole('button', { name: '排序：最近更新' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' })).toBeInTheDocument();
   });
 
   it('opens the shared item menu by right-clicking a list row', async () => {
@@ -192,11 +194,19 @@ describe('Notes index skeleton', () => {
     expect(screen.getByText('第 1 / 2 页 · 共 6 条')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '第 2 页' }));
     expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: '全部' })).toHaveTextContent('6');
-    await user.click(screen.getByRole('button', { name: '文件夹' }));
+    async function chooseType(label: string) {
+      await user.click(screen.getByRole('button', { name: /^显示选项/ }));
+      const dialog = screen.getByRole('dialog', { name: '索引显示选项' });
+      const group = within(dialog).getByRole('group', { name: '类型' });
+      const button = within(group).getByRole('button', { name: new RegExp(`^${label}`) });
+      await user.click(button);
+      await user.keyboard('{Escape}');
+      return button;
+    }
+    expect((await chooseType('全部'))).toHaveTextContent('6');
+    await chooseType('文件夹');
     expect(screen.getByText('第 1 / 1 页 · 共 3 条')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '笔记' })).toHaveTextContent('3');
-    await user.click(screen.getByRole('button', { name: '全部' }));
+    await chooseType('全部');
     await user.click(screen.getByRole('button', { name: '每页条数' }));
     await user.click(screen.getByRole('menuitemradio', { name: '每页 20 条' }));
     expect(screen.getByTestId('notes-index-scroll').querySelectorAll('tr[data-entry-item]')).toHaveLength(6);
@@ -235,13 +245,13 @@ describe('Notes index skeleton', () => {
     expect(screen.getByTestId('notes-index-scroll').querySelectorAll('[data-entry-item]')).toHaveLength(1);
   });
 
-  it('focuses index search with slash without intercepting global Mod+K and selects sorting from a menu', async () => {
+  it('focuses index search with slash without intercepting global Mod+K and selects sorting from display options', async () => {
     const user = userEvent.setup();
     const { api } = renderWithStore(<NotesIndexView path={[]} />);
     fireEvent.keyDown(window, { key: '/' });
     expect(screen.getByRole('searchbox', { name: '搜索笔记索引' })).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: '排序：最近更新' }));
-    await user.click(screen.getByRole('menuitemradio', { name: '最早更新' }));
+    await user.click(screen.getByRole('button', { name: '显示选项（布局、分组、排序、属性）' }));
+    await user.click(within(screen.getByRole('group', { name: '排序' })).getByRole('button', { name: '最早' }));
     await vi.waitFor(() => expect(api.queryNotes).toHaveBeenLastCalledWith(expect.objectContaining({ order: 'asc' })));
   });
 
@@ -384,4 +394,10 @@ function createNote(id: string, title: string, folderId: string | null) {
     deleted: false,
     updatedAt: '2026-08-23T08:00:00.000Z'
   };
+}
+
+
+function StatefulRouter({ children }: { children: ReactNode }) {
+  const [pathname, setPathname] = useState('/materials');
+  return <RouterContext.Provider value={{ pathname, navigate: setPathname }}>{children}</RouterContext.Provider>;
 }

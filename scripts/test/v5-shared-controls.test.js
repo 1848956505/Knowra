@@ -26,6 +26,18 @@ function declarations(source, selector) {
 
 /* 只锁定 V5 共享视觉契约；点击、校验与键盘导航由各组件行为测试覆盖。 */
 describe('V5 shared control styles', () => {
+  it('inherits the complete cross-platform UI font stack in themed shells and portals', () => {
+    const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
+    const tokens = readFileSync(join(directory, '../../styles/tokens.css'), 'utf8');
+    assert.match(declarations(theme, '.theme'), /font-family:\s*var\(--font-ui\)/);
+    assert.doesNotMatch(theme, /--font-ui\s*:/, '局部外观不得覆盖共享字体栈');
+    const stack = tokens.match(/--font-ui\s*:\s*([^;]+);/)?.[1];
+    assert.ok(stack);
+    for (const family of ['PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'WenQuanYi Zen Hei']) {
+      assert.ok(stack.includes(family), `缺少跨平台中文后备字体 ${family}`);
+    }
+  });
+
   it('keeps notes button shapes scoped through the shared semantic radius', () => {
     const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
     assert.ok(declarations(theme, '.theme').includes('--radius-control: var(--ni-control-radius)'));
@@ -34,11 +46,19 @@ describe('V5 shared control styles', () => {
     assert.doesNotMatch(css.button, /--(?:ni-|button-radius)/);
   });
 
-  it('keeps the notes path visible in compact containers', () => {
+  it('keeps notes ancestors reachable when the compact breadcrumb is hidden', () => {
     const index = readFileSync(join(directory, '../../features/notes/NotesIndexView.module.css'), 'utf8');
-    assert.doesNotMatch(declarations(index, '.breadcrumb'), /display:\s*none/);
-    assert.match(declarations(index, '.breadcrumb'), /flex:\s*1 1 100%/);
+    const header = readFileSync(join(directory, '../../features/notes/NotesIndexHeader.tsx'), 'utf8');
+    // 单行索引允许隐藏路径，但根目录及祖先必须仍由共享菜单可达。
+    const normal = index.split('@container (max-width:560px)')[0];
+    assert.doesNotMatch(declarations(normal, '.breadcrumb'), /display:\s*none/);
     assert.match(declarations(index, '.heading strong'), /text-overflow:\s*ellipsis/);
+    assert.match(header, /path\.filter\(\(segment, index\) => index < path\.length - 1 && !segment\.current && segment\.onNavigate\)/);
+    assert.match(header, /\{ancestors\.length \? <SubmenuTrigger>/);
+    assert.match(header, /<MenuItem id="path-navigation">路径导航<\/MenuItem>/);
+    assert.match(header, /<Menu ariaLabel="路径导航"/);
+    assert.match(header, /ancestors\.find\(segment => segment\.id === key\)\?\.onNavigate\?\.\(\)/);
+    assert.match(header, /ancestors\.map\(segment => <MenuItem/);
   });
 
   it('reserves an independently reachable notes body in short viewports', () => {
@@ -47,7 +67,8 @@ describe('V5 shared control styles', () => {
     assert.match(declarations(index, '.panel'), /overflow-y:\s*auto/);
     assert.match(declarations(index, '.indexWrap'), /min-height:\s*220px/);
     assert.match(declarations(index, '.content'), /min-height:\s*140px/);
-    assert.match(declarations(index, '.toolbar'), /overflow-x:\s*auto/);
+    assert.match(declarations(index, '.pagination'), /overflow-x:\s*auto/);
+    assert.match(declarations(index, '.pageNavigation'), /flex-shrink:\s*0/);
   });
 
   it('keeps interactive controls stationary and removes the old ink borders', () => {
@@ -69,30 +90,65 @@ describe('V5 shared control styles', () => {
     assert.doesNotMatch(declarations(css.overlay, '.menuPopover'), /(?:background|border|box-shadow)\s*:/);
   });
 
-  it('preserves a visible keyboard outline in addition to the translucent focus ring', () => {
+  it('preserves keyboard focus in normal and forced-color themes', () => {
     for (const [source, selector] of [
       [css.button, '.btn[data-focus-visible]'],
       [css.ghost, '.ghost:focus-visible'],
       [css.segmented, '.segment[data-focus-visible]'],
-      [css.input, '.selectTrigger[data-focus-visible]'],
       [css.input, '.checkbox[data-focus-visible] .box'],
       [css.overlay, '.item[data-focus-visible]'],
       [css.navigation, '.item[data-focus-visible]']
     ]) {
       const rule = declarations(source, selector);
-      assert.ok(rule.includes('outline: 2px solid var(--accent-text)'));
-      assert.ok(rule.includes('box-shadow: var(--focus-ring)'));
+      assert.match(rule, /outline:\s*2px solid var\(--accent-text\)/);
+      assert.match(rule, /box-shadow:\s*var\(--focus-ring\)/);
+    }
+    for (const [source, selector] of [
+      [css.collection, '.tab[data-focus-visible]'],
+      [css.input, '.selectTrigger[data-focus-visible]'],
+      [css.input, '.field:not([data-disabled]):focus-within .inputShell'],
+      [css.search, '.shell:not([data-disabled]):focus-within']
+    ]) {
+      const [normal, forced] = source.split('@media (forced-colors: active)');
+      assert.match(declarations(normal, selector), /box-shadow:\s*var\(--focus-soft(?:[,)]|\s)/);
+      assert.ok(forced, `${selector} needs a forced-color fallback`);
+      assert.match(declarations(forced, selector), /outline:\s*2px solid Highlight/);
+      assert.match(declarations(forced, selector), /outline-offset:\s*2px/);
     }
   });
 
-  it('keeps native input shadows off and gives invalid shells their own focus treatment', () => {
+  it('keeps invalid states distinct without requiring a thick normal-theme outline', () => {
     for (const source of [css.input, css.search]) {
       const nativeInput = declarations(source, '.input');
       assert.ok(nativeInput.includes('background: transparent'));
       assert.ok(nativeInput.includes('box-shadow: none'));
-      assert.ok(source.includes('var(--focus-ring-danger'));
-      assert.ok(source.includes('outline-color: var(--ink-danger)'));
     }
+    for (const [source, selector] of [
+      [css.input, '.field[data-invalid]:not([data-disabled]):focus-within .inputShell'],
+      [css.input, '.field[data-invalid] .selectTrigger'],
+      [css.search, '.shell[data-invalid]:not([data-disabled]):focus-within']
+    ]) {
+      assert.match(declarations(source, selector), /border-color:\s*var\(--ink-danger\)/);
+    }
+    for (const [source, selector] of [
+      [css.input, '.field[data-invalid]:not([data-disabled]):focus-within .inputShell'],
+      [css.input, '.field[data-invalid] .selectTrigger[data-focus-visible]'],
+      [css.search, '.shell[data-invalid]:not([data-disabled]):focus-within']
+    ]) {
+      assert.match(declarations(source, selector), /box-shadow:\s*var\(--focus-ring-danger/);
+      const forced = source.split('@media (forced-colors: active)')[1];
+      assert.match(declarations(forced, selector), /outline:\s*2px solid Highlight/);
+    }
+  });
+
+  it('keeps toolbar and footer icon targets wide enough on touch screens', () => {
+    const touch = css.button.split('@media (max-width: 767px), (any-pointer: coarse)')[1];
+    for (const selector of ['.toolbar.iconOnly', '.footer.iconOnly']) {
+      const rule = declarations(touch, selector);
+      assert.match(rule, /min-width:\s*44px/);
+      assert.match(rule, /width:\s*44px/);
+    }
+    assert.match(declarations(touch, '.btn'), /--button-min-height:\s*44px/);
   });
 
   it('styles React Aria select options through their accessible role', () => {
@@ -103,7 +159,7 @@ describe('V5 shared control styles', () => {
 
   it('keeps sidebar navigation neutral until selected and preserves touch targets', () => {
     assert.ok(declarations(css.navigation, '.icon').includes('--knowra-icon-accent: currentColor'));
-    assert.ok(declarations(css.navigation, ".item[aria-current='page']").includes('color: var(--text-primary)'));
+    assert.ok(declarations(css.navigation, ".item[aria-current='page']").includes('color: var(--nav-selected-ink, var(--text-primary))'));
     assert.ok(declarations(css.navigation, ".item[aria-current='page'] .icon").includes('color: var(--accent)'));
     assert.ok(declarations(css.navigation, '.compact').includes('min-height: 30px'));
     assert.ok(css.ghost.includes('(any-pointer: coarse)'));

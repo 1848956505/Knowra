@@ -8,6 +8,7 @@ import { createAppStore } from '../../store/createAppStore';
 import { IndexTile, NotesTable } from './NotesIndexItems';
 import { ItemFavorite, notePreview } from './NotesIndexItemMeta';
 import { NotesIndexArt } from './NotesIndexArt';
+import { formatUpdatedAt } from './notesIndexModel';
 import { DEFAULT_DISPLAY_PROPERTIES } from './notesIndexPresentation';
 
 const note: Note = { id: 'note', title: '真实笔记', folderId: null, rawMarkdown: '# 研究\n正文 **重点** [链接](https://example.com)', tagIds: ['tag'], internalLinks: [], favorite: true, deleted: false, contentLoaded: true, status: 'draft' };
@@ -23,10 +24,31 @@ function mount(ui: ReactNode) {
 }
 
 describe('Notes index item views', () => {
+  it.each(['list', 'grid', 'card'] as const)('主按钮名称只包含标题，日期独立作为描述（%s）', async view => {
+    const dated = { ...note, updatedAt: '2026-08-31T02:32:00.000Z' };
+    const props = tileProps({ item: { kind: 'note', note: dated }, view: view === 'list' ? 'grid' : view });
+    const { container } = mount(view === 'list'
+      ? <NotesTable {...props} items={[props.item]} selectedNoteIds={new Set()} foldersById={{}} />
+      : <IndexTile {...props} />);
+    const primary = screen.getByRole('button', { name: '真实笔记' });
+    expect(primary).toHaveAttribute('data-index-primary');
+    expect(primary).toHaveAccessibleDescription(expect.stringContaining('最近更新'));
+    expect(primary.getAttribute('aria-description')).toContain(formatUpdatedAt(dated.updatedAt));
+    expect(container.textContent).toContain(formatUpdatedAt(dated.updatedAt));
+    await userEvent.click(primary);
+    expect(props.onSelectNote).toHaveBeenCalledExactlyOnceWith('note');
+  });
+
+  it('关闭日期属性不改变主按钮名称，也不读出隐藏日期', () => {
+    mount(<IndexTile {...tileProps({ properties: { ...DEFAULT_DISPLAY_PROPERTIES, updated: false } })} />);
+    const primary = screen.getByRole('button', { name: '真实笔记' });
+    expect(primary.getAttribute('aria-description')).not.toContain('最近更新');
+  });
+
   it('opens a real card and renders only its associated tags and plain preview', async () => {
     const props = tileProps();
     const { container } = mount(<IndexTile {...props} />);
-    await userEvent.click(screen.getByRole('button', { name: '真实笔记—' }));
+    await userEvent.click(screen.getByRole('button', { name: '真实笔记' }));
     expect(props.onSelectNote).toHaveBeenCalledWith('note');
     expect(screen.getByText('研究 正文 重点 链接')).toBeInTheDocument();
     expect(screen.getByText('研究', { selector: 'span' })).toBeInTheDocument();
@@ -37,7 +59,7 @@ describe('Notes index item views', () => {
 
   it('keeps card keyboard context menus and read-only action protections', async () => {
     mount(<IndexTile {...tileProps({ canWrite: false })} />);
-    const card = screen.getByRole('button', { name: '真实笔记—' });
+    const card = screen.getByRole('button', { name: '真实笔记' });
     expect(card).toHaveAttribute('draggable', 'false');
     fireEvent.keyDown(card, { key: 'F10', shiftKey: true });
     expect(await screen.findByRole('menu')).toHaveAttribute('aria-label', '真实笔记笔记操作');
@@ -47,7 +69,7 @@ describe('Notes index item views', () => {
   it('uses selection instead of opening the note in selection mode', async () => {
     const props = tileProps({ selectionMode: true });
     mount(<IndexTile {...props} />);
-    await userEvent.click(screen.getByRole('button', { name: '真实笔记—' }));
+    await userEvent.click(screen.getByRole('button', { name: '真实笔记' }));
     expect(props.onToggleSelection).toHaveBeenCalledWith('note', true);
     expect(props.onSelectNote).not.toHaveBeenCalled();
     expect(screen.getByRole('checkbox', { name: '选择真实笔记' })).toBeInTheDocument();
@@ -65,13 +87,6 @@ describe('Notes index item views', () => {
     readOnly.unmount();
     mount(<IndexTile {...tileProps({ isRecycleView: true, item: { kind: 'note', note: { ...note, deleted: true } } })} />);
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-  });
-
-  it('removes optional card metadata and decorative cover in plain mode', () => {
-    const { container } = mount(<IndexTile {...tileProps({ decoration: false, properties: { summary: false, tags: false, status: false, location: false, updated: false } })} />);
-    expect(container.querySelector('[data-art-kind]')).toBeNull();
-    expect(screen.queryByText('研究 正文 重点 链接')).not.toBeInTheDocument();
-    expect(screen.queryByText('研究', { selector: 'span' })).not.toBeInTheDocument();
   });
 
   it('retains list table semantics, real metadata and independent open actions', async () => {
@@ -95,7 +110,7 @@ describe('Notes index item views', () => {
 
   it('gives every folder its own gradient and removes extra paper in plain mode', () => {
     const item = { kind: 'folder' as const, folder: { id: 'folder', name: '资料', parentId: null, children: [] } };
-    const { container, rerender } = render(<><NotesIndexArt item={item} /><NotesIndexArt item={item} /></>);
+    const { container, rerender } = render(<><NotesIndexArt item={item} noteCount={1} /><NotesIndexArt item={item} noteCount={1} /></>);
     const gradients = [...container.querySelectorAll('linearGradient')];
     expect(gradients).toHaveLength(2);
     expect(gradients[0].id).not.toBe(gradients[1].id);
@@ -104,16 +119,13 @@ describe('Notes index item views', () => {
       expect(container.querySelector(`[fill="url(#${gradient.id})"]`)).not.toBeNull();
     });
     expect(container.querySelectorAll('[data-folder-paper]')).toHaveLength(2);
-    rerender(<NotesIndexArt item={item} decoration={false} />);
-    expect(container.querySelector('[data-folder-paper]')).toBeNull();
-    expect(container.querySelector('[data-art-kind]')).toHaveAttribute('data-decoration', 'false');
+    rerender(<><NotesIndexArt item={item} noteCount={2} /><NotesIndexArt item={item} noteCount={8} /><NotesIndexArt item={item} /></>);
+    expect(container.querySelectorAll('[data-folder-paper]')).toHaveLength(1 + 3 + 0);
   });
 
-  it('gates the favorite emphasis with the actual decoration preference', () => {
-    const { rerender } = render(<ItemFavorite decoration />);
-    expect(screen.getByLabelText('已收藏')).toHaveAttribute('data-decoration', 'true');
-    rerender(<ItemFavorite decoration={false} />);
-    expect(screen.getByLabelText('已收藏')).toHaveAttribute('data-decoration', 'false');
+  it('always renders the favorite emphasis', () => {
+    render(<ItemFavorite />);
+    expect(screen.getByLabelText('已收藏')).toBeInTheDocument();
   });
 
 });

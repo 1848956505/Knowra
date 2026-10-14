@@ -14,6 +14,7 @@ import { cx } from '../components/ui/classnames';
 import { SearchIcon } from '../components/icons/knowra';
 import { useCommandNoteSearch } from './useCommandNoteSearch';
 import { useCommandSelection, type CommandSelectionContext, type CommandSelectionResult } from './useCommandSelection';
+import { MathText } from '../components/math/MathText';
 import styles from './SearchCommand.module.css';
 
 export interface SearchHit {
@@ -215,8 +216,8 @@ function SearchResults({ hits, activeIndex, onActiveChange, onSelect }: SearchRe
           >
             <span className={styles.hitGroup}>{hit.group}</span>
             <span className={styles.hitBody}>
-              <span className={styles.hitPrimary}>{hit.primary}</span>
-              {hit.secondary ? <span className={styles.hitSecondary}>{hit.secondary}</span> : null}
+              <span className={styles.hitPrimary}><MathText text={hit.primary} inlineOnly /></span>
+              {hit.secondary ? <span className={styles.hitSecondary}><MathText text={hit.secondary} inlineOnly /></span> : null}
             </span>
             {hit.hint ? <span className={styles.hitHint}>{hit.hint}</span> : null}
           </li>

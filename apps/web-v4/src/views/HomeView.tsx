@@ -1,63 +1,39 @@
-// V4-05 HomeView
-//
-// 主页的视觉结构严格对应冻结的 V4-00.5 印格主页；卡片计数、最近资料、标签和时间仍来自真实工作区数据。
+// V5 首页：以“继续编辑”为主线，旁边是真实数据的活动面板，底部是三个工作域入口。
+// 所有数字、时间、标签均来自工作区数据；训练域尚未上线时保持锁定。
 
 import { useMemo, type ReactNode } from 'react';
-import { version as appVersion } from '../../../../package.json';
 import type { Note, Folder, Tag } from '@study-accelerator/web-core';
 import { Button } from '../components/ui/button/Button';
 import { EmptyState, LoadingState } from '../components/ui/status';
-import { PixelFace } from '../components/companion';
 import { cx } from '../components/ui/classnames';
+import { MathText } from '../components/math/MathText';
 import {
   ArrowUpRightIcon,
-  CalendarIcon,
   ClockIcon,
   FolderIcon,
   NodesIcon,
   NoteIcon,
-  PlusIcon,
   RefreshIcon,
-  TagIcon,
   TargetIcon,
   type KnowraIconProps
 } from '../components/icons/knowra';
 import styles from './HomeView.module.css';
+import { FeaturedNote, ActivityPanel } from './HomeActivity';
+import { HomeHeader } from './HomeHeader';
+import { computeStats, greetingFor, formatToday, formatRecentTime, statusLabel, summaryLine } from './homeViewModel';
 
 interface DomainCardEntry {
   id: 'materials' | 'knowledge' | 'training';
   label: string;
   description: string;
-  number: string;
   Icon: (props: KnowraIconProps) => ReactNode;
   available: boolean;
 }
 
 const DOMAIN_CARDS: readonly DomainCardEntry[] = [
-  {
-    id: 'materials',
-    label: '笔记工作台',
-    description: 'Markdown 笔记的采集、编辑与整理。',
-    number: '01',
-    Icon: FolderIcon,
-    available: true
-  },
-  {
-    id: 'knowledge',
-    label: '知识工作台',
-    description: '整理知识候选、人工确认与来源追溯。',
-    number: '02',
-    Icon: NodesIcon,
-    available: true
-  },
-  {
-    id: 'training',
-    label: '训练工作台',
-    description: '题目库与考试场景。后端联调未完成。',
-    number: '03',
-    Icon: TargetIcon,
-    available: false
-  }
+  { id: 'materials', label: '笔记工作台', description: 'Markdown 笔记的采集、编辑与整理。', Icon: FolderIcon, available: true },
+  { id: 'knowledge', label: '知识工作台', description: '整理知识候选、人工确认与来源追溯。', Icon: NodesIcon, available: true },
+  { id: 'training', label: '训练工作台', description: '题目库与考试场景。后端联调未完成。', Icon: TargetIcon, available: false }
 ] as const;
 
 export interface HomeViewProps {
@@ -94,19 +70,14 @@ export function HomeView({
   onSelectNote
 }: HomeViewProps) {
   const stats = useMemo(() => computeStats(notes, folders, tags), [notes, folders, tags]);
+  const greeting = useMemo(() => greetingFor(new Date()), []);
   const today = useMemo(() => formatToday(), []);
 
   if (loadState === 'loading' && notes.length === 0 && dataMode !== 'cache') {
     return (
       <div className={styles.view}>
-        <HomeHeader
-          id="home-title-loading"
-          today={today}
-          title="早安，创造者。"
-          subtitle="正在连接资料服务，加载目录与笔记…"
-          onOpenCreate={onOpenCreate}
-          onOpenSchedule={onOpenSchedule}
-        />
+        <HomeHeader id="home-title-loading" today={today} title={greeting} subtitle="正在连接资料服务，加载目录与笔记…"
+          onOpenCreate={onOpenCreate} onOpenSchedule={onOpenSchedule} onOpenSearch={onOpenSearch} />
         <LoadingState label="正在加载资料…" />
       </div>
     );
@@ -115,60 +86,88 @@ export function HomeView({
   if (loadState === 'error' && notes.length === 0) {
     return (
       <div className={styles.view}>
-        <HomeHeader
-          id="home-title-error"
-          today={today}
-          title="早安，创造者。"
-          subtitle="资料服务暂时不可用，请稍后重试。"
-          onOpenCreate={onOpenCreate}
-          onOpenSchedule={onOpenSchedule}
-        />
+        <HomeHeader id="home-title-error" today={today} title={greeting} subtitle="资料服务暂时不可用，请稍后重试。"
+          onOpenCreate={onOpenCreate} onOpenSchedule={onOpenSchedule} onOpenSearch={onOpenSearch} />
         <EmptyState
           title="资料加载失败"
           description={error ?? '请检查 API 端口或稍后重试。'}
-          primaryAction={
-            <Button variant="primary" onClick={onRetry}>
-              <RefreshIcon size={14} />
-              <span>重试</span>
-            </Button>
-          }
-          secondaryAction={
-            onOpenSearch ? <Button onClick={onOpenSearch}>本地搜索</Button> : undefined
-          }
+          primaryAction={<Button variant="primary" onClick={onRetry}><RefreshIcon size={14} /><span>重试</span></Button>}
+          secondaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>本地搜索</Button> : undefined}
         />
       </div>
     );
   }
+
+  const [featured, ...others] = stats.recentNotes;
+  const upNext = others.slice(0, 5);
 
   return (
     <div className={styles.view}>
       <HomeHeader
         id="home-title"
         today={today}
-        title="早安，创造者。"
-        subtitle={
-          loadState === 'error'
-            ? '当前显示最近一次本地缓存。连接恢复后可继续编辑。'
-            : '笔记沉淀、知识联结、刻意训练，集中在同一条学习流里。'
-        }
+        title={greeting}
+        subtitle={loadState === 'error' ? '当前显示最近一次本地缓存。连接恢复后可继续编辑。' : summaryLine(stats)}
         onOpenCreate={onOpenCreate}
         onOpenSchedule={onOpenSchedule}
+        onOpenSearch={onOpenSearch}
       />
 
       {loadState === 'error' ? (
         <div className={styles.errorBanner} role="alert">
           <span className={styles.errorDot} aria-hidden="true" />
           <span>{error ?? '资料服务暂时不可用。'}</span>
-          <Button variant="ghost" onClick={onRetry}>
-            <RefreshIcon size={14} />
-            <span>重试</span>
-          </Button>
+          <Button variant="ghost" onClick={onRetry}><RefreshIcon size={14} /><span>重试</span></Button>
         </div>
       ) : null}
 
+      <div className={styles.main}>
+        <section className={styles.recent} aria-labelledby="home-recent-title">
+          <div className={styles.sectionHead}>
+            <h2 id="home-recent-title" className={styles.sectionTitle}><ClockIcon size={16} aria-hidden="true" />最近编辑</h2>
+            <Button className={styles.viewAllButton} variant="ghost" size="compact" onClick={onOpenMaterials} isDisabled={!onOpenMaterials}>查看全部</Button>
+          </div>
+
+          {!featured ? (
+            <div className={styles.recentEmpty}>
+              <EmptyState
+                title="还没有资料"
+                description={isWritable ? '创建第一篇笔记，开始整理资料与知识。' : '当前为只读模式：连接资料服务后可继续操作。'}
+                primaryAction={onOpenCreate ? <Button variant="accent" onClick={onOpenCreate}>新建笔记</Button> : undefined}
+                secondaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>打开全局搜索</Button> : undefined}
+              />
+            </div>
+          ) : (
+            <>
+              <FeaturedNote note={featured} tags={tags} onOpen={onSelectNote} />
+              {upNext.length ? (
+                <ul className={styles.upNext} aria-label="更多最近编辑">
+                  {upNext.map(note => {
+                    const title = note.title || '无标题';
+                    return (
+                      <li key={note.id}>
+                        <button type="button" className={styles.upNextRow} onClick={onSelectNote ? () => onSelectNote(note.id, title) : undefined} disabled={!onSelectNote}>
+                          <span className={styles.upNextIcon} aria-hidden="true"><NoteIcon size={14} /></span>
+                          <span className={styles.upNextTitle}><MathText text={title} inlineOnly /></span>
+                          <span className={styles.upNextStatus}>{statusLabel(note)}</span>
+                          <time className={styles.upNextTime} dateTime={note.updatedAt ?? note.createdAt ?? ''}>{formatRecentTime(note.updatedAt ?? note.createdAt)}</time>
+                          <ArrowUpRightIcon size={14} className={styles.upNextArrow} aria-hidden="true" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </section>
+
+        <ActivityPanel stats={stats} notes={notes} tags={tags} />
+      </div>
+
       <section className={styles.workbenches} aria-label="工作域">
         <div className={styles.workbenchGrid}>
-          {DOMAIN_CARDS.map((entry) => (
+          {DOMAIN_CARDS.map(entry => (
             <WorkbenchCard
               key={entry.id}
               entry={entry}
@@ -178,175 +177,7 @@ export function HomeView({
           ))}
         </div>
       </section>
-
-      <section className={styles.recent} aria-labelledby="home-recent-title">
-        <div className={styles.recentHeader}>
-          <div className={styles.recentHeading}>
-            <span className={styles.recentIcon} aria-hidden="true">
-              <ClockIcon size={22} />
-            </span>
-            <div>
-              <h2 id="home-recent-title" className={styles.recentTitle}>最近编辑</h2>
-              <p className={styles.recentSubtitle}>RECENT / UPDATED DESC</p>
-            </div>
-          </div>
-          <Button
-            className={styles.viewAllButton}
-            onClick={onOpenMaterials}
-            isDisabled={!onOpenMaterials}
-          >
-            查看全部
-          </Button>
-        </div>
-
-        {stats.recentNotes.length === 0 ? (
-          <div className={styles.recentEmpty}>
-            <EmptyState
-              title="还没有资料"
-              description={
-                isWritable
-                  ? '创建第一篇笔记，开始整理资料与知识。'
-                  : '当前为只读模式：连接资料服务后可继续操作。'
-              }
-              primaryAction={onOpenCreate ? <Button variant="accent" onClick={onOpenCreate}>新建笔记</Button> : undefined}
-              secondaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>打开全局搜索</Button> : undefined}
-            />
-          </div>
-        ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.recentTable}>
-              <thead>
-                <tr>
-                  <th scope="col" className={styles.indexColumn}>NO.</th>
-                  <th scope="col">笔记</th>
-                  <th scope="col">状态</th>
-                  <th scope="col">更新时间</th>
-                  <th scope="col">标签</th>
-                  <th scope="col" className={styles.openColumn}>
-                    <span className={styles.srOnly}>打开</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentNotes.map((note, index) => {
-                  const title = note.title || '无标题';
-                  const status = noteStatus(note);
-                  return (
-                    <tr key={note.id} className={styles.recentRow}>
-                      <td className={styles.indexColumn}>
-                        <span className={styles.rowNumber}>{String(index + 1).padStart(2, '0')}</span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={styles.docButton}
-                          onClick={onSelectNote ? () => onSelectNote(note.id, title) : undefined}
-                          disabled={!onSelectNote}
-                        >
-                          <span className={styles.docName}>
-                            <span className={styles.docIcon} aria-hidden="true">
-                              <NoteIcon size={14} />
-                            </span>
-                            <span className={styles.docTitle}>{title}</span>
-                          </span>
-                        </button>
-                      </td>
-                      <td>
-                        <span className={cx(styles.noteStatus, styles[`noteStatus${status.tone}`])}>
-                          <span className={styles.statusDot} aria-hidden="true" />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className={styles.updatedColumn}>
-                        <time dateTime={note.updatedAt ?? note.createdAt ?? ''}>
-                          {formatRecentTime(note.updatedAt ?? note.createdAt)}
-                        </time>
-                      </td>
-                      <td>
-                        <div className={styles.recentTags}>
-                          {note.tagIds.length === 0 ? (
-                            <span className={styles.muted}>—</span>
-                          ) : (
-                            note.tagIds.slice(0, 2).map((tagId) => {
-                              const tag = tags.find((candidate) => candidate.id === tagId);
-                              return (
-                                <span key={tagId} className={styles.tag}>
-                                  <TagIcon size={11} />
-                                  <span>{tag?.name ?? tagId}</span>
-                                </span>
-                              );
-                            })
-                          )}
-                        </div>
-                      </td>
-                      <td className={styles.openColumn}>
-                        <button
-                          type="button"
-                          className={styles.openButton}
-                          aria-label={`打开 ${title}`}
-                          onClick={onSelectNote ? () => onSelectNote(note.id, title) : undefined}
-                          disabled={!onSelectNote}
-                        >
-                          <ArrowUpRightIcon size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
-  );
-}
-
-interface HomeHeaderProps {
-  id: string;
-  today: string;
-  title: string;
-  subtitle: string;
-  onOpenCreate?: () => void;
-  onOpenSchedule?: () => void;
-}
-
-function HomeHeader({ id, today, title, subtitle, onOpenCreate, onOpenSchedule }: HomeHeaderProps) {
-  return (
-    <header className={styles.header}>
-      <div className={styles.headerLead}>
-        <PixelFace
-          className={styles.headerFace}
-          proximity={120}
-          idleAfterMs={25000}
-        />
-        <p className={styles.kicker}>{today}<span className={styles.version}>版本 v{appVersion}</span></p>
-        <h1 id={id} className={styles.title}>{title}</h1>
-        <p className={styles.subtitle}>{subtitle}</p>
-      </div>
-      <div className={styles.headerActions}>
-        <Button
-          className={styles.scheduleButton}
-          onClick={onOpenSchedule}
-          isDisabled={!onOpenSchedule}
-          aria-label="打开日程"
-        >
-          <CalendarIcon size={17} />
-          <span>日程</span>
-        </Button>
-        <Button
-          variant="accent"
-          className={styles.createButton}
-          onClick={onOpenCreate}
-          isDisabled={!onOpenCreate}
-          aria-label="新建笔记（Ctrl+N）"
-        >
-          <PlusIcon size={17} />
-          <span>新建笔记</span>
-          <kbd>Ctrl+N</kbd>
-        </Button>
-      </div>
-    </header>
   );
 }
 
@@ -368,88 +199,19 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
       aria-disabled={locked}
       disabled={locked}
     >
-      <div className={styles.workbenchHeader}>
-        <span className={styles.workbenchIcon} aria-hidden="true">
-          <Icon size={22} />
-        </span>
-        <span className={styles.cardNumber}>
-          {entry.number}{locked ? ' / LOCKED' : ''}
-        </span>
-        {entry.available ? (
-          <span className={styles.workbenchArrow} aria-hidden="true">
-            <ArrowUpRightIcon size={18} />
-          </span>
-        ) : null}
-      </div>
-      <div className={styles.workbenchCopy}>
-        <div className={styles.workbenchTitleRow}>
+      <span className={styles.workbenchIcon} aria-hidden="true"><Icon size={20} /></span>
+      <span className={styles.workbenchCopy}>
+        <span className={styles.workbenchTitleRow}>
           <h2 className={styles.workbenchTitle}>{entry.label}</h2>
           {locked ? <span className={styles.lockedBadge}>即将开放</span> : null}
-        </div>
-        <p className={styles.workbenchDescription}>{entry.description}</p>
-      </div>
-      <div className={styles.workbenchStatus}>
-        <span
-          className={cx(styles.statusDot, entry.available ? styles.statusDotActive : styles.statusDotLocked)}
-          aria-hidden="true"
-        />
-        <span>{entry.available ? entry.id === 'materials' ? `AVAILABLE · ${activeNoteCount} ITEMS` : 'AVAILABLE · 知识整理' : 'DEPENDENCY GATED'}</span>
-      </div>
+        </span>
+        <span className={styles.workbenchDescription}>{entry.description}</span>
+      </span>
+      <span className={styles.workbenchStatus}>
+        <span className={cx(styles.statusDot, entry.available ? styles.statusDotActive : styles.statusDotLocked)} aria-hidden="true" />
+        {entry.available ? (entry.id === 'materials' ? `${activeNoteCount} 篇笔记` : '知识整理') : '待联调'}
+      </span>
+      {entry.available ? <ArrowUpRightIcon size={16} className={styles.workbenchArrow} aria-hidden="true" /> : null}
     </button>
   );
-}
-
-interface Stats {
-  totalNotes: number;
-  activeNotes: number;
-  favoriteCount: number;
-  recentNotes: Note[];
-}
-
-function computeStats(notes: Note[], _folders: Folder[], _tags: Tag[]): Stats {
-  const active = notes.filter((note) => !note.deleted);
-  const sorted = [...active].sort((a, b) => {
-    const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
-    const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
-    return bTime - aTime;
-  });
-  return {
-    totalNotes: notes.length,
-    activeNotes: active.length,
-    favoriteCount: active.filter((note) => note.favorite).length,
-    recentNotes: sorted.slice(0, 8)
-  };
-}
-
-function noteStatus(note: Note): { label: string; tone: 'Warning' | 'Success' } {
-  const raw = String(note.status ?? '').toLowerCase();
-  const complete = /complete|completed|done|published|active|success/.test(raw);
-  return complete ? { label: '已完成', tone: 'Success' } : { label: '待整理', tone: 'Warning' };
-}
-
-function formatToday(): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: '2-digit'
-  }).formatToParts(new Date());
-  const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
-  const month = parts.find((part) => part.type === 'month')?.value ?? '';
-  const day = parts.find((part) => part.type === 'day')?.value ?? '';
-  return `${weekday} / ${month} ${day}`;
-}
-
-function formatRecentTime(input: string | undefined | null): string {
-  if (!input) return '—';
-  const date = new Date(input);
-  if (Number.isNaN(date.getTime())) return input;
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
-  if (elapsedMinutes < 60) return `${Math.max(1, elapsedMinutes)}分钟前`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}小时前`;
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date).replaceAll('-', '/');
 }

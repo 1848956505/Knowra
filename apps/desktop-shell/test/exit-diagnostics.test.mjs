@@ -38,6 +38,13 @@ test('拒绝非合成目录以及符号链接根', t => {
   assert.throws(() => validateSyntheticDirectory(linked), /诊断/);
 });
 
+test('关闭阶段只保留固定枚举，不导出伪造阶段中的用户内容', () => {
+  for (const stage of ['mcp', 'http', 'sync', 'ai', 'store', 'released']) {
+    assert(sanitizeDesktopLog(`2026-10-11T00:00:00.000Z 本地服务关闭阶段：${stage}`).includes(`阶段：${stage}`));
+  }
+  assert(!sanitizeDesktopLog('2026-10-11T00:00:00.000Z 本地服务关闭阶段：http PRIVATE').includes('PRIVATE'));
+});
+
 test('挂起或抛错的诊断返回有限状态，不输出原错误或无限延迟', async () => {
   assert.deepEqual(await boundedDiagnostic(() => new Promise(() => {}), 5), { status: 'timeout' });
   assert.deepEqual(await boundedDiagnostic(() => { throw new Error('PRIVATE'); }), { status: 'unavailable' });

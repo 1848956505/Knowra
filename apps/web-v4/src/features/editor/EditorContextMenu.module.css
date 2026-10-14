@@ -3,163 +3,140 @@
   min-width: 0;
 }
 
-.anchor {
-  position: fixed;
-  z-index: -1;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-
+/* 右键菜单要“跟手”：不做入场/退场动画，位置确定后立即显示。 */
 .popover,
 .submenuPopover {
   z-index: 260;
 }
 
+.popover[data-entering],
+.popover[data-exiting],
+.submenuPopover[data-entering],
+.submenuPopover[data-exiting] {
+  animation: none;
+}
+
 .menu {
-  width: min(276px, calc(100vw - 24px));
-  max-width: none;
-  max-height: min(560px, calc(100vh - 24px));
-  padding: var(--space-2);
+  width: 236px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  padding: 6px;
   overflow: auto;
   overscroll-behavior: contain;
 }
 
-.quickSection {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.quickSection + .quickSection {
-  margin-top: 2px;
-}
-
-.sectionLabel {
-  grid-column: 1 / -1;
-  padding: 4px 2px 1px;
-}
-
-.quickItem {
-  min-width: 0;
-  min-height: var(--touch-target);
+/* 三排图标工具：每排一组功能，排与排之间只用发丝线分隔。 */
+.toolRow {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
-  padding: 4px 2px;
-  border: 1px solid var(--border-subtle);
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.toolRow + .toolRow {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+
+.toolItem {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
   color: var(--text-secondary);
-  border-radius: var(--radius-control);
-  font-size: var(--font-size-meta);
-  font-weight: 500;
-  line-height: 1.1;
-  text-align: center;
 }
 
-.quickItem > span:first-child {
+.toolItem > span:first-child {
   width: 16px;
   height: 16px;
+  display: grid;
+  place-items: center;
+  color: inherit;
+}
+
+.toolItem > span:first-child svg {
+  width: 16px;
+  height: 16px;
+}
+
+.toolItem[data-focused] {
+  background: var(--surface-hover);
   color: var(--text-primary);
-}
-
-.quickItem > span:first-child svg {
-  width: 16px;
-  height: 16px;
-}
-
-.quickItem[data-focused] {
-  border-color: var(--accent-text);
-  background: var(--accent-soft);
-  color: var(--accent-text);
   box-shadow: none;
 }
 
-.quickItem[data-focused] > span:first-child {
-  color: var(--accent-text);
+.toolItem[data-pressed] {
+  background: var(--surface-pressed);
 }
 
-.quickItem[data-disabled] {
-  opacity: .46;
+.toolItem[data-disabled] {
+  opacity: .4;
 }
 
-.primaryItem {
-  grid-column: span 3;
+.toolItem { position: relative; }
+
+/* 覆盖整个按钮，用于原生悬停提示。 */
+.hit {
+  position: absolute;
+  inset: 0;
 }
 
-.formatItem,
-.listItem {
-  grid-column: span 4;
-}
-
-.indentItem {
-  grid-column: span 6;
-}
-
-.fullRow,
-.submenuTrigger {
-  grid-column: 1 / -1;
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .fullRow {
-  margin: 6px -8px 2px;
+  margin: 4px -6px;
 }
 
 .submenuTrigger {
-  min-height: 36px;
-  margin-inline: -8px;
-  padding-inline: 12px;
-  border-top: 1px solid transparent;
+  min-height: 32px;
 }
 
 .menu > :global([role='menuitem']) {
-  min-height: 36px;
-  padding-block: 6px;
-}
-
-.submenuTrigger[data-focused] {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  min-height: 32px;
+  padding-block: 5px;
 }
 
 .submenuTrigger[data-open] {
-  border-top-color: transparent;
   background: var(--surface-pressed);
   color: var(--text-primary);
 }
 
 .submenu {
-  width: min(236px, calc(100vw - 24px));
-  max-width: none;
+  width: 224px;
+  max-width: calc(100vw - 24px);
   max-height: min(420px, calc(100vh - 24px));
   overflow: auto;
   overscroll-behavior: contain;
 }
 
 .submenu [role='menuitem'] {
-  min-height: var(--touch-target);
-}
-
-@media (max-height: 520px) {
-  .menu {
-    max-height: calc(100vh - 16px);
-  }
-
-  .quickItem {
-    min-height: 40px;
-  }
-
-  .sectionLabel {
-    padding-top: 2px;
-  }
+  min-height: 32px;
 }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .quickItem,
+  /* 最长一排6个图标：6个触点 + 5处2px间距 + 12px内边距 + 2px边框。
+   * 极窄视口仍受 menu 的 max-width 约束，工具项换行而不是缩小触点。 */
+  .menu { width: calc(6 * var(--touch-target) + 24px); }
+  .toolRow { flex-wrap: wrap; }
+  .toolItem {
+    flex: 1 0 var(--touch-target);
+    min-width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+  }
   .submenuTrigger,
-  .menu > :global([role='menuitem']) { min-height: var(--touch-target); }
+  .menu > :global([role='menuitem']),
+  .submenu [role='menuitem'] { min-height: var(--touch-target); }
 }

@@ -1,3 +1,4 @@
+import { openEditorToolbarMenu } from '../../../scripts/test-support/editor-menu.mjs';
 import { test } from './fixtures/syntheticTest';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { mockEditorWorkspace, createNote } from './fixtures/editorWorkspace';
@@ -54,6 +55,27 @@ for (const key of ['Backspace', 'Delete']) {
   });
 }
 
+test('V4-07 标签页放不下时才出现“查看全部标签页”入口并列出已打开笔记', async ({ page }) => {
+  await mockEditorWorkspace(page, []);
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await page.evaluate(() => { window.location.hash = '/materials/notes/note-2'; });
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  const allTabs = page.getByRole('button', { name: '查看全部标签页' });
+  await expect(allTabs).toHaveCount(0);
+  // 收窄视口让标签页横向溢出：入口出现，菜单列出全部已打开笔记。
+  await page.setViewportSize({ width: 640, height: 800 });
+  await page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>('[role="tablist"] > div');
+    if (scroller) scroller.style.maxWidth = '120px';
+  });
+  await expect(allTabs).toBeVisible();
+  await allTabs.click();
+  const menu = page.getByRole('menu', { name: '全部标签页' });
+  await expect(menu.getByRole('menuitem')).toHaveCount(2);
+  await expect(menu.getByRole('menuitem', { name: /编辑器验收笔记/ })).toBeVisible();
+});
+
 test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({ page }) => {
   const savedMarkdown: string[] = [];
   const browserProblems: string[] = [];
@@ -72,7 +94,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await expect(page.locator('[data-editor-cover]')).toHaveCount(0);
   await expect(page.getByLabel('笔记位置')).toContainText('工作');
   const documentPaper = page.locator('article[data-pdf-document]');
-  await expect(documentPaper).toHaveCSS('background-color', await tokenColor(page, '--surface-page'));
+  await expect(documentPaper).toHaveCSS('background-color', await tokenColor(documentPaper, '--surface-page'));
   await expect(documentPaper).toHaveCSS('border-width', '0px');
   await expect(documentPaper).toHaveCSS('box-shadow', 'none');
   await expect(page.locator('[data-editor-scroll-root]')).toHaveCSS('background-image', 'none');
@@ -83,7 +105,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await expect(titleInput).toHaveCSS('box-shadow', 'none');
   await expect(editor).toHaveCSS('font-size', '15px');
   await expect(editor).toHaveCSS('line-height', '26.25px');
-  await expect(editor).toHaveCSS('color', await tokenColor(page, '--text-secondary'));
+  await expect(editor).toHaveCSS('color', await tokenColor(editor, '--text-body'));
   expect(await editor.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Inter');
   const floatingToolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
   await expect(floatingToolbar).toHaveCSS('margin-top', '24px');
@@ -103,10 +125,8 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await page.getByRole('button', { name: '一级标题' }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^# /);
 
-  await page.getByRole('button', { name: '查看全部标签页' }).click();
-  await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: /编辑器验收笔记/ })).toBeVisible();
-  await page.keyboard.press('Escape');
+  // 单个标签页放得下时不显示“全部标签页”入口。
+  await expect(page.getByRole('button', { name: '查看全部标签页' })).toHaveCount(0);
 
   const openFileMenu = async () => {
     await page.getByRole('toolbar', { name: '笔记格式工具栏' }).evaluate((toolbar) => {
@@ -115,7 +135,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
       stage.scrollTop = 500;
       stage.dispatchEvent(new Event('scroll'));
     });
-    await page.getByRole('button', { name: '文件', exact: true }).click();
+    await openEditorToolbarMenu(page, '文件');
     await expect(page.getByRole('menu', { name: '文件', exact: true })).toBeVisible();
   };
   await openFileMenu();
@@ -291,7 +311,7 @@ test('V4-07 代码块保持 Typora 式插入与末尾点击行为', async ({ pag
   const paragraph = editor.locator(':scope > p').first();
   await paragraph.click();
   await page.keyboard.press('End');
-  await page.getByRole('button', { name: '段落', exact: true }).click();
+  await openEditorToolbarMenu(page, '段落');
   await page.getByRole('menuitem', { name: '代码块', exact: true }).click();
 
   await expect(paragraph).toHaveText('已有正文');
@@ -367,7 +387,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   };
   const chooseParagraphAction = async (name: string) => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '段落', exact: true }).click();
+    await openEditorToolbarMenu(page, '段落');
     await page.getByRole('menuitem', { name, exact: true }).click();
   };
 
@@ -386,12 +406,12 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
     selection?.addRange(range);
   });
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '格式', exact: true }).click();
+  await openEditorToolbarMenu(page, '格式');
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^`缩进验收已有正文`/);
-  await expect(editor.locator('p code').first()).toHaveCSS('background-color', await tokenColor(page, '--surface-hover'));
+  await expect(editor.locator('p code').first()).toHaveCSS('background-color', await tokenColor(editor.locator('p code').first(), '--surface-hover'));
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '格式', exact: true }).click();
+  await openEditorToolbarMenu(page, '格式');
   await page.getByRole('menuitem', { name: /^行内代码/ }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').not.toMatch(/^`缩进验收已有正文`/);
 
@@ -426,7 +446,7 @@ test('V4-07 段落菜单复用编辑器命令并通过现有保存链路持久�
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toContain('代码验收\n\n```');
   await expect(editor.locator('pre code').first()).toHaveText('');
   await expect(editor.locator('pre').first()).toHaveCSS('display', 'block');
-  await expect(editor.locator('pre').first()).toHaveCSS('background-color', await tokenColor(page, '--surface-sunken'));
+  await expect(editor.locator('pre').first()).toHaveCSS('background-color', await tokenColor(editor.locator('pre').first(), '--surface-sunken'));
   await expect(editor.locator('pre code').first()).toHaveCSS('padding', '18px 20px');
 
   await replaceEditorParagraph(page, editor, '分割线验收');
@@ -476,7 +496,7 @@ test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ pa
   };
   const openFormatMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '格式', exact: true }).click();
+    await openEditorToolbarMenu(page, '格式');
     await expect(page.getByRole('menu', { name: '格式', exact: true })).toBeVisible();
   };
   const runFormatAction = async (name: string | RegExp) => {
@@ -521,6 +541,60 @@ test('V4-07 格式菜单复用编辑器与内部链接保存链路', async ({ pa
   await expect(editor.locator('[data-note-link]').first()).toHaveText('已有正文');
 });
 
+for (const scenario of [
+  { label: '窄屏', viewport: { width: 390, height: 844 }, hasTouch: false },
+  { label: '平板粗指针', viewport: { width: 1024, height: 768 }, hasTouch: true }
+]) {
+  test.describe(`V4-07 右键工具触点 ${scenario.label}`, () => {
+    test.use({ viewport: scenario.viewport, hasTouch: scenario.hasTouch });
+    test('44×44 工具触点可达，现有右键入口支持指针删除', async ({ page }) => {
+      const saved: string[] = [];
+      await mockEditorWorkspace(page, saved);
+      await page.goto('/#/materials/notes/note-1');
+      const paragraph = page.locator('.ProseMirror > p').first();
+      await paragraph.scrollIntoViewIfNeeded();
+      await paragraph.evaluate(element => {
+        (element.closest('.ProseMirror') as HTMLElement).focus();
+        const range = document.createRange();
+        range.setStart(element.firstChild!, 0);
+        range.setEnd(element.firstChild!, 2);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+      // 独立的浏览器动作让 selectionchange 先同步到 ProseMirror，再打开菜单。
+      await paragraph.click({ button: 'right', position: { x: 20, y: 10 } });
+      expect(await page.evaluate(() => matchMedia('(max-width: 767px), (any-pointer: coarse)').matches)).toBe(true);
+      const menu = page.getByRole('menu', { name: '编辑器右键快捷功能' });
+      await expect(menu).toBeVisible();
+      const menuBox = (await menu.boundingBox())!;
+      expect(menuBox.x).toBeGreaterThanOrEqual(11);
+      expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(scenario.viewport.width - 11);
+      expect(await menu.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '删除线', '引用', '有序列表', '无序列表', '任务列表', '减少缩进', '增加缩进']) {
+        const item = menu.getByRole('menuitem', { name: label, exact: true });
+        await expect(item).toBeEnabled();
+        await expect(item).toHaveCSS('min-width', '44px');
+        await expect(item).toHaveCSS('min-height', '44px');
+        await item.scrollIntoViewIfNeeded();
+        const box = (await item.boundingBox())!;
+        expect(Math.round(box.width * 100) / 100).toBeGreaterThanOrEqual(44);
+        expect(Math.round(box.height * 100) / 100).toBeGreaterThanOrEqual(44);
+        expect(await item.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+        })).toBe(true);
+      }
+      // 入口沿用已有右键事件；这里只验菜单打开后的触摸操作，不假设产品支持长按。
+      const remove = menu.getByRole('menuitem', { name: '删除', exact: true });
+      if (scenario.hasTouch) await remove.tap();
+      else await remove.click();
+      await expect.poll(() => saved.at(-1) ?? '').toMatch(/^正文/);
+      await expect(menu).toHaveCount(0);
+    });
+  });
+}
+
 test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底部碰撞', async ({ page }) => {
   test.setTimeout(60_000);
   const savedMarkdown: string[] = [];
@@ -553,11 +627,11 @@ test('V4-07 编辑器右键面板复用命令并处理二级菜单跨越与底�
   expect(await contextMenu.evaluate(element => Number.parseFloat(getComputedStyle(element).borderTopWidth))).toBeLessThanOrEqual(1);
   await expect(contextMenu).toHaveCSS('border-radius', '10px');
   const quickButtonBox = await contextMenu.getByRole('menuitem', { name: '剪切', exact: true }).boundingBox();
-  // Chromium 的浮点坐标可能为 43.999984；CSS 最小触点与百分之一像素取整共同验证44px。
-  await expect(contextMenu.getByRole('menuitem', { name: '剪切', exact: true })).toHaveCSS('min-height', '44px');
-  expect(Math.round(quickButtonBox!.height * 100) / 100).toBe(44);
+  // 桌面鼠标采用紧凑32px；窄屏及粗指针44px另有独立交互回归。
+  await expect(contextMenu.getByRole('menuitem', { name: '剪切', exact: true })).toHaveCSS('min-height', '32px');
+  expect(Math.round(quickButtonBox!.height * 100) / 100).toBe(32);
   expect((await contextMenu.boundingBox())?.width).toBeLessThanOrEqual(280);
-  for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '有序', '无序', '任务']) {
+  for (const label of ['剪切', '复制', '粘贴', '删除', '加粗', '斜体', '高亮', '行内代码', '有序列表', '无序列表', '任务列表']) {
     await expect(contextMenu.getByRole('menuitem', { name: label, exact: true })).toBeEnabled();
   }
   await contextMenu.getByRole('menuitem', { name: '删除', exact: true }).click();
@@ -643,7 +717,7 @@ test('V4-07 编辑菜单完成剪贴板、查找替换与历史命令闭环', as
   const editor = page.locator('.ProseMirror');
   const openEditMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await openEditorToolbarMenu(page, '编辑');
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
 
@@ -773,7 +847,7 @@ test('V4-07 异常格式修复读取原始草稿并可一次撤销', async ({ pa
 
   const openEditMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await openEditorToolbarMenu(page, '编辑');
     await expect(page.getByRole('menu', { name: '编辑', exact: true })).toBeVisible();
   };
   await openEditMenu();
@@ -922,7 +996,7 @@ test('V4-07 视图菜单统一控制阅读、编辑、专注、双侧栏与源�
   await page.keyboard.press('End');
   const openViewMenu = async () => {
     await showEditorToolbar(page);
-    await page.getByRole('button', { name: '视图', exact: true }).click();
+    await openEditorToolbarMenu(page, '视图');
     await expect(page.getByRole('menu', { name: '视图', exact: true })).toBeVisible();
   };
 
@@ -1002,22 +1076,24 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
     context: (await contextSidebar.boundingBox())?.width ?? 0,
     tabs: closedTabsWidth - ((await noteTabs.boundingBox())?.width ?? 0)
   })).toEqual({ inspector: 288, rail: 56, context: 240, tabs: 0 });
+  // 检查器是带 shell-gap 顶/底留白的独立卡片，不能用旧的完全齐顶约束。
+  const shellGap = await inspector.evaluate(element => Number.parseFloat(getComputedStyle(element).getPropertyValue('--shell-gap')));
+  expect(Number.isFinite(shellGap)).toBe(true);
   await expect.poll(async () => {
     const [inspectorBox, tabsBox, contextBox] = await Promise.all([
-      inspector.boundingBox(),
-      page.getByRole('tablist', { name: '打开的笔记' }).boundingBox(),
-      contextSidebar.boundingBox()
+      inspector.boundingBox(), noteTabs.boundingBox(), contextSidebar.boundingBox()
     ]);
     if (!inspectorBox || !tabsBox || !contextBox) return null;
     return {
-      alignedTop: Math.abs(inspectorBox.y - contextBox.y) <= 1,
+      insetTop: Math.abs(inspectorBox.y - contextBox.y - shellGap) <= 1,
+      insetBottom: Math.abs(contextBox.y + contextBox.height - inspectorBox.y - inspectorBox.height - shellGap) <= 1,
       belowTabs: inspectorBox.y >= tabsBox.y + tabsBox.height - 1
     };
-  }).toEqual({ alignedTop: true, belowTabs: true });
+  }).toEqual({ insetTop: true, insetBottom: true, belowTabs: true });
   await expect.poll(async () => ({
     inspector: await inspector.evaluate((element) => getComputedStyle(element).backgroundColor),
-    header: await inspector.locator('header').evaluate((element) => getComputedStyle(element).backgroundColor)
-  })).toEqual({ inspector: await tokenColor(page, '--surface-page'), header: await tokenColor(page, '--surface-page') });
+    header: await inspector.locator(':scope > header').evaluate((element) => getComputedStyle(element).backgroundColor)
+  })).toEqual({ inspector: await tokenColor(inspector, '--inspector-card-bg'), header: 'rgba(0, 0, 0, 0)' });
   await expect(inspector.getByRole('tablist', { name: '检查器视图' })).toBeVisible();
   for (const name of ['信息', '大纲', '链接', '记录', 'AI']) {
     await expect(inspector.getByRole('tab', { name, exact: true })).toBeVisible();
@@ -1026,19 +1102,38 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
   const shell = titlebar.locator('..');
   await expect(titlebar).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(moduleRail).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-  await expect(shell).toHaveCSS('background-color', await tokenColor(page, '--surface-chrome'));
+  await expect(shell).toHaveCSS('background-color', await tokenColor(shell, '--surface-chrome'));
   expect(await shell.evaluate(element => getComputedStyle(element).backgroundImage)).toContain('radial-gradient');
-  await expect(contextSidebar).toHaveCSS('background-color', await tokenColor(page, '--surface-sidebar'));
+  await expect(contextSidebar).toHaveCSS('background-color', await tokenColor(contextSidebar, '--surface-sidebar'));
   expect(await page.locator('article[data-pdf-document]').evaluate((paper) => {
     const stage = paper.parentElement;
     if (!stage) return Infinity;
     return Math.round((stage.clientWidth - paper.getBoundingClientRect().width) / 2);
   })).toBeLessThanOrEqual(20);
-  await expect(inspector.getByText('Markdown 文档')).toBeVisible();
+  await expect(inspector.getByRole('heading', { name: '编辑器验收笔记', exact: true })).toBeVisible();
   await expect(inspector.getByText('工作')).toBeVisible();
   await expect(inspector.getByText('待整理')).toBeVisible();
   await expect(inspector.getByText('学习')).toBeVisible();
   await expect(inspector.getByText('AI', { exact: true }).last()).toBeVisible();
+
+  // 短视口下信息面板单独滚动，标题/标签栏保持可操作，正文与外壳不跟随滚动。
+  await page.setViewportSize({ width: 1280, height: 480 });
+  const inspectorScroller = inspector.getByRole('tabpanel', { name: '信息' }).locator('..');
+  const stage = page.locator('[data-editor-scroll-root]');
+  const documentScroll = await stage.evaluate(element => element.scrollTop);
+  const headerTop = (await inspector.locator(':scope > header').boundingBox())!.y;
+  await inspectorScroller.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect.poll(() => inspectorScroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  expect(await stage.evaluate(element => element.scrollTop)).toBe(documentScroll);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(Math.abs((await inspector.locator(':scope > header').boundingBox())!.y - headerTop)).toBeLessThanOrEqual(1);
+  const infoTab = inspector.getByRole('tab', { name: '信息', exact: true });
+  expect(await infoTab.evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  })).toBe(true);
+  await inspectorScroller.evaluate(element => { element.scrollTop = 0; });
+  await page.setViewportSize({ width: 1280, height: 760 });
 
   const editor = page.locator('.ProseMirror');
   await editor.locator(':scope > p').first().click();
@@ -1166,7 +1261,7 @@ test('V4-07 Markdown 导入复用后端批量能力并打开首篇笔记', async
     stage.scrollTop = 500;
     stage.dispatchEvent(new Event('scroll'));
   });
-  await page.getByRole('button', { name: '文件', exact: true }).click();
+  await openEditorToolbarMenu(page, '文件');
   await page.getByRole('menuitem', { name: '导入 Markdown' }).click();
 
   const dialog = page.getByRole('dialog', { name: '导入 Markdown' });
@@ -1221,7 +1316,7 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await expect(code).toContainText('# literal\n```js\n**text**');
   await page.evaluate(() => navigator.clipboard.writeText('\n# 菜单粘贴\n    raw'));
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await openEditorToolbarMenu(page, '编辑');
   await page.getByRole('menuitem', { name: '粘贴', exact: true }).click();
   await expect(code).toContainText('\n# 菜单粘贴\n    raw');
   await expect(editor.locator('h1')).toHaveCount(0);
@@ -1237,12 +1332,12 @@ test('V4-07 代码语言、逐行编辑、原文复制与保存回读', async ({
   await expect(language).toHaveValue('c++');
   await expect(editor.locator(':scope > p')).toHaveText('正文继续');
   await showEditorToolbar(page);
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(language).toBeDisabled();
   await expect(page.getByRole('button', { name: '在下方继续', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '复制代码', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '编辑模式', exact: true }).click();
   await expect(language).toBeEnabled();
   expect(errors).toEqual([]);
@@ -1312,7 +1407,7 @@ test(`V4-07 代码块 ${modifier}+A 选当前代码，正文平台全选选整�
   await editor.locator('pre[data-code-block] > code').last().click();
   await page.keyboard.press(`${modifier}+a`);
   await expect.poll(selectedText).toBe('other block');
-  await page.getByRole('button', { name: '编辑', exact: true }).click();
+  await openEditorToolbarMenu(page, '编辑');
   await page.getByRole('menuitem', { name: '全选', exact: true }).click();
   await expect.poll(selectedText).toBe('other block');
   await editor.locator(':scope > p').first().click();
@@ -1337,10 +1432,10 @@ test('V4-07 参考样式代码块支持空块删除与非空行插入', async ({
   await expect(block.locator('code')).toHaveText('');
   await expect(block).toHaveCSS('border-left-width', '0px');
   await expect(block).toHaveCSS('border-radius', '8px');
-  await expect(block).toHaveCSS('background-color', await tokenColor(page, '--surface-sunken'));
+  await expect(block).toHaveCSS('background-color', await tokenColor(block, '--surface-sunken'));
   await expect.poll(() => block.evaluate(el => getComputedStyle(el).boxShadow)).toContain('0px 0px 0px 1px');
   await expect(block.locator('[data-code-toolbar]')).toHaveCSS('border-bottom-width', '1px');
-  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', await tokenColor(page, '--surface-page'));
+  await expect(page.getByRole('textbox', { name: '代码语言', exact: true })).toHaveCSS('background-color', await tokenColor(page.getByRole('textbox', { name: '代码语言', exact: true }), '--surface-page'));
   await block.screenshot({ path: '/tmp/knowra-code-block-inset.png' });
   await page.keyboard.press('Backspace');
   await expect(block).toHaveCount(0);
@@ -1388,7 +1483,7 @@ test('V4-07 代码块命令将当前代码行转为正文并保留上下代码',
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
   });
-  await page.getByRole('button', { name: '段落', exact: true }).click();
+  await openEditorToolbarMenu(page, '段落');
   await page.getByRole('menuitem', { name: '代码块', exact: true }).click();
   await expect(code).toHaveText(['one', 'three']);
   await expect(editor.locator(':scope > p')).toHaveText('    two');
@@ -1515,7 +1610,7 @@ test('V4-07 重点标记内的粗体保持醒目', async ({ page }) => {
   await editor.locator('p').first().click({ clickCount: 3 });
   await page.getByRole('toolbar', { name: '选区工具' }).getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
-  await expect(editor.locator('.editor-annotation')).toHaveCSS('color', await tokenColor(page, '--accent-text'));
+  await expect(editor.locator('.editor-annotation')).toHaveCSS('color', await tokenColor(editor, '--accent-text'));
   expect(Number(await strong.evaluate(element => getComputedStyle(element).fontWeight))).toBeGreaterThan(400);
   await editor.locator('p').first().screenshot({ path: '/tmp/knowra-bold-annotation.png' });
 });
@@ -1547,10 +1642,10 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
     ['core', '核心', '--ink-violet', '--ink-violet']
   ]) {
     // 彩色底上的徽章用高对比令牌；纸面正文使用对应等级的文字令牌。
-    const color = await tokenColor(page, textToken);
+    const color = await tokenColor(editor.locator(`[data-annotation-id="${id}"]`), textToken);
     const card = inspector.locator(`article[data-annotation-card-id="${id}"]`);
     await expect(card).toHaveAttribute('data-importance', id);
-    await expect(card.getByText(label, { exact: true })).toHaveCSS('color', await tokenColor(page, badgeToken));
+    await expect(card.getByText(label, { exact: true })).toHaveCSS('color', await tokenColor(card, badgeToken));
     await expect(card).toHaveCSS('border-left-width', '1px');
     await expect(card).toHaveCSS('border-radius', '10px');
     expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).not.toContain('inset');
@@ -1560,7 +1655,7 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
   }
   await expect(inspector.locator('article[data-annotation-card-id="unrated"]')).not.toHaveAttribute('data-importance');
   await expect(inspector.getByText('待评级')).toHaveCount(0);
-  await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', await tokenColor(page, '--accent-text'));
+  await expect(editor.locator('[data-annotation-id="unrated"]')).toHaveCSS('color', await tokenColor(editor, '--accent-text'));
   await inspector.screenshot({ path: '/tmp/knowra-importance-colors.png' });
 });
 
@@ -1638,7 +1733,7 @@ test('标注渐进披露：正文三种创建入口与紧凑检查器', async ({
   await selectionTools.getByRole('button', { name: '标记重点（普通）', exact: true }).click();
   await expect.poll(() => created.length).toBe(1);
   const highlight = editor.locator('.editor-annotation').first();
-  await expect(highlight).toHaveCSS('color', await tokenColor(page, '--accent-text'));
+  await expect(highlight).toHaveCSS('color', await tokenColor(highlight, '--accent-text'));
   await expect(highlight).toHaveCSS('border-bottom-style', 'none');
   await expect(highlight).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(highlight).toHaveCSS('outline-style', 'none');
@@ -1989,7 +2084,7 @@ test('V4-07 窄屏表格菜单可由键盘访问，阅读模式不显示写入�
   await expect(page.getByRole('menuitem', { name: '删除当前列', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(trigger).toHaveCount(0);
 });
@@ -2107,7 +2202,7 @@ test('V4-07 旧比例长图保持等比与窄屏键盘预设，阅读模式隐�
   expect(saved.at(-1)).toContain('长图标题');
   expect(saved.at(-1)).not.toContain('knowra-image-ratio');
   await expect.poll(async () => (await image.boundingBox())!.width / rect.width).toBeCloseTo(0.4 / 0.66, 1);
-  await page.getByRole('button', { name: '视图', exact: true }).click();
+  await openEditorToolbarMenu(page, '视图');
   await page.getByRole('menuitem', { name: '阅读模式', exact: true }).click();
   await expect(controls).toHaveCount(0);
   await expect(page.getByRole('button', { name: '拖动缩放图片', exact: true })).toHaveCount(0);
@@ -2211,10 +2306,14 @@ test('V4-07 窄屏长公式与错误预览不撑开页面', async ({ page }) => 
 });
 
 /** 用真实主题令牌校验颜色，避免回归测试重新固定旧主题色。 */
-async function tokenColor(page: Page, token: string): Promise<string> {
-  return page.evaluate(name => {
+async function tokenColor(scope: Locator, token: string): Promise<string> {
+  return scope.evaluate((element, name) => {
     const probe = document.createElement('span');
-    probe.style.color = `var(${name})`;
+    // 先从被测元素的继承链取得已解析令牌，再转换为浏览器标准颜色。
+    // 不在 contenteditable / 输入控件里插入探针，避免触发编辑器 DOM 观察器。
+    const value = getComputedStyle(element).getPropertyValue(name).trim();
+    if (!value) throw new Error(`被测元素缺少主题令牌 ${name}`);
+    probe.style.color = value;
     probe.hidden = true;
     document.body.append(probe);
     const color = getComputedStyle(probe).color;

@@ -121,6 +121,30 @@ export function formatInspectorDate(value?: string, now = new Date()): string {
     : `${part('year')}-${part('month')}-${part('day')} ${time}`;
 }
 
+/** 检查器里的紧凑时间：今天/昨天 + 时分，今年内“M月D日 时分”，更早带年份。 */
+export function formatInspectorMoment(value?: string, now = new Date()): string {
+  if (!value) return '未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  const time = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  const dayStart = (input: Date) => new Date(input.getFullYear(), input.getMonth(), input.getDate()).getTime();
+  const days = Math.round((dayStart(now) - dayStart(date)) / 86_400_000);
+  if (days === 0) return `今天 ${time}`;
+  if (days === 1) return `昨天 ${time}`;
+  if (date.getFullYear() === now.getFullYear()) return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`;
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+/** 只含日期的短格式，用于“创建于”。 */
+export function formatInspectorDay(value?: string, now = new Date()): string {
+  if (!value) return '未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未知';
+  return date.getFullYear() === now.getFullYear()
+    ? `${date.getMonth() + 1}月${date.getDate()}日`
+    : `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 function stripMarkdown(markdown: string): string {
   return markdown
     .replace(/```[^\n]*\n?/g, '')

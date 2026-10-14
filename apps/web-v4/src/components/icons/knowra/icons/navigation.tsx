@@ -18,6 +18,28 @@ export const FilterIcon = createIcon("FilterIcon", (
   </>
 ));
 
+/** 筛选：由长到短的三条线，与原型工具栏一致。 */
+export const FilterLinesIcon = createIcon("FilterLinesIcon", (
+  <>
+    <path d="M3 5h18M6 12h12M10 19h4"/>
+  </>
+));
+
+/** 显示选项：两条水平滑杆。 */
+export const DisplayOptionsIcon = createIcon("DisplayOptionsIcon", (
+  <>
+    <path d="M4 7h10M18 7h2M4 17h2M10 17h10"/>
+    <circle cx="16" cy="7" r="2"/>
+    <circle cx="8" cy="17" r="2"/>
+  </>
+));
+
+export const ChevronLeftIcon = createIcon("ChevronLeftIcon", (
+  <>
+    <path d="m15 6-6 6 6 6"/>
+  </>
+));
+
 export const SettingsIcon = createIcon("SettingsIcon", (
   <>
     <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 16V3M1 14h6M9 8h6M17 16h6"/>

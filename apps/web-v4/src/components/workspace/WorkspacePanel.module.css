@@ -1,5 +1,7 @@
-.panel { height: 100%; min-height: 0; min-width: 0; margin: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; border: 0; border-radius: var(--radius-panel); background: var(--surface-page); color: var(--text-primary); }
-.header { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); }
+.panel { height: 100%; min-height: 0; min-width: 0; margin: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; border: 0; border-radius: var(--radius-panel); background: var(--glow-panel, none), var(--surface-page); color: var(--text-primary); }
+/* 顶边渐变高光：左亮右隐，交代光从左上来。 */
+.panel::before { content: ''; position: absolute; inset: 0 0 auto 0; z-index: 1; height: 1px; background: var(--edge-panel, none); pointer-events: none; }
+.header { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 20px; background: var(--glow-divider, linear-gradient(var(--border-subtle), var(--border-subtle))) bottom / 100% 1px no-repeat; }
 .title { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; color: var(--text-primary); font: 600 14px/1.5 var(--font-ui); white-space: nowrap; letter-spacing: -0.01em; }
 .title h1 { margin: 0; font: inherit; }
 .title > svg { color: var(--text-muted); }
@@ -8,10 +10,10 @@
 .breadcrumb > span:last-child > span { flex-shrink: 0; max-width: none; overflow: visible; gap: 6px; }
 .breadcrumb [aria-current='page'] { color: var(--text-secondary); font-weight: 400; }
 .actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-.toolbarFrame { flex: 0 0 auto; display: flex; border-bottom: 1px solid var(--border-subtle); }
-.toolbar { flex: 1 1 auto; width: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 12px 20px; }
-.body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; scroll-padding-top: 40px; background: var(--surface-page); }
-.gridBody { background: var(--surface-page); }
+.toolbarFrame { flex: 0 0 auto; display: flex; background: var(--glow-divider, linear-gradient(var(--border-subtle), var(--border-subtle))) bottom / 100% 1px no-repeat; }
+.toolbar { flex: 1 1 auto; width: 100%; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 6px 20px; }
+.body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; scroll-padding-top: 40px; background: transparent; }
+.gridBody { background: transparent; }
 .footer { flex: 0 0 auto; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 20px; border-top: 1px solid var(--border-subtle); color: var(--text-muted); font: 400 12px/1.5 var(--font-ui); }
 
 @media (max-width: 1100px) { .header { gap: 8px; } }

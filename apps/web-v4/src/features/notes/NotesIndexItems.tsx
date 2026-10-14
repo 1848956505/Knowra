@@ -8,10 +8,11 @@ import { itemKey, DEFAULT_DISPLAY_PROPERTIES, type IndexDisplayProperties, type 
 import { IndexItemActions, RecycleNoteActions, openIndexItemMenu } from './IndexItemActions';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
 import { NotesIndexArt } from './NotesIndexArt';
+import { MathText } from '../../components/math/MathText';
 import { ItemTags, ItemStatus, ItemFavorite, itemTags, notePreview } from './NotesIndexItemMeta';
 import styles from './NotesIndexItems.module.css';
 
-interface ItemDisplayProps { tags?: Tag[]; decoration?: boolean; properties?: IndexDisplayProperties; iconSize?: 's' | 'm' | 'l' }
+interface ItemDisplayProps { tags?: Tag[]; properties?: IndexDisplayProperties; iconSize?: 's' | 'm' | 'l' }
 
 interface NotesTableProps extends ItemDisplayProps {
   items: IndexItem[];
@@ -50,7 +51,7 @@ export function NotesTable(props: NotesTableProps) {
   );
 }
 
-function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction, tags = [], decoration = true, properties = DEFAULT_DISPLAY_PROPERTIES }: NotesTableProps & { item: IndexItem }) {
+function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, foldersById, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selectedNoteIds, onToggleSelection, canWrite, onItemAction, tags = [], properties = DEFAULT_DISPLAY_PROPERTIES }: NotesTableProps & { item: IndexItem }) {
   const dragDrop = useEntryDragDrop();
   const isFolder = item.kind === 'folder';
   const id = isFolder ? item.folder.id : item.note.id;
@@ -61,6 +62,7 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
   const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? id : undefined);
   return <tr
     data-entry-item
+    data-entry-key={itemKey(item)}
     data-kind={item.kind}
     data-selected={!isFolder && (selectedNoteId === id || selectedNoteIds.has(id)) ? true : undefined}
     data-drop-active={folderDrop.isOver || undefined}
@@ -79,7 +81,8 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       />
     ) : null}</td> : null}
     <td className={styles.nameData}>
-      <button type="button" className={styles.nameCell} aria-label={name || '未命名笔记'} disabled={isRecycleView && !isFolder}
+      <button type="button" data-index-primary className={styles.nameCell} aria-label={name || '未命名笔记'}
+        aria-description={properties.updated ? `最近更新${formatUpdatedAt(updatedAt)}` : undefined} disabled={isRecycleView && !isFolder}
         draggable={canWrite && !isRecycleView && !selectionMode}
         onDragStart={(event) => dragDrop?.start(event, { kind: item.kind, id })}
         onDragEnd={() => dragDrop?.end()}
@@ -90,8 +93,8 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
       }}>
         <span className={styles.entryIcon} data-art-kind={isFolder ? 'folder' : 'document'} aria-hidden="true">{isFolder ? <FolderIcon size={18} /> : <NoteIcon size={18} />}</span>
         <strong title={name || '未命名笔记'}>{name || '未命名笔记'}</strong>
-        {!isFolder && item.note.favorite ? <ItemFavorite decoration={decoration} /> : null}
-        {!isFolder && properties.summary ? <span className={styles.rowSummary} aria-hidden="true">{notePreview(item.note)}</span> : null}
+        {!isFolder && item.note.favorite ? <ItemFavorite /> : null}
+        {!isFolder && properties.summary ? <span className={styles.rowSummary} aria-hidden="true"><MathText text={notePreview(item.note)} inlineOnly /></span> : null}
       </button>
     </td>
     <td className={styles.tagsData}>{!isFolder ? <ItemTags tags={itemTags(item.note, tags)} /> : null}</td>
@@ -110,7 +113,7 @@ function IndexTableRow({ item, selectedNoteId, onSelectFolder, onSelectNote, fol
     )}</td>
   </tr>;
 }
-export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection, canWrite, onItemAction, view = 'grid', tags = [], decoration = true, properties = DEFAULT_DISPLAY_PROPERTIES, iconSize = 'm' }: ItemDisplayProps & {
+export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelectNote, isRecycleView, recyclePendingId, onRestore, onRequestPermanentDelete, selectionMode, selected, onToggleSelection, canWrite, onItemAction, view = 'grid', tags = [], properties = DEFAULT_DISPLAY_PROPERTIES, iconSize = 'm' }: ItemDisplayProps & {
   view?: 'grid' | 'card';
   item: IndexItem; notes: Note[]; selectedNoteId: string | null;
   onSelectFolder(id: string): void; onSelectNote(id: string): void;
@@ -132,7 +135,7 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
   const dragDrop = useEntryDragDrop();
   const folderDrop = useEntryDropTarget(isFolder && !isRecycleView && !selectionMode ? entity.id : undefined);
   return (
-    <div className={styles.tileShell} data-entry-item data-view={view} data-icon-size={iconSize} data-kind={item.kind} data-decoration={decoration} data-selection-mode={selectionMode || undefined} data-selected={selected || undefined} onContextMenu={openIndexItemMenu}
+    <div className={styles.tileShell} data-entry-item data-entry-key={itemKey(item)} data-view={view} data-icon-size={iconSize} data-kind={item.kind} data-selection-mode={selectionMode || undefined} data-selected={selected || undefined} onContextMenu={openIndexItemMenu}
       onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); event.currentTarget.querySelector<HTMLButtonElement>('[data-index-item-menu-trigger]')?.click(); } }}>
       {!isFolder && canWrite && !isRecycleView ? <span className={styles.tileSelection}>
         <Checkbox aria-label={`选择${item.note.title || '未命名笔记'}`} isSelected={selected} onChange={(next) => onToggleSelection(item.note.id, next)} />
@@ -140,8 +143,10 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
       <button
         type="button"
         className={styles.tile}
-        aria-label={`${isFolder ? item.folder.name : item.note.title || '未命名笔记'}${isFolder ? `${count} 项` : properties.updated ? formatUpdatedAt(entity.updatedAt) : ''}`}
-        aria-description={isFolder ? undefined : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name)].filter(Boolean).join('，')}
+        data-index-primary
+        aria-label={isFolder ? item.folder.name : item.note.title || '未命名笔记'}
+        aria-description={isFolder ? `${count} 项` : [status, item.note.favorite ? '已收藏' : '', ...noteTags.map(tag => tag.name),
+          properties.updated ? `最近更新${formatUpdatedAt(entity.updatedAt)}` : ''].filter(Boolean).join('，')}
         disabled={isRecycleView && !isFolder}
         data-selected={!isFolder && (selectedNoteId === entity.id || selected) ? true : undefined}
         data-drop-active={folderDrop.isOver || undefined}
@@ -158,15 +163,15 @@ export function IndexTile({ item, notes, selectedNoteId, onSelectFolder, onSelec
           else onSelectNote(entity.id);
         }}
       >
-      {view === 'grid' || isFolder || decoration ? <span className={styles.tileArt}>
-        <NotesIndexArt item={item} tags={noteTags} cover={view === 'card' && !isFolder} decoration={decoration} />
-        {view === 'grid' && !isFolder && item.note.favorite ? <span className={styles.artFavorite}><ItemFavorite decoration={decoration} /></span> : null}
-      </span> : null}
+      <span className={styles.tileArt}>
+        <NotesIndexArt item={item} tags={noteTags} cover={view === 'card' && !isFolder} folderStyle={view === 'card' ? 'badge' : 'illustrated'} noteCount={count} />
+        {view === 'grid' && !isFolder && item.note.favorite ? <span className={styles.artFavorite}><ItemFavorite /></span> : null}
+      </span>
       <span className={styles.tileCopy}>
         <span className={styles.tileTitle}><strong title={isFolder ? item.folder.name : item.note.title || '未命名笔记'}>{isFolder ? item.folder.name : item.note.title || '未命名笔记'}</strong>
-          {view === 'card' && !isFolder && item.note.favorite ? <ItemFavorite decoration={decoration} /> : null}
+          {view === 'card' && !isFolder && item.note.favorite ? <ItemFavorite /> : null}
         </span>
-        {view === 'card' && !isFolder && properties.summary ? <span className={styles.cardSummary}>{notePreview(item.note)}</span> : null}
+        {view === 'card' && !isFolder && properties.summary ? <span className={styles.cardSummary}><MathText text={notePreview(item.note)} inlineOnly /></span> : null}
         <small>
           {!isFolder && properties.status ? <ItemStatus status={status} compact /> : null}
           {isFolder ? <span>{count} 项</span> : null}

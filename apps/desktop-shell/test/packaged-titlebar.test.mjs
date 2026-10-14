@@ -42,7 +42,10 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   });
   assert.equal(notes.length, 7);
   await page.reload();
-  await page.getByRole('button', { name: '打开 标题栏验收笔记', exact: true }).click();
+  // 首页仅展示最近6篇；经“查看全部”打开精确夹具，保留真实UI导航。
+  await page.getByRole('region', { name: '最近编辑', exact: true }).getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.getByRole('article', { name: '笔记索引', exact: true })
+    .locator(`[data-entry-key="note:${notes[0].id}"]`).locator('button[data-index-primary]').click();
 
   const titlebar = page.getByLabel('Mac 窗口标题栏');
   const tabs = titlebar.getByRole('tablist', { name: '打开的笔记' });
@@ -61,16 +64,20 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await skipLink.focus();
   const titlebarBounds = await titlebar.boundingBox();
   assert((await skipLink.boundingBox()).y >= titlebarBounds.y + titlebarBounds.height);
+  await skipLink.press('Enter');
+  await expect(page.locator('#feature-stage')).toBeFocused();
+  await expect.poll(() => skipLink.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
   assert((await tabs.boundingBox()).x >= 92);
   assert.equal(await tabs.getByRole('tab', { name: '标题栏验收笔记' }).evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
-  await tabs.getByRole('button', { name: '查看全部标签页' }).click();
-  await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(tabs.getByRole('button', { name: '查看全部标签页', exact: true })).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: '新建笔记' })).toBeVisible();
   await expect(page.locator('.ProseMirror')).toContainText('正文');
 
   await page.getByRole('button', { name: '知境工作区' }).click();
-  await page.getByRole('button', { name: '打开 第二篇笔记', exact: true }).click();
+  // 首页仅展示最近6篇；经“查看全部”打开精确夹具，保留真实UI导航。
+  await page.getByRole('region', { name: '最近编辑', exact: true }).getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.getByRole('article', { name: '笔记索引', exact: true })
+    .locator(`[data-entry-key="note:${notes[1].id}"]`).locator('button[data-index-primary]').click();
   await expect(tabs.getByRole('tab', { name: '第二篇笔记' })).toBeVisible();
   await tabs.getByRole('tab', { name: '标题栏验收笔记' }).click();
   await expect(tabs.getByRole('tab', { name: '标题栏验收笔记' })).toHaveAttribute('aria-selected', 'true');
@@ -91,7 +98,18 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(960, 700));
   await expect.poll(async () => (await titlebar.boundingBox()).width).toBe(960);
   await expect(tabs.getByRole('tab')).toHaveCount(7);
-  assert(await tabs.evaluate(element => element.firstElementChild.scrollWidth > element.firstElementChild.clientWidth));
+  // “全部标签页”只在真实溢出时显示；等待960px布局与ResizeObserver完成。
+  await expect.poll(() => tabs.evaluate(element => element.firstElementChild.scrollWidth - element.firstElementChild.clientWidth)).toBeGreaterThan(1);
+  const allTabs = tabs.getByRole('button', { name: '查看全部标签页', exact: true });
+  await expect(allTabs).toBeVisible();
+  await allTabs.click();
+  const allTabsMenu = page.getByRole('menu', { name: '查看全部标签页', exact: true });
+  await expect(allTabsMenu).toBeVisible();
+  const orderedTitles = await tabs.getByRole('tab').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+  await expect(allTabsMenu.getByRole('menuitem')).toHaveText(orderedTitles.map((title, index) => `${String(index + 1).padStart(2, '0')} · ${title}`));
+  await page.keyboard.press('Escape');
+  await expect(allTabsMenu).toBeHidden();
+  await expect(allTabs).toBeFocused();
   await page.getByRole('button', { name: '切换检查器' }).click();
   const inspector = page.getByRole('complementary', { name: '文档检查器' });
   await expect(inspector).toBeVisible();

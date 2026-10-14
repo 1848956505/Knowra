@@ -5,15 +5,16 @@ import { WorkspacePanel, WorkspacePanelBody } from '../../components/workspace/W
 import type { PathSegment } from '../../shell/path';
 import { LOCAL_PERMANENT_DELETE_REASON } from '../../store/workspaceCapabilities';
 import { NotesIndexHeader } from './NotesIndexHeader';
-import { NotesIndexToolbar } from './NotesIndexToolbar';
+import { NotesIndexCompactTools, NotesIndexDesktopTools } from './NotesIndexToolbar';
+import { useCompactLayout } from '../../shell/useCompactLayout';
 import { NotesIndexDialogs } from './NotesIndexDialogs';
 import { NotesIndexPreview } from './NotesIndexPreview';
 import { NotesIndexPagination } from './NotesIndexPagination';
 import { NotesTable, IndexTile } from './NotesIndexItems';
-import { TagFilterBar } from './TagFilterBar';
+import { NotesIndexFilterChips } from './NotesIndexFilterChips';
+import { NotesIndexFilterMenu } from './NotesIndexFilterMenu';
 import { scrollEntryContainer } from './EntryDragDrop';
 import { itemKey } from './notesIndexPresentation';
-import { FILTER_LABELS, NOTE_STATUS_LABELS } from './notesIndexFilters';
 import { useNotesIndexController } from './useNotesIndexController';
 import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
@@ -24,7 +25,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
   const c = useNotesIndexController(onOpenNote);
   const appearance = useNotesIndexAppearance();
   const theme = notesIndexAppearanceProps(appearance);
-  const decoration = appearance.deco === 'full';
+  const compact = useCompactLayout();
   if (!c.indexPath.length) return null;
   const itemProps = {
     selectedNoteId: c.navigation.selectedNoteId,
@@ -34,23 +35,16 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
     onRestore: c.handleRestore, onRequestPermanentDelete: c.setPermanentDeleteTarget,
     selectionMode: c.selectionMode, onToggleSelection: c.toggleNoteSelection,
     canWrite: c.canWrite, onItemAction: c.treeOperations.handleTreeAction,
-    tags: c.serverData.tags, decoration, properties: c.properties, iconSize: c.iconSize
+    tags: c.serverData.tags, properties: c.properties, iconSize: c.iconSize
   };
-  const localFiltersActive = c.filters.statuses.length > 0 || Boolean(c.filters.updatedWithin);
   return <ScopedAppearanceProvider value={theme}><WorkspacePanel {...theme} className={`${theme.className} ${styles.panel}`} aria-label="笔记索引">
     <NotesIndexHeader path={c.indexPath} count={c.data.counts.all} canWrite={c.canWrite} isRecycleView={c.isRecycleView}
       onOpenSpaces={() => c.navigate('/materials/spaces')} selectionMode={c.selectionMode}
       onToggleSelection={() => { c.setSelectionMode(value => !value); c.setSelectedNoteIds(new Set()); }}
-      onImport={() => c.setImportOpen(true)} onCreate={mode => c.treeOperations.openCreate(mode, c.navigation.selectedFolderId)} />
-    <NotesIndexToolbar c={c} />
-    {c.tagFiltersOpen ? <TagFilterBar tags={c.serverData.tags} groups={c.serverData.tagGroups} selectedIds={c.urlTagIds} match={c.tagMatch}
-      onToggleTag={id => c.changeTags(c.urlTagIds.includes(id) ? c.urlTagIds.filter(value => value !== id) : [...c.urlTagIds, id])}
-      onMatchChange={match => c.changeTags(c.urlTagIds, match)} onManage={() => c.navigate('/materials/tags')} /> : null}
-    {localFiltersActive ? <div className={styles.filterChips} aria-label="已加载笔记筛选">
-      {c.filters.statuses.length ? <Button size="mini" onPress={() => c.setFilters(value => ({ ...value, statuses: [] }))}>状态：{c.filters.statuses.map(status => NOTE_STATUS_LABELS[status] ?? status).join('、')} ×</Button> : null}
-      {c.filters.updatedWithin ? <Button size="mini" onPress={() => c.setFilters(value => ({ ...value, updatedWithin: null }))}>更新：{FILTER_LABELS[c.filters.updatedWithin]} ×</Button> : null}
-      <span>仅筛选已加载笔记{c.data.remotePage?.hasNext ? '，可在底部加载更多' : ''}</span>
-    </div> : null}
+      onImport={() => c.setImportOpen(true)} onCreate={mode => c.treeOperations.openCreate(mode, c.navigation.selectedFolderId)}
+      renderTools={slots => compact ? <NotesIndexCompactTools c={c} {...slots} /> : <NotesIndexDesktopTools c={c} {...slots} />} />
+    <NotesIndexFilterChips c={c} />
+    <NotesIndexFilterMenu c={c} />
     {c.isRecycleView ? <p className={styles.capabilityNotice}>{c.supportsPermanentDelete ? '回收站里的笔记不会出现在其他位置，可以恢复或在确认后永久删除。' : LOCAL_PERMANENT_DELETE_REASON}</p> : null}
     {c.data.remoteLoading ? <div className={styles.loadState} role="status">正在从服务端加载筛选结果…</div> : null}
     {c.data.remoteError ? <div className={styles.loadError} role="alert"><span>{c.data.remoteError}，已显示本地缓存结果。</span><Button variant="ghost" size="compact" onPress={c.refresh}>重新加载</Button></div> : null}
@@ -64,6 +58,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
         }} onDragLeave={c.backgroundDrop.onDragLeave}
         onDrop={event => { if (!(event.target as Element).closest('[data-entry-item], table')) c.backgroundDrop.onDrop(event); }}
         onContextMenu={event => { if (event.defaultPrevented || c.isRecycleView) return; event.preventDefault(); c.setBackgroundMenu({ x: event.clientX, y: event.clientY }); }}
+        onKeyDownCapture={c.handleEntryKeys} onKeyUpCapture={c.swallowEntrySpace}
         onKeyDown={event => {
           if (event.target !== event.currentTarget || c.isRecycleView) return;
           if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); c.setBackgroundMenu({ x: rect.left + 16, y: rect.top + 16 }); }
@@ -73,7 +68,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
             {c.group !== 'none' ? <button type="button" className={styles.groupHeading} aria-expanded={!c.collapsed.has(section.id)}
               onClick={() => c.setCollapsed(current => { const next = new Set(current); if (next.has(section.id)) next.delete(section.id); else next.add(section.id); return next; })}>
               <ChevronDownIcon size={13} /><strong>{section.label}</strong><span>{section.total ?? section.items.length}</span>
-              {decoration ? <><small>{section.detail}</small><span className={styles.groupBar} aria-hidden="true"><i style={{ width: `${100 * (section.total ?? section.items.length) / c.allItems.length}%` }} /></span></> : null}
+              <small>{section.detail}</small>
             </button> : null}
             {!c.collapsed.has(section.id) ? c.view === 'list'
               ? <NotesTable {...itemProps} items={section.items} foldersById={c.serverData.foldersById} selectedNoteIds={c.selectedNoteIds} />
@@ -91,7 +86,8 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
         <Button size="workspace" variant="danger" isDisabled={!c.selectedNoteIds.size || c.batchPending} onPress={() => { c.setBatchError(''); c.setBatchDeleteOpen(true); }}>移入回收站</Button>
         <Button size="workspace" variant="ghost" onPress={() => { c.setSelectionMode(false); c.setSelectedNoteIds(new Set()); }}>退出</Button>
       </div> : null}
-      <NotesIndexPagination page={c.currentPage} pageCount={c.pageCount} total={c.allItems.length} pageSize={c.pageSize}
+      <NotesIndexPagination page={c.currentPage} pageCount={c.pageCount} total={c.allItems.length}
+        noteTotal={c.allItems.filter(item => item.kind === 'note').length} folderTotal={c.allItems.filter(item => item.kind === 'folder').length} pageSize={c.pageSize}
         loading={c.data.remoteLoading} hasMore={c.typeFilter !== 'folder' && Boolean(c.data.remotePage?.hasNext)} onLoadMore={() => void c.data.loadMore()}
         onPageChange={c.setPage} onPageSizeChange={c.setPageSize} />
     </div>{c.peekOpen ? <NotesIndexPreview c={c} /> : null}</div>

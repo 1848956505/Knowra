@@ -18,9 +18,10 @@ import { startMcpRuntime } from './mcp/index.mjs';
 import { createMcpTools } from './mcp/tools.mjs';
 import { createMcpEntityOutput } from './mcp/entity-output.mjs';
 import { handleMcpPairingRoute } from './mcp/pairing-routes.mjs';
+import { createHttpShutdown } from './http-shutdown.mjs';
 
 export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, logger = console, syncOptions = {}, credentialSource = null,
-  aiRuntimeFactory, mcpTools = null, mcpLimits, mcpNow, mcpAdapter } = {}) {
+  aiRuntimeFactory, mcpTools = null, mcpLimits, mcpNow, mcpAdapter, onCloseStage = () => {} } = {}) {
   if (!path.isAbsolute(dataDirectory ?? '')) throw new Error('本地数据目录必须是绝对路径。');
   if (!fs.existsSync(path.join(distRoot, 'index.html'))) throw new Error('缺少前端构建，请先运行 npm run build:web。');
   const release = lockDataDirectory(dataDirectory);
@@ -34,6 +35,10 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let getAnnotations;
   let getAiFeatures;
   let mcp = null;
+  let closeHttp;
+  const reportCloseStage = stage => {
+    try { onCloseStage(stage); } catch { /* 诊断失败不得阻止排空与退出。 */ }
+  };
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
     ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
@@ -210,6 +215,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         else response.end();
       } finally { activeRequests.delete(requestDone); finishRequest(); }
     });
+    closeHttp = createHttpShutdown(server, activeRequests);
     await new Promise((resolve, reject) => {
       server.once('error', reject);
       server.listen(port, '127.0.0.1', resolve);
@@ -244,19 +250,25 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
         if (closing) return closing;
         closed = true;
         closing = (async () => {
+          reportCloseStage('mcp');
           await mcp?.close();
-          await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+          reportCloseStage('http');
+          await closeHttp();
+          reportCloseStage('sync');
           await sync.close();
+          reportCloseStage('ai');
           await closeAi();
+          reportCloseStage('store');
           store.close();
           release();
+          reportCloseStage('released');
         })();
         return closing;
       }
     };
   } catch (error) {
     await mcp?.close().catch(() => {});
-    if (server) await new Promise(resolve => server.close(resolve));
+    if (closeHttp) await closeHttp();
     const results = await Promise.allSettled([sync?.close(), closeAi?.()]);
     const failed = results.find(result => result.status === 'rejected');
     if (failed) throw new AggregateError([error, failed.reason], '本地服务启动和关闭失败。');

@@ -22,3 +22,24 @@ describe('笔记索引路径导航', () => {
     expect(navigate).toHaveBeenCalledOnce();
   });
 });
+
+describe('紧凑索引路径导航', () => {
+  it.each(['笔记库', '上级目录'])('更多菜单可到达%s，不重复当前目录', async label => {
+    const root = vi.fn();
+    const parent = vi.fn();
+    const toggle = vi.fn();
+    render(<NotesIndexHeader path={[
+      { id: 'root', label: '笔记库', onNavigate: root },
+      { id: 'parent', label: '上级目录', onNavigate: parent },
+      { id: 'current', label: '当前目录', current: true, onNavigate: vi.fn() }
+    ]} count={0} canWrite isRecycleView={false} selectionMode={false}
+      onToggleSelection={toggle} onOpenSpaces={vi.fn()} onImport={vi.fn()} onCreate={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '更多操作' }));
+    await user.click(screen.getByRole('menuitem', { name: '路径导航' }));
+    expect(screen.queryByRole('menuitem', { name: '当前目录' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: label }));
+    expect(label === '笔记库' ? root : parent).toHaveBeenCalledTimes(1);
+    expect(toggle).not.toHaveBeenCalled();
+  });
+});

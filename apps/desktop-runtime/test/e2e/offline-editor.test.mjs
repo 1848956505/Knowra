@@ -42,7 +42,7 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   // 通过 API 建立夹具后刷新主页，再使用真实入口打开笔记。
   await page.goto(runtime.origin);
   await page.reload();
-  await page.getByRole('button', { name: '打开 离线页面验收', exact: true }).click();
+  await page.getByRole('article', { name: '继续上次编辑', exact: true }).getByRole('button', { name: '继续编辑 离线页面验收', exact: true }).click();
   await expect(page.getByRole('heading', { name: '离线页面验收', exact: true })).toBeVisible();
   const editor = page.locator('.ProseMirror');
   await expect(editor).toContainText('原始内容');

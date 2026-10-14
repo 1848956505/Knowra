@@ -1,4 +1,5 @@
 import type { ReactNode, Ref } from 'react';
+import { EditorToolbarMenu as ToolbarMenu } from './EditorToolbarMenu';
 import { PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/overlay';
 import {
@@ -70,22 +71,18 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <FormatButton label="引用" disabled={!props.canEditContent} onPress={command('blockquote')}><QuoteIcon size={16} /></FormatButton>
       <FormatButton label="插入表格" optional disabled={!props.canEditContent} onPress={command('table')}><TableIcon size={16} /></FormatButton>
       <FormatButton label="插入图片" optional disabled={!props.canEditContent || props.canInsertImage === false} onPress={props.onInsertImage}><ImageIcon size={16} /></FormatButton>
-      <span className={styles.toolbarSpacer} />
-      <span className={styles.separator} aria-hidden="true" />
-      <button type="button" className={styles.plainButton} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
+      <span className={`${styles.toolbarSpacer} ${styles.compactHide}`} />
+      <span className={`${styles.separator} ${styles.compactHide}`} aria-hidden="true" />
+      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
       <MenuTrigger>
-        <PressableButton className={styles.plainButton} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
+        <PressableButton className={`${styles.plainButton} ${styles.compactHide}`} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
         <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled={!props.canEditContent || props.canInsertImage === false} onAction={props.onInsertImage}>插入图片</MenuItem></Menu></MenuPopover>
       </MenuTrigger>
       <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
-      <button type="button" className={styles.plainButton} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
+      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
       </div>
     </div>
   );
-}
-
-function ToolbarMenu({ label, children, disabled = false }: { label: string; children: ReactNode; disabled?: boolean }) {
-  return <MenuTrigger><PressableButton isDisabled={disabled}>{label}</PressableButton><MenuPopover><Menu ariaLabel={`${label}菜单`}>{children}</Menu></MenuPopover></MenuTrigger>;
 }
 
 function FormatButton({ label, optional = false, disabled = false, title, onPress, children }: {

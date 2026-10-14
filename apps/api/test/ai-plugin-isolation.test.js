@@ -9,6 +9,8 @@ import { AI_PROCESS_LIMITS, createIsolatedDeepSeekAdapter } from '../src/modules
 import { createIsolatedAiWorker } from '../src/modules/ai/isolated-worker.js';
 import { aiRecords } from './ai-record-fixtures.js';
 import { beijingDay } from '../src/modules/ai/budget-ledger.js';
+import { measureCoreHttp, p95 } from './fixtures/ai-core-http-probe.mjs';
+import { startHangProbe } from './fixtures/ai-hang-probe.mjs';
 
 const childUrl = new URL('./fixtures/ai-process-fixture.mjs', import.meta.url);
 const adapter = limits => createIsolatedDeepSeekAdapter({ childUrl,
@@ -187,49 +189,26 @@ export const aiPluginIsolationTests = [
       fs.rmSync(directory, { recursive: true, force: true });
     }
   } },
+  { name: '核心 HTTP 采样要求足量样本且就绪 hang 进程退出后失效', async run() {
+    assert.throws(() => p95(Array(8).fill(1)), /40/);
+    assert.equal(p95(Array.from({ length: 40 }, (_, index) => index + 1)), 38);
+    const probe = await startHangProbe();
+    try { probe.assertActive(); } finally {
+      assert.equal((await probe.close()).error?.code, 'AI_CANCELLED');
+    }
+    assert.throws(() => probe.assertActive(), /仍在运行/);
+  } },
+  { name: 'AI 卡死进程仍按 600ms 墙钟预算超时' , async run() {
+    await assert.rejects(adapter({ wallMs: 600 }).complete({ mode: 'hang' }),
+      error => error.code === 'AI_PROCESS_TIMEOUT');
+  } },
   { name: 'AI 执行进程卡死时核心 HTTP 笔记保存和同步状态仍响应', async run() {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-ai-live-core-'));
-    const context = createPersistentAppContext({ storageRootDir: directory, ownerId: 'demo' });
-    const space = context.http.knowledge.createDefaultKnowledgeSpace({});
-    const server = createServer({ appContext: context, logger: { warn() {}, error() {} } });
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    const base = `http://127.0.0.1:${server.address().port}`;
-    const latency = [];
-    async function exercise(prefix) {
-      for (let i = 0; i < 8; i++) {
-        const start = performance.now();
-        const response = await fetch(`${base}/api/knowledge/notes`, { method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: `${prefix}-${i}`, title: `${prefix} 笔记 ${i}`,
-            rawMarkdown: '核心保存', spaceId: space.id }) });
-        assert.equal(response.status, 201);
-        assert.equal((await fetch(`${base}/api/knowledge/notes/${prefix}-${i}`)).status, 200);
-        assert.equal((await fetch(`${base}/api/sync/status`)).status, 200);
-        latency.push(performance.now() - start);
-      }
-    }
-    try {
-      const enabledAi = context.ai;
-      context.ai = createUnavailableAiRuntime('AI 功能已关闭。');
-      await exercise('off');
-      const offP95 = [...latency].sort((a, b) => a - b).at(-1);
-      latency.length = 0;
-      context.ai = enabledAi;
-      await exercise('baseline');
-      const baselineP95 = [...latency].sort((a, b) => a - b).at(-1);
-      latency.length = 0;
-      const stuck = adapter({ wallMs: 600 }).complete({ mode: 'hang' });
-      await exercise('fault');
-      await assert.rejects(stuck, error => error.code === 'AI_PROCESS_TIMEOUT');
-      const sorted = [...latency].sort((a, b) => a - b);
-      const p95 = sorted[Math.ceil(sorted.length * .95) - 1];
-      console.log(`R01 核心 HTTP 三操作样本：关闭 p95=${offP95.toFixed(1)}ms，空闲 p95=${baselineP95.toFixed(1)}ms，故障 p95=${p95.toFixed(1)}ms，故障最大=${sorted.at(-1).toFixed(1)}ms`);
-      assert(p95 < Math.max(250, baselineP95 * 3), `核心请求 p95 ${p95.toFixed(1)}ms`);
-      assert(sorted.at(-1) < 1000, `核心请求最大阻塞 ${sorted.at(-1).toFixed(1)}ms`);
-      assert.equal(context.dataStore.state.notes.filter(note => note.id.startsWith('fault-')).length, 8);
-    } finally {
-      await new Promise(resolve => server.close(resolve));
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
+    const off = await measureCoreHttp('off');
+    const baseline = await measureCoreHttp('baseline');
+    const fault = await measureCoreHttp('fault');
+    const offP95 = p95(off), baselineP95 = p95(baseline), faultP95 = p95(fault);
+    console.log(`R01 核心 HTTP 三操作样本：关闭 p95=${offP95.toFixed(1)}ms，空闲 p95=${baselineP95.toFixed(1)}ms，故障 p95=${faultP95.toFixed(1)}ms，故障最大=${Math.max(...fault).toFixed(1)}ms`);
+    assert(faultP95 < Math.max(250, baselineP95 * 3), `核心请求 p95 ${faultP95.toFixed(1)}ms`);
+    assert(Math.max(...fault) < 1000, `核心请求最大阻塞 ${Math.max(...fault).toFixed(1)}ms`);
   } }
 ];

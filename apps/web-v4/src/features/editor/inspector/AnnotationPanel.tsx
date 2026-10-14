@@ -1,3 +1,4 @@
+import { MathText } from '../../../components/math/MathText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation } from '@study-accelerator/web-core';
 import { Button, Checkbox, Select } from '../../../components/ui';
@@ -160,7 +161,7 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
             <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>
               <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : null}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
-              <span className={styles.annotationQuote}>{annotation.quoteText || '空内容块，后续输入继续纳入'}</span>
+              <span className={styles.annotationQuote}>{annotation.quoteText ? <MathText text={annotation.quoteText} inlineOnly /> : '空内容块，后续输入继续纳入'}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
               {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
             </button>

@@ -32,7 +32,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     // 冻结外壳：ModuleRail + 主区 + 状态栏
     const rail = screen.getByRole('navigation', { name: '工作域导航' });
     expect(rail).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '早安，创造者。' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /，创造者。$/ })).toBeInTheDocument();
     // 状态栏
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '工作区状态' })).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('V4-05 workspace bootstrap (AppShell + HomeView)', () => {
     expect(within(rail).queryByRole('button', { name: '组件库' })).not.toBeInTheDocument();
 
     // 工作台计数来自真实 workspace。
-    expect(screen.getByText('AVAILABLE · 1 ITEMS')).toBeInTheDocument();
+    expect(screen.getByText('1 篇笔记')).toBeInTheDocument();
   });
 
   it('shows the home with error state and retries after a failed load', async () => {

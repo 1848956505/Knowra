@@ -63,81 +63,53 @@
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 340px));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 148px), 1fr));
+  gap: var(--space-3);
 }
+/* 标签卡：整张卡可点（查看笔记），次要操作收进右上角“⋯”菜单。 */
 .card {
+  position: relative;
   min-width: 0;
-  min-height: 164px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px;
-  grid-template-rows: auto 1fr;
-  column-gap: var(--space-3);
-  row-gap: var(--space-2);
-  padding: var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-panel);
   background: var(--surface-raised);
   box-shadow: var(--shadow-control);
+  transition: border-color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
+.card:hover { border-color: var(--border-strong); }
+.card[draggable='true'] { cursor: grab; }
 .card[data-dragging='true'] {
   opacity: .55;
   border-color: var(--accent-border);
   background: var(--accent-soft);
 }
-.cardTop {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 18px;
-}
-.cardNumber {
-  color: var(--text-muted);
-  font: 400 12px/1.5 var(--font-ui);
-  font-variant-numeric: tabular-nums;
-}
-.handle { color: var(--text-muted); font: 500 16px/1 var(--font-ui); cursor: grab; }
-.card:not([draggable='true']) .handle { visibility: hidden; }
-.cardMain {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 18px;
-  padding: var(--space-1) 0 2px;
-}
-.tagChip { align-self: flex-start; max-width: 100%; min-height: 32px; padding: 7px 10px; font-size: 14px; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.cardOpen { min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+/* 拉伸点击区域覆盖整张卡；“⋯”按钮提到其上方。 */
+.cardOpen::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.cardOpen:focus-visible { outline: 0; }
+.cardOpen:focus-visible::after { box-shadow: var(--focus-ring); }
+.cardMenu { position: relative; z-index: 1; flex: 0 0 auto; margin-right: -4px; }
+.tagChip { max-width: 100%; min-height: 28px; padding: 5px 10px; font-size: 14px; }
 .cardInfo {
-  width: 100%;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2) 10px;
+  gap: var(--space-2);
   color: var(--text-secondary);
   font: 400 12px/1.5 var(--font-ui);
 }
-.usage strong { color: var(--text-primary); font: 600 16px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
-.color { display: inline-flex; align-items: center; gap: 6px; }
+.usage strong { color: var(--text-primary); font: 600 15px/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
+.color { display: inline-flex; align-items: center; }
 .color i { width: 10px; height: 10px; border: 1px solid var(--text-muted); border-radius: 50%; background: var(--surface-sunken); }
 .color[data-color='blue'] i { border-color: var(--color-info); background: var(--color-info-soft); }
 .color[data-color='green'] i { border-color: var(--color-success); background: var(--color-success-soft); }
 .color[data-color='orange'] i { border-color: var(--color-warning); background: var(--color-warning-soft); }
 .color[data-color='red'] i { border-color: var(--color-danger); background: var(--color-danger-soft); }
 .color[data-color='violet'] i { border-color: var(--color-violet); background: var(--color-violet-soft); }
-.cardActions {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: center;
-  gap: 6px;
-  padding-left: 10px;
-  border-left: 1px solid var(--border-subtle);
-}
-.cardActions > button { width: 100%; }
-.viewNotes, .fullAction { grid-column: 1 / -1; }
 .empty {
   grid-column: 1 / -1;
   margin: 0;
@@ -156,23 +128,35 @@
 .form > * { width: 100%; min-width: 0; }
 .error { color: var(--color-danger); font-size: 12px; overflow-wrap: anywhere; }
 
-@media (max-width: 1050px) {
-  .filters { flex-wrap: wrap; }
-  .filters > label:first-child { flex-basis: 100%; }
-}
 @media (max-width: 767px) {
-  .cards { grid-template-columns: minmax(0, 1fr); }
   .groups { padding: 18px 14px 30px; gap: 22px; }
-  .filters { gap: 9px; }
-  .groupHeader { flex-wrap: wrap; }
-  .groupActions { width: 100%; justify-content: flex-start; }
+  .groupHeader { gap: var(--space-2); }
 }
-@media (max-width: 480px) {
-  .filters > [role='group'] { width: 100%; }
-  .filters > [role='group'] button { flex: 1; }
-  .card { min-height: 0; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
-  .cardMain, .cardActions { grid-column: 1; }
-  .cardMain { gap: 14px; }
-  .cardInfo { justify-content: flex-start; gap: var(--space-3); }
-  .cardActions { padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--border-subtle); }
-}
+
+/* 桌面版工具栏：类型/使用情况在左，搜索与分组、排序靠右（对应笔记索引的桌面布局）。 */
+.deskTools { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.searchSlot { width: 240px; min-width: 120px; }
+
+/* 平板/手机版：标题与工具合为一行；搜索默认收成图标，点按/聚焦或已有关键词时展开。 */
+.compactTools { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.dotHost { position: relative; }
+.dotHost[data-on]::after { content: ''; position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.optionsPanel { display: grid; gap: var(--space-4); width: max-content; min-width: 220px; max-width: calc(100vw - 32px); padding: var(--space-4); outline: 0; }
+.field { display: grid; justify-items: start; gap: var(--space-2); }
+.selectBox { width: 200px; max-width: 100%; }
+.field > span { color: var(--text-muted); font: 500 11px/1.4 var(--font-ui); letter-spacing: .04em; }
+.compactHeader.compactHeader { flex-wrap: nowrap; gap: 8px; padding: 4px 12px; }
+.compactHeader nav { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 0; padding-left: 0; }
+.compactHeader > :last-child { margin-left: auto; min-width: 0; }
+.compactHeader .searchSlot { flex: 0 0 44px; width: 44px; min-width: 44px; max-width: 44px; overflow: hidden; border-radius: 999px; }
+.compactHeader .searchSlot:focus-within, .compactHeader .searchSlot:has(input:not(:placeholder-shown)) { flex: 1 1 auto; width: auto; min-width: 132px; max-width: none; }
+.compactHeader .searchSlot:not(:focus-within):has(input:placeholder-shown) > div { min-width: 0; width: 100%; justify-content: center; padding: 0; gap: 0; border-color: transparent; background: transparent; box-shadow: none; }
+.compactHeader .searchSlot:not(:focus-within):has(input:placeholder-shown) input { flex: 0 0 0; width: 0; opacity: 0; }
+.compactHeader .searchSlot:not(:focus-within) kbd { display: none; }
+.compactHeader:has(.searchSlot:focus-within) > :not(:last-child), .compactHeader .compactTools:has(.searchSlot:focus-within) > :not(.searchSlot) { display: none; }
+.compactHeader:has(.searchSlot:focus-within) > :last-child { flex: 1 1 auto; margin-left: 0; }
+.compactHeader:has(.searchSlot:focus-within) .compactTools { flex: 1 1 auto; width: 100%; }
+@media (max-width: 560px) { .compactHeader nav { display: none; } }
+@media (pointer: coarse), (max-width: 767px) { .cardMenu { width: 40px; height: 40px; margin: -6px -6px -6px 0; } .card { padding: var(--space-3); } }
+.groupMenu { flex: 0 0 auto; }
+@media (pointer: coarse), (max-width: 767px) { .groupMenu { width: 40px; height: 40px; } }

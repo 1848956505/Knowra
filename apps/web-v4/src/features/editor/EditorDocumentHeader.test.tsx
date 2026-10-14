@@ -70,4 +70,13 @@ describe('EditorDocumentHeader', () => {
     render(<EditorDocumentHeader note={note} folder={folder} canWrite={false} onRenameNote={vi.fn()} />);
     expect(screen.getByRole('textbox', { name: '笔记标题' })).toHaveAttribute('readonly');
   });
+
+  it('标题含公式时失焦渲染公式，聚焦后回到源码编辑', async () => {
+    const { container } = render(<EditorDocumentHeader note={{ ...note, title: '证明 $x^2$' }} folder={folder} canWrite onRenameNote={vi.fn()} />);
+    await waitFor(() => expect(container.querySelector('.katex')).toBeInTheDocument());
+    const input = screen.getByRole('textbox', { name: '笔记标题' });
+    expect(input).toHaveValue('证明 $x^2$');
+    fireEvent.focus(input);
+    await waitFor(() => expect(container.querySelector('.katex')).toBeNull());
+  });
 });

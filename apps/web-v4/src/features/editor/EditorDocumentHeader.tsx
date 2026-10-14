@@ -1,3 +1,5 @@
+import { MathText } from '../../components/math/MathText';
+import { hasMath } from '../../components/math/splitMath';
 import {
   forwardRef,
   useEffect,
@@ -27,6 +29,7 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
   const [title, setTitle] = useState(note.title || '无标题笔记');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
   const ignoreNextBlur = useRef(false);
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -80,6 +83,8 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
     event.currentTarget.blur();
   }
 
+  // 标题含公式且不在编辑时，用渲染结果盖在（透明的）输入框下方；聚焦或点击时回到可编辑源码。
+  const mirrored = hasMath(title) && !editing;
   const titleErrorId = `note-title-error-${note.id}`;
   return (
     <header>
@@ -97,9 +102,11 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
             aria-label={title || '无标题笔记'}
             data-invalid={error || undefined}
           >
+            {mirrored ? <span className={styles.titleMirror} aria-hidden="true"><MathText text={title} inlineOnly /></span> : null}
             <textarea
               ref={titleRef}
               className={styles.titleInput}
+              data-mirrored={mirrored || undefined}
               value={title}
               rows={1}
               name="note-title"
@@ -115,7 +122,9 @@ export const EditorDocumentHeader = forwardRef<EditorDocumentHeaderHandle, Edito
                 if (error) setError('');
               }}
               onKeyDown={handleKeyDown}
+              onFocus={() => setEditing(true)}
               onBlur={() => {
+                setEditing(false);
                 if (ignoreNextBlur.current) {
                   ignoreNextBlur.current = false;
                   return;

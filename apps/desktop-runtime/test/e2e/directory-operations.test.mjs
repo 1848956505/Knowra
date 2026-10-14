@@ -46,11 +46,17 @@ test('真实页面：根目录和空白菜单、新建下拉、移动笔记与�
   await expect(page.getByRole('dialog')).toHaveCount(0);
   // 右上新建下拉可选择文件夹。
   const index = page.getByRole('article', { name: '笔记索引', exact: true });
-  await expect(index.getByRole('button', { name: '新建笔记', exact: true })).toBeVisible();
-  await index.getByRole('button', { name: '更多新建选项', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: '新建文件夹', exact: true })).toBeVisible();
+  const create = index.getByRole('toolbar', { name: '笔记索引工具栏', exact: true }).getByRole('button', { name: '新建', exact: true });
+  await expect(create).toBeVisible();
+  await create.click();
+  const createMenu = page.getByRole('menu', { name: '新建', exact: true });
+  for (const name of ['新建笔记', '新建文件夹', '导入 Markdown']) {
+    await expect(createMenu.getByRole('menuitem', { name, exact: true })).toBeVisible();
+    await expect(createMenu.getByRole('menuitem', { name, exact: true })).toBeEnabled();
+  }
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(create).toBeFocused();
   // 侧栏新建同样复用两个选项。
   await page.getByRole('complementary', { name: '笔记上下文导航' }).getByRole('button', { name: '新建', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: '新建笔记', exact: true })).toBeVisible();

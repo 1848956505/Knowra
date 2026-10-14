@@ -10,6 +10,11 @@
   box-sizing: border-box;
 }
 
+/* 触屏点按不显示浏览器默认的蓝色/灰色高亮闪框；按压与键盘焦点反馈由组件自身样式提供。 */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 html,
 body,
 #root {

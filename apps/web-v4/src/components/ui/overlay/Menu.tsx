@@ -6,6 +6,7 @@
 import { forwardRef, type ReactNode } from 'react';
 import {
   Menu as RAMenu,
+  Text as RAText,
   Header as RAHeader,
   MenuItem as RAMenuItem,
   MenuSection as RAMenuSection,
@@ -29,12 +30,14 @@ export type MenuItemProps = Omit<RAMenuItemProps, 'className' | 'children'> & {
   /** 右侧提示键位，例如 "⌘K"。 */
   kbd?: string;
   isDanger?: boolean;
+  /** 标题下方的一行说明，仅在 `variant="rich"` 的菜单里排版。 */
+  description?: string;
   children: ReactNode;
   className?: string;
 };
 
 export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuItem(
-  { children, icon, kbd, isDanger, className, ...rest },
+  { children, icon, kbd, isDanger, description, className, ...rest },
   ref
 ) {
   return (
@@ -45,7 +48,9 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(function MenuI
       {...rest}
     >
       {icon ? <span className={styles.itemIcon}>{icon}</span> : null}
-      <span>{children}</span>
+      {description
+        ? <span className={styles.itemText}><RAText slot="label">{children}</RAText><RAText slot="description" className={styles.itemDesc}>{description}</RAText></span>
+        : <span>{children}</span>}
       {kbd ? <span className={styles.itemKbd}>{kbd}</span> : null}
     </RAMenuItem>
   );
@@ -55,11 +60,13 @@ export interface MenuProps<T> extends Omit<RAMenuProps<T>, 'className' | 'childr
   children: ReactNode;
   className?: string;
   ariaLabel?: string;
+  /** `rich`：分组标题、图标底板和说明行的操作面板；默认保持紧凑菜单。 */
+  variant?: 'default' | 'rich';
 }
 
-export function Menu<T extends object>({ children, className, ariaLabel, ...rest }: MenuProps<T>) {
+export function Menu<T extends object>({ children, className, ariaLabel, variant = 'default', ...rest }: MenuProps<T>) {
   return (
-    <RAMenu<T> aria-label={ariaLabel} className={cx(styles.menu, className)} {...rest}>
+    <RAMenu<T> aria-label={ariaLabel} className={cx(styles.menu, variant === 'rich' && styles.menuRich, className)} {...rest}>
       {children}
     </RAMenu>
   );
