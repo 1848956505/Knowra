@@ -1,5 +1,6 @@
 /* V5 共享按钮：细边、柔影和静止的状态反馈，保留 React Aria 交互语义。 */
 .btn {
+  --button-min-height: 36px;
   --knowra-icon-accent: currentColor;
   display: inline-flex;
   align-items: center;
@@ -40,21 +41,31 @@
 
 /* 页面只负责排列，按钮外观及尺寸在此统一维护。 */
 .workspace,
+.toolbar,
+.footer,
 .compact,
 .mini {
+  --button-min-height: var(--index-size-28);
   height: auto;
   min-width: 0;
-  min-height: var(--index-size-28);
+  min-height: var(--button-min-height);
   padding: 0 var(--index-size-12);
   gap: var(--index-size-7);
   color: var(--text-secondary);
   font-size: 12px;
 }
 
-.compact { min-height: 29px; padding-inline: 10px; }
+.compact { --button-min-height: 29px; padding-inline: 10px; }
+.toolbar { --button-min-height: 28px; min-height: 28px; padding-inline: 9px; }
+.footer { --button-min-height: 22px; min-height: 22px; padding-inline: 6px; gap: 3px; border-radius: 8px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.footer.iconOnly { min-width: 22px; width: 22px; padding: 0; }
+/* 底栏里不可点的按钮（如首页的“上一页”）只变浅，不加底色和描边。 */
+.btn.footer[data-disabled], .btn.footer[disabled] { background: transparent; border-color: transparent; box-shadow: none; opacity: .35; }
+.footer[aria-current='page'] { background: var(--surface-raised, var(--surface-page)); border-color: transparent; color: var(--text-primary); font-weight: 550; box-shadow: 0 0 0 1px var(--border-subtle), 0 1px 2px rgb(24 30 48 / 6%); }
 .pill { border-radius: 999px; }
-.mini { min-height: 27px; padding-inline: 6px; font-size: 11px; box-shadow: none; }
-.iconOnly { min-width: var(--index-size-30); min-height: var(--index-size-30); padding: 0; justify-content: center; }
+.mini { --button-min-height: 27px; padding-inline: 6px; font-size: 11px; box-shadow: none; }
+.toolbar.iconOnly { min-width: 28px; width: 28px; }
+.iconOnly { min-width: var(--index-size-30); min-height: var(--button-min-height); padding: 0; justify-content: center; }
 
 .primary {
   --knowra-icon-accent: currentColor;
@@ -75,16 +86,17 @@
 
 .accent {
   --knowra-icon-accent: currentColor;
-  background: var(--accent-solid);
-  color: var(--text-on-accent, var(--surface-page));
+  background: var(--button-accent-bg, var(--accent-solid));
+  color: var(--button-accent-ink, var(--text-on-accent, var(--surface-page)));
   border-color: transparent;
+  box-shadow: var(--shadow-accent, none);
 }
 
 .accent[data-hovered]:not([data-disabled]):not([data-pending]),
 .accent[data-pressed]:not([data-disabled]):not([data-pending]) {
-  background: var(--accent-hover);
+  background: var(--button-accent-hover, var(--accent-hover));
   border-color: transparent;
-  color: var(--text-on-accent, var(--surface-page));
+  color: var(--button-accent-ink, var(--text-on-accent, var(--surface-page)));
 }
 
 .danger {
@@ -170,6 +182,6 @@
 .icon > svg { width: 14px; height: 14px; flex: 0 0 auto; }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .btn { min-height: 44px; }
+  .btn { --button-min-height: 44px; min-height: var(--button-min-height); }
   .icon, .iconOnly { min-width: 44px; width: 44px; }
 }

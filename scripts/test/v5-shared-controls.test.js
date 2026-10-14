@@ -103,7 +103,7 @@ describe('V5 shared control styles', () => {
 
   it('keeps sidebar navigation neutral until selected and preserves touch targets', () => {
     assert.ok(declarations(css.navigation, '.icon').includes('--knowra-icon-accent: currentColor'));
-    assert.ok(declarations(css.navigation, ".item[aria-current='page']").includes('color: var(--text-primary)'));
+    assert.ok(declarations(css.navigation, ".item[aria-current='page']").includes('color: var(--nav-selected-ink, var(--text-primary))'));
     assert.ok(declarations(css.navigation, ".item[aria-current='page'] .icon").includes('color: var(--accent)'));
     assert.ok(declarations(css.navigation, '.compact').includes('min-height: 30px'));
     assert.ok(css.ghost.includes('(any-pointer: coarse)'));

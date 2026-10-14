@@ -42,6 +42,20 @@ describe('EditorInspector', () => {
     expect(onOpenNote).toHaveBeenCalledWith('note-b');
   });
 
+  it('switches status straight from the info panel and collapses empty sections to one row', async () => {
+    const user = userEvent.setup();
+    const onOrganizeNote = vi.fn().mockResolvedValue(undefined);
+    renderInspector({ onOrganizeNote, notes: [note], tags: [] });
+
+    await user.click(screen.getByRole('button', { name: /状态：.*点击切换/ }));
+    await user.click(await screen.findByRole('menuitem', { name: '进行中' }));
+    expect(onOrganizeNote).toHaveBeenCalledWith({ folderId: folder.id, status: 'active' });
+
+    expect(screen.queryByText('Markdown 文档')).not.toBeInTheDocument();
+    expect(screen.getByText(/字 · /)).toBeInTheDocument();
+    expect(screen.getByText(/^更新 .* · 创建 /)).toBeInTheDocument();
+  });
+
   it('supports keyboard-aware tabs and derived outline/link panels', async () => {
     const user = userEvent.setup();
     const onNavigateHeading = vi.fn();
@@ -117,7 +131,7 @@ describe('EditorInspector', () => {
     expectUsage('未使用', 0);
     const dialog = screen.getByRole('dialog', { name: '管理标签库' });
     const newTagRow = within(dialog).getByText('新标签').closest('article')!;
-    await user.click(within(newTagRow).getByRole('button', { name: '删除' }));
+    await user.click(within(newTagRow).getByRole('button', { name: '删除标签 新标签' }));
     expect(screen.getByRole('dialog', { name: '删除标签' })).toHaveTextContent('这个标签正在被 1 篇笔记使用。');
     expect(screen.getByRole('button', { name: '从 1 篇笔记移除并删除' })).toBeInTheDocument();
   });

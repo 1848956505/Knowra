@@ -18,7 +18,7 @@
 .options li { display: flex; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--border-subtle); }
 .options strong { min-width: 16px; max-width: 25%; overflow-wrap: anywhere; color: var(--text-secondary); font: 600 13px/1.85 var(--font-ui); }
 .objectives li, .sources li { display: grid; gap: 10px; min-width: 0; padding: var(--space-4); margin-top: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface-page); }
-.sources blockquote { padding: var(--space-3); border-radius: var(--radius-tab); background: var(--surface-sidebar-solid); color: var(--text-secondary); }
+.sources blockquote { padding: var(--space-3); border-radius: var(--radius-tab); background: var(--surface-sidebar-solid); color: var(--text-body, var(--text-secondary)); }
 .sources button { justify-self: start; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
 /* 长知识标题保持完整可读，按钮外观与触控尺寸继承共享 Button。 */

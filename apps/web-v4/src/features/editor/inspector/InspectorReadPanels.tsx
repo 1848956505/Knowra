@@ -1,17 +1,23 @@
+import type { RefObject } from 'react';
+import { MathText } from '../../../components/math/MathText';
 import type { Tag } from '@study-accelerator/web-core';
 import { Button } from '../../../components/ui';
+import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../../components/ui/overlay';
+import { ChevronDownIcon } from '../../../components/icons/knowra';
+import { ItemStatus } from '../../notes/NotesIndexItemMeta';
 import { NoteIcon, TagIcon, LinkIcon, PaperclipIcon } from '../../../components/icons/knowra';
-import { buildFolderPath, getSourceLabel, getStatusLabel, formatInspectorDate, type getDocumentStats, type InspectorHeading, type InspectorRelations } from '../editorInspectorModel';
+import { buildFolderPath, getSourceLabel, getStatusLabel, formatInspectorDay, formatInspectorMoment, type getDocumentStats, type InspectorHeading, type InspectorRelations } from '../editorInspectorModel';
 import { EditorAttachmentPanel } from '../EditorAttachmentPanel';
 import { TagChip } from '../../tags';
 import type { EditorInspectorProps } from './types';
 import { InspectorSection, Metadata, NoteLinks } from './InspectorSection';
 import styles from '../EditorInspector.module.css';
 
-export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 'foldersById' | 'canWrite' | 'onOpenTag' | 'onOpenNote' | 'attachments' | 'extendedWritesEnabled' | 'attachmentActions' | 'onOpenKnowledgeItem' | 'markdown' | 'canInsertAttachment' | 'attachmentsLoading' | 'onUploadAttachment' | 'onInsertAttachment' | 'onRenameAttachment' | 'onDeleteAttachment'> & {
+export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 'foldersById' | 'canWrite' | 'onOpenTag' | 'onOpenNote' | 'attachments' | 'extendedWritesEnabled' | 'attachmentActions' | 'onOpenKnowledgeItem' | 'markdown' | 'canInsertAttachment' | 'attachmentsLoading' | 'onUploadAttachment' | 'onInsertAttachment' | 'onRenameAttachment' | 'onDeleteAttachment' | 'onOrganizeNote'> & {
   assignedTags: Tag[];
   relations: InspectorRelations;
   stats: ReturnType<typeof getDocumentStats>;
+  tagTriggerRef?: RefObject<HTMLButtonElement | null>;
   onEditTags(): void;
   onOrganize(): void;
 }) {
@@ -28,20 +34,18 @@ export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 
         action={<Button size="mini" isDisabled={!props.canWrite} onPress={props.onOrganize}>整理</Button>}
       >
         <dl className={styles.metadata}>
-          <Metadata label="类型" value="Markdown 文档" />
-          <Metadata label="状态" value={<span className={styles.status}><i />{getStatusLabel(props.note.status)}</span>} />
+          <Metadata label="状态" value={<StatusControl status={props.note.status} disabled={!props.canWrite} onChange={status => props.onOrganizeNote({ folderId: props.note.folderId ?? null, status })} />} />
           <Metadata label="位置" value={folderPath} />
-          <Metadata label="字数" value={<><span className={styles.mono}>{props.stats.characterCount.toLocaleString('zh-CN')}</span> 字</>} />
-          <Metadata label="创建" value={<span className={styles.mono}>{formatInspectorDate(props.note.createdAt)}</span>} />
-          <Metadata label="更新" value={<span className={styles.mono}>{formatInspectorDate(props.note.updatedAt)}</span>} />
-          <Metadata label="阅读" value={props.stats.readingMinutes > 0 ? `约 ${props.stats.readingMinutes} 分钟` : '少于 1 分钟'} />
+          <Metadata label="篇幅" value={<span className={styles.mono}>{props.stats.characterCount.toLocaleString('zh-CN')} 字 · {props.stats.readingMinutes > 0 ? `约 ${props.stats.readingMinutes} 分钟` : '少于 1 分钟'}</span>} />
+          <Metadata label="时间" value={<span className={styles.mono} title={`创建于 ${formatInspectorMoment(props.note.createdAt)}`}>更新 {formatInspectorMoment(props.note.updatedAt)} · 创建 {formatInspectorDay(props.note.createdAt)}</span>} />
         </dl>
       </InspectorSection>
       <InspectorSection
         icon={<TagIcon size={18} />}
         title="标签"
-        count={props.assignedTags.length}
-        action={<Button size="mini" isDisabled={!props.canWrite} onPress={props.onEditTags}>编辑</Button>}
+        count={props.assignedTags.length || undefined}
+        emptyHint={props.assignedTags.length === 0 ? '暂无' : undefined}
+        action={<Button ref={props.tagTriggerRef} size="mini" isDisabled={!props.canWrite} onPress={props.onEditTags}>{props.assignedTags.length === 0 ? '添加' : '编辑'}</Button>}
       >
         <div className={styles.tags}>
           {props.assignedTags.length > 0
@@ -49,7 +53,7 @@ export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 
             : <p className={styles.emptyInline}>暂无标签</p>}
         </div>
       </InspectorSection>
-      <InspectorSection icon={<LinkIcon size={18} />} title="关联笔记" count={props.relations.related.length}>
+      <InspectorSection icon={<LinkIcon size={18} />} title="关联笔记" count={props.relations.related.length || undefined} emptyHint={props.relations.related.length === 0 ? '暂无' : undefined}>
         <NoteLinks notes={props.relations.related} onOpenNote={props.onOpenNote} empty="暂无关联笔记" />
       </InspectorSection>
       <InspectorSection icon={<PaperclipIcon size={18} />} title="附件" count={props.attachments.length}>
@@ -74,6 +78,28 @@ export function InfoPanel(props: Pick<EditorInspectorProps, 'note' | 'folder' | 
   );
 }
 
+const STATUS_CHOICES = [
+  { id: 'draft', label: '待整理' },
+  { id: 'active', label: '进行中' },
+  { id: 'published', label: '已发布' },
+  { id: 'archived', label: '已归档' }
+];
+
+/** 状态可直接切换，不必先打开“整理”对话框。 */
+function StatusControl({ status, disabled, onChange }: { status?: string; disabled: boolean; onChange(status: string): void }) {
+  const current = status || 'draft';
+  return <MenuTrigger>
+    <Button size="mini" variant="ghost" className={styles.statusButton} isDisabled={disabled} aria-label={`状态：${getStatusLabel(status)}，点击切换`}>
+      <ItemStatus status={getStatusLabel(status)} /><ChevronDownIcon size={11} />
+    </Button>
+    <MenuPopover placement="bottom start">
+      <Menu ariaLabel="切换状态" onAction={key => { if (String(key) !== current) onChange(String(key)); }}>
+        {STATUS_CHOICES.map(choice => <MenuItem id={choice.id} key={choice.id} kbd={choice.id === current ? '当前' : undefined}>{choice.label}</MenuItem>)}
+      </Menu>
+    </MenuPopover>
+  </MenuTrigger>;
+}
+
 export function OutlinePanel({ outline, onNavigate }: {
   outline: InspectorHeading[];
   onNavigate(heading: InspectorHeading, index: number): void;
@@ -90,7 +116,7 @@ export function OutlinePanel({ outline, onNavigate }: {
             onClick={() => onNavigate(heading, index)}
           >
             <span className={styles.outlineLevel} aria-hidden="true">H{heading.level}</span>
-            <span className={styles.outlineText}>{heading.text}</span>
+            <span className={styles.outlineText}><MathText text={heading.text} inlineOnly /></span>
           </button>
         ))}
       </nav> : <p className={styles.emptyPanel}>添加一至四级标题后，大纲会自动生成。</p>}

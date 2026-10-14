@@ -54,6 +54,27 @@ for (const key of ['Backspace', 'Delete']) {
   });
 }
 
+test('V4-07 标签页放不下时才出现“查看全部标签页”入口并列出已打开笔记', async ({ page }) => {
+  await mockEditorWorkspace(page, []);
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
+  await page.evaluate(() => { window.location.hash = '/materials/notes/note-2'; });
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  const allTabs = page.getByRole('button', { name: '查看全部标签页' });
+  await expect(allTabs).toHaveCount(0);
+  // 收窄视口让标签页横向溢出：入口出现，菜单列出全部已打开笔记。
+  await page.setViewportSize({ width: 640, height: 800 });
+  await page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>('[role="tablist"] > div');
+    if (scroller) scroller.style.maxWidth = '120px';
+  });
+  await expect(allTabs).toBeVisible();
+  await allTabs.click();
+  const menu = page.getByRole('menu', { name: '全部标签页' });
+  await expect(menu.getByRole('menuitem')).toHaveCount(2);
+  await expect(menu.getByRole('menuitem', { name: /编辑器验收笔记/ })).toBeVisible();
+});
+
 test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({ page }) => {
   const savedMarkdown: string[] = [];
   const browserProblems: string[] = [];
@@ -103,10 +124,8 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await page.getByRole('button', { name: '一级标题' }).click();
   await expect.poll(() => savedMarkdown.at(-1) ?? '').toMatch(/^# /);
 
-  await page.getByRole('button', { name: '查看全部标签页' }).click();
-  await expect(page.getByRole('menu', { name: '全部标签页' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: /编辑器验收笔记/ })).toBeVisible();
-  await page.keyboard.press('Escape');
+  // 单个标签页放得下时不显示“全部标签页”入口。
+  await expect(page.getByRole('button', { name: '查看全部标签页' })).toHaveCount(0);
 
   const openFileMenu = async () => {
     await page.getByRole('toolbar', { name: '笔记格式工具栏' }).evaluate((toolbar) => {

@@ -1,12 +1,31 @@
 import type { ReactNode } from 'react';
+import { MathBlock, MathText } from '../../components/math/MathText';
 import styles from './ReadableMarkdown.module.css';
+
+// 独占一行的块公式：`$$…$$`，或以 `$$` / `\[` 开头、`$$` / `\]` 结尾的多行公式。
+function readMathBlock(lines: string[], start: number): { source: string; next: number } | null {
+  const first = lines[start]!.trim();
+  const open = first.startsWith('$$') ? '$$' : first.startsWith('\\[') ? '\\[' : '';
+  if (!open) return null;
+  const close = open === '$$' ? '$$' : '\\]';
+  const rest = first.slice(2);
+  if (rest.trimEnd().endsWith(close) && rest.trim().length > 2) return { source: rest.trimEnd().slice(0, -2), next: start + 1 };
+  const body = rest ? [rest] : [];
+  for (let index = start + 1; index < lines.length; index++) {
+    const line = lines[index]!.trimEnd();
+    if (line.trimStart().startsWith('```')) return null;
+    if (line.endsWith(close)) { body.push(line.slice(0, -2)); const source = body.join('\n'); return source.trim() ? { source, next: index + 1 } : null; }
+    body.push(line);
+  }
+  return null;
+}
 
 // 对话和成果只显示一小组 Markdown 排版；所有内容保持 React 文本节点，不执行 HTML。
 function inline(text: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|\`[^\`]+\`)/g).map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
     if (part.startsWith('\`') && part.endsWith('\`')) return <code key={index}>{part.slice(1, -1)}</code>;
-    return part;
+    return <MathText key={index} text={part} />;
   });
 }
 
@@ -24,6 +43,8 @@ export function ReadableMarkdown({ text }: { text: string }) {
       blocks.push(<pre key={start}><code>{code.join('\n')}</code></pre>);
       continue;
     }
+    const mathBlock = readMathBlock(lines, index);
+    if (mathBlock) { blocks.push(<MathBlock key={index} source={mathBlock.source} />); index = mathBlock.next; continue; }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading) {
       const start = index++;
@@ -44,7 +65,7 @@ export function ReadableMarkdown({ text }: { text: string }) {
     if (/^>\s?/.test(line)) { blocks.push(<blockquote key={index}>{inline(line.replace(/^>\s?/, ''))}</blockquote>); index++; continue; }
     const start = index;
     const paragraph: string[] = [];
-    while (index < lines.length && lines[index].trim() && !/^(#{1,3}\s+\S|```|\s*[-*]\s+|>\s?)/.test(lines[index])) paragraph.push(lines[index++]);
+    while (index < lines.length && lines[index].trim() && !/^(#{1,3}\s+\S|```|\s*[-*]\s+|>\s?)/.test(lines[index]) && !readMathBlock(lines, index)) paragraph.push(lines[index++]);
     blocks.push(<p key={start}>{paragraph.length === 1 ? inline(paragraph[0])
       : paragraph.map((part, lineIndex) => <span key={lineIndex}>{lineIndex ? <br /> : null}{inline(part)}</span>)}</p>);
   }

@@ -4,6 +4,8 @@ import {
   buildFolderPath,
   extractInspectorOutline,
   formatInspectorDate,
+  formatInspectorDay,
+  formatInspectorMoment,
   getDocumentStats,
   getStatusLabel,
   resolveInspectorRelations,
@@ -65,6 +67,16 @@ describe('editorInspectorModel', () => {
     expect(formatInspectorDate(new Date(2026, 7, 31, 10, 32).toISOString(), now)).toBe('今天 10:32');
     expect(formatInspectorDate('not-a-date', now)).toBe('未知');
   });
+
+  it('formats compact moments relative to today', () => {
+    const now = new Date(2026, 9, 14, 12, 0);
+    expect(formatInspectorMoment(new Date(2026, 9, 14, 9, 5).toISOString(), now)).toBe('今天 09:05');
+    expect(formatInspectorMoment(new Date(2026, 9, 13, 23, 35).toISOString(), now)).toBe('昨天 23:35');
+    expect(formatInspectorMoment(new Date(2026, 5, 14, 15, 38).toISOString(), now)).toBe('6月14日 15:38');
+    expect(formatInspectorMoment(new Date(2025, 5, 14, 15, 38).toISOString(), now)).toBe('2025年6月14日');
+    expect(formatInspectorDay(new Date(2026, 5, 14).toISOString(), now)).toBe('6月14日');
+    expect(formatInspectorMoment(undefined, now)).toBe('未知');
+  });
 });
 
 function createNote(id: string, internalLinks: string[]): Note {
@@ -82,5 +94,5 @@ function createNote(id: string, internalLinks: string[]): Note {
 }
 
 function createFolder(id: string, name: string, parentId: string | null): Folder {
-  return { id, name, parentId, children: [] };
+  return { id, name, parentId, children: [] }
 }

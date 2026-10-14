@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui/overlay';
 import {
@@ -70,22 +70,62 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <FormatButton label="引用" disabled={!props.canEditContent} onPress={command('blockquote')}><QuoteIcon size={16} /></FormatButton>
       <FormatButton label="插入表格" optional disabled={!props.canEditContent} onPress={command('table')}><TableIcon size={16} /></FormatButton>
       <FormatButton label="插入图片" optional disabled={!props.canEditContent || props.canInsertImage === false} onPress={props.onInsertImage}><ImageIcon size={16} /></FormatButton>
-      <span className={styles.toolbarSpacer} />
-      <span className={styles.separator} aria-hidden="true" />
-      <button type="button" className={styles.plainButton} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
+      <span className={`${styles.toolbarSpacer} ${styles.compactHide}`} />
+      <span className={`${styles.separator} ${styles.compactHide}`} aria-hidden="true" />
+      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
       <MenuTrigger>
-        <PressableButton className={styles.plainButton} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
+        <PressableButton className={`${styles.plainButton} ${styles.compactHide}`} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
         <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled={!props.canEditContent || props.canInsertImage === false} onAction={props.onInsertImage}>插入图片</MenuItem></Menu></MenuPopover>
       </MenuTrigger>
       <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
-      <button type="button" className={styles.plainButton} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
+      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
       </div>
     </div>
   );
 }
 
+/**
+ * 悬停即开：指针移入按钮打开、移出 140ms 后关闭，可移入浮层继续操作。
+ * 悬停打开后再点击按钮视为“固定”：菜单保持打开，直到点击外部、按 Esc 或选择菜单项；点击打开的菜单同样固定。
+ */
+const HOVER_CLOSE_DELAY = 140;
 function ToolbarMenu({ label, children, disabled = false }: { label: string; children: ReactNode; disabled?: boolean }) {
-  return <MenuTrigger><PressableButton isDisabled={disabled}>{label}</PressableButton><MenuPopover><Menu ariaLabel={`${label}菜单`}>{children}</Menu></MenuPopover></MenuTrigger>;
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const overTrigger = useRef(false);
+  const hoverOpened = useRef(false);
+  const pinned = useRef(false);
+  const cancel = () => { window.clearTimeout(timer.current); };
+  const scheduleClose = () => {
+    cancel();
+    if (pinned.current) return;
+    timer.current = window.setTimeout(() => { hoverOpened.current = false; setOpen(false); }, HOVER_CLOSE_DELAY);
+  };
+  useEffect(() => cancel, []);
+  // Esc 一次即关：不论焦点在按钮、菜单还是页面其它位置，也不会被“悬停后点击=固定”的逻辑吞掉。
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      cancel(); hoverOpened.current = false; pinned.current = false; setOpen(false);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open]);
+  return <MenuTrigger isOpen={open} onOpenChange={next => {
+    cancel();
+    if (!next && overTrigger.current && hoverOpened.current) { hoverOpened.current = false; pinned.current = true; return; }
+    if (next) { hoverOpened.current = false; pinned.current = true; } else { hoverOpened.current = false; pinned.current = false; }
+    setOpen(next);
+  }}>
+    <PressableButton isDisabled={disabled}
+      onHoverStart={() => { overTrigger.current = true; cancel(); if (!disabled && !open) { hoverOpened.current = true; pinned.current = false; setOpen(true); } }}
+      onHoverEnd={() => { overTrigger.current = false; scheduleClose(); }}>{label}</PressableButton>
+    {/* 非模态：没有遮罩，指针才能在相邻菜单按钮之间直接切换。 */}
+    <MenuPopover isNonModal>
+      <div onPointerEnter={cancel} onPointerLeave={scheduleClose}><Menu ariaLabel={`${label}菜单`}>{children}</Menu></div>
+    </MenuPopover>
+  </MenuTrigger>;
 }
 
 function FormatButton({ label, optional = false, disabled = false, title, onPress, children }: {

@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { useState } from 'react';
 import type { Annotation, CreateKnowledgeCandidateInput, KnowledgeEvidence, KnowledgeItem } from '@study-accelerator/web-core';
 import { KnowledgeItemDialog } from './KnowledgeItemDialog';
@@ -33,7 +34,7 @@ export function CreateKnowledgeCandidateDialog({ source, recoveryDraft, canWrite
     }} onSaved={item => { if (item) onCreated?.(item); }}>
     {origin ? <section className={styles.sourcePreview} aria-label="来源标注">
       <strong>来源标注</strong>{origin.headingPath.length > 0 ? <p>{origin.headingPath.join(' / ')}</p> : null}
-      <blockquote>{origin.quoteText}</blockquote>
+      <blockquote><MathText text={origin.quoteText} /></blockquote>
       <p className={styles.hint}>保存后保留来源快照。候选陈述可以重新组织，来源摘录保持原文。</p>
     </section> : null}
   </KnowledgeItemDialog>;

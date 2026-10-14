@@ -3,7 +3,6 @@ import { CreateEntryMenu } from './CreateEntryMenu';
 import { workspaceCapabilities } from '../../store/workspaceCapabilities';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  BookIcon,
   ChevronRightIcon,
   ClockIcon,
   DeleteIcon,
@@ -21,8 +20,10 @@ import {
 import {
   GhostIconButton, SideNavItem,
   Menu,
+  MenuHeader,
   MenuItem,
   MenuPopover,
+  MenuSection,
   MenuSeparator,
   MenuTrigger,
   PointMenu
@@ -42,7 +43,7 @@ import { scrollEntryContainer, useEntryDragDrop, useEntryDropTarget } from './En
 import styles from './NotesContextSidebar.module.css';
 import { useNotesIndexAppearance } from './notesIndexAppearanceModel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
-import { NotesUpdateDistribution, NotesTrashDecoration } from './NotesSidebarDecoration';
+import { NotesUpdateDistribution, NotesTrashDecoration, NotesLibraryDecoration } from './NotesSidebarDecoration';
 
 interface NavEntry {
   scope: Exclude<NotesIndexScope, 'root' | 'trash'>;
@@ -60,16 +61,14 @@ const QUICK_ENTRIES: readonly NavEntry[] = [
 export function NotesContextSidebar({
   onOpenNote,
   onOpenIndex,
-  onOpenSearch,
-  appearanceActive = true
+  onOpenSearch
 }: {
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
   onOpenSearch?(): void;
-  appearanceActive?: boolean;
 }) {
   const appearance = useNotesIndexAppearance();
-  const appearanceProps = appearanceActive ? notesIndexAppearanceProps(appearance) : undefined;
+  const appearanceProps = notesIndexAppearanceProps(appearance);
   const serverData = useAppStore((state) => state.serverData);
   const notesIndex = useAppStore((state) => state.notesIndex);
   const selectedFolderId = useAppStore((state) => state.navigation.selectedFolderId);
@@ -122,7 +121,7 @@ export function NotesContextSidebar({
   }, [notesIndex.query, searchNotes]);
 
   return (
-    <ScopedAppearanceProvider value={appearanceProps ?? null}><div {...appearanceProps} className={`${appearanceProps?.className ?? ''} ${styles.sidebarContent}`} data-index-appearance={appearanceActive || undefined}>
+    <ScopedAppearanceProvider value={appearanceProps}><div {...appearanceProps} className={`${appearanceProps.className} ${styles.sidebarContent}`} data-index-appearance>
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
         <MenuTrigger>
@@ -132,6 +131,7 @@ export function NotesContextSidebar({
           <MenuPopover>
             <Menu
               ariaLabel="笔记目录操作"
+              variant="rich"
               onAction={(key) => {
                 if (key === 'new-folder') treeOperations.openCreate('folder', selectedFolderId);
                 if (key === 'refresh') void retryWorkspace();
@@ -139,11 +139,18 @@ export function NotesContextSidebar({
                 if (key === 'folder-trash') setFolderTrashOpen(true);
               }}
             >
-              <MenuItem id="new-folder" icon={<FolderIcon size={14} />} isDisabled={!canWrite}>新建文件夹</MenuItem>
+              <MenuSection>
+                <MenuHeader>目录</MenuHeader>
+                <MenuItem id="new-folder" icon={<FolderIcon size={16} />} description="在当前位置创建" isDisabled={!canWrite}>新建文件夹</MenuItem>
+                <MenuItem id="refresh" icon={<RefreshIcon size={16} />} description="重新读取最新内容">刷新目录</MenuItem>
+              </MenuSection>
               <MenuSeparator />
-              <MenuItem id="refresh" icon={<RefreshIcon size={14} />}>刷新目录</MenuItem>
-              <MenuItem id="folder-trash" icon={<FolderIcon size={14} />}>文件夹回收站</MenuItem>
-              <MenuItem id="empty-trash" isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}>{supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}</MenuItem>
+              <MenuSection>
+                <MenuHeader>回收站</MenuHeader>
+                <MenuItem id="folder-trash" icon={<FolderIcon size={16} />} description="查看并恢复已删除的文件夹">文件夹回收站</MenuItem>
+                <MenuItem id="empty-trash" icon={<DeleteIcon size={16} />} isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}
+                  description={supportsPermanentDelete && trashCount > 0 ? `永久删除 ${trashCount} 篇笔记` : undefined}>{supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}</MenuItem>
+              </MenuSection>
             </Menu>
           </MenuPopover>
         </MenuTrigger>
@@ -203,7 +210,7 @@ export function NotesContextSidebar({
           <SideNavItem
             className={styles.libraryRow}
             density="compact"
-            icon={<BookIcon size={15} />}
+            icon={<NotesLibraryDecoration />}
             label="笔记库"
             count={rootCount}
             data-drop-active={rootDrop.isOver || undefined}
@@ -246,13 +253,13 @@ export function NotesContextSidebar({
             {serverData.tags.length > visibleTags.length ? <Button className={styles.allTags} variant="ghost" size="compact" onPress={() => navigate('/materials/tags')}>全部标签·{serverData.tags.length}</Button> : null}
           </div>
         </SidebarSection>
+        <NotesUpdateDistribution notes={serverData.notes} />
       </div>
 
       <footer className={styles.footer}>
-        {appearanceActive && appearance.deco === 'full' ? <NotesUpdateDistribution notes={serverData.notes} /> : null}
         <SideNavItem
           density="compact"
-          icon={appearanceActive && appearance.deco === 'full' ? <NotesTrashDecoration full={trashCount > 0} /> : <DeleteIcon size={15} />}
+          icon={<NotesTrashDecoration full={trashCount > 0} />}
           label="回收站"
           count={trashCount}
           aria-current={notesIndex.scope === 'trash' ? 'page' : undefined}

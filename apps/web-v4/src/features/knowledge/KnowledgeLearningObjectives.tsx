@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { useEffect, useState } from 'react';
 import type { KnowledgeItem, TrainingAssetRecord } from '@study-accelerator/web-core';
 import { Button } from '../../components/ui';
@@ -33,7 +34,7 @@ export function KnowledgeLearningObjectives({ item }: { item: KnowledgeItem }) {
     {!canWrite ? <p className={styles.hint}>当前资料只读，可查看目标；请重新连接并加载资料后操作。</p> : null}
     {item.reviewStatus !== 'confirmed' || item.deletedAt ? <p className={styles.hint}>请先核对并确认知识，再创建和确认学习目标。</p> : null}
     {loading ? <p role="status">正在读取关联学习目标…</p> : error ? <><p role="alert" className={styles.error}>{error}</p><Button onPress={() => setRefresh(n => n + 1)}>重试读取学习目标</Button></> : records.length === 0 ? <p className={styles.hint}>尚无关联学习目标。</p> : <ul className={styles.evidenceList}>{records.map(record => <li key={record.id} className={styles.evidence}>
-      <div className={styles.meta}><strong>{record.objective || '尚未填写目标'}</strong><span>{objectiveStatus(record)}</span></div>
+      <div className={styles.meta}><strong>{record.objective ? <MathText text={record.objective} inlineOnly /> : '尚未填写目标'}</strong><span>{objectiveStatus(record)}</span></div>
       <p className={styles.hint}>动作：{objectiveActionLabel(record.actionVerb)} · 认知层级：{objectiveLevelLabel(record.cognitiveLevel)}</p>
       {record.reviewNote ? <p className={styles.notice}>{String(record.reviewNote)}</p> : null}
       <Button variant="ghost" onPress={() => setReview({ knowledgeId: item.id, record })}>查看并审阅目标</Button>

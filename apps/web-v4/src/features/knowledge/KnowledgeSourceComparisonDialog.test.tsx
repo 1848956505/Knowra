@@ -224,3 +224,14 @@ describe('KnowledgeSourceComparisonDialog', () => {
     expect(onOpenNote).not.toHaveBeenCalled();
   });
 });
+
+describe('知识来源对照中的公式', () => {
+  it('陈述与摘录渲染公式，历史版本正文保持源码', async () => {
+    const mathItem = { ...item, canonicalStatement: '损失为 $L=x^2$。' };
+    const mathEvidence = { ...evidence, quoteText: '摘录 $y_i$ 成立' };
+    const mathVersion = { ...version, content: '旧版 $a_b$ 源码' };
+    render(<KnowledgeSourceComparisonDialog {...input({ item: mathItem, evidence: mathEvidence, onGetVersion: vi.fn().mockResolvedValue(mathVersion) })} />);
+    await waitFor(() => expect(document.querySelectorAll('.katex').length).toBe(2));
+    expect(await screen.findByLabelText('历史版本正文')).toHaveTextContent('旧版 $a_b$ 源码');
+  });
+});

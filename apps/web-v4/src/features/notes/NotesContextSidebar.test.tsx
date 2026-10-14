@@ -11,22 +11,27 @@ beforeEach(() => { localStorage.removeItem('knowra:pinned-tags'); act(() => setN
 afterEach(() => { localStorage.removeItem('knowra:pinned-tags'); });
 
 describe('NotesContextSidebar', () => {
-  it('将真实已加载笔记的更新时间分布放在回收站上方，素模式隐藏装饰', () => {
+  it('将更新时间分布放在标签之后的同一滚动区域，回收站单独保留', () => {
     renderSidebar();
     const distribution = screen.getByRole('region', { name: '已加载笔记 · 最近更新时间分布' });
     const trash = screen.getByRole('button', { name: /回收站1/ });
     expect(distribution.compareDocumentPosition(trash) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('每篇仅计一次')).toBeInTheDocument();
     expect(screen.queryByText('本地已同步')).not.toBeInTheDocument();
-    act(() => setNotesIndexAppearance({ deco: 'off' }));
-    expect(screen.queryByRole('region', { name: '已加载笔记 · 最近更新时间分布' })).not.toBeInTheDocument();
-    expect(trash).toBeInTheDocument();
+    const tags = screen.getByRole('button', { name: '标签' });
+    expect(tags.compareDocumentPosition(distribution) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const scrollBody = distribution.parentElement!;
+    expect(scrollBody.className).toContain('scrollBody');
+    expect(scrollBody.contains(tags)).toBe(true);
+    expect(scrollBody.contains(trash)).toBe(false);
   });
-  it('编辑器复用侧栏时不应用索引外观与装饰', () => {
+  it('侧栏始终使用全局定稿外观与明暗模式', () => {
     act(() => setNotesIndexAppearance({ mode: 'dark' }));
-    renderSidebar({ appearanceActive: false });
-    expect(screen.queryByRole('region', { name: '已加载笔记 · 最近更新时间分布' })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-ni-mode]')).toBeNull();
+    renderSidebar();
+    expect(screen.getByRole('region', { name: '已加载笔记 · 最近更新时间分布' })).toBeInTheDocument();
+    const surface = document.querySelector('[data-ni-mode]');
+    expect(surface).toHaveAttribute('data-ni-mode', 'dark');
+    expect(surface).toHaveAttribute('data-ni-shape', 'pill');
     expect(screen.getByRole('button', { name: /全部笔记3/ })).toBeInTheDocument();
   });
   it('uses a header search action without a permanent search field', async () => {
@@ -323,8 +328,7 @@ function renderSidebar({
   tags,
   onOpenNote,
   onOpenIndex,
-  onOpenSearch,
-  appearanceActive
+  onOpenSearch
 }: {
   empty?: boolean;
   notes?: Note[];
@@ -332,7 +336,6 @@ function renderSidebar({
   onOpenNote?(noteId: string): void;
   onOpenIndex?(): void;
   onOpenSearch?(): void;
-  appearanceActive?: boolean;
 } = {}) {
   const api = createApi();
   const store = createAppStore({ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() });
@@ -360,7 +363,7 @@ function renderSidebar({
       store={store}
       dependencies={{ api, cacheKey: 'sidebar-test', mockSnapshot: createEmptyWorkspaceSnapshot() }}
     >
-      <NotesContextSidebar appearanceActive={appearanceActive} onOpenNote={onOpenNote} onOpenIndex={onOpenIndex} onOpenSearch={onOpenSearch} />
+      <NotesContextSidebar onOpenNote={onOpenNote} onOpenIndex={onOpenIndex} onOpenSearch={onOpenSearch} />
     </AppStoreProvider>
   );
   return { api, store };

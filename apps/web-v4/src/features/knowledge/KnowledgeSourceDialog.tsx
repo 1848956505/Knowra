@@ -1,3 +1,4 @@
+import { MathText } from '../../components/math/MathText';
 import { useEffect, useMemo, useState } from 'react';
 import type { Annotation, KnowledgeEvidence, Note } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogFooter, Select } from '../../components/ui';
@@ -54,7 +55,7 @@ export function KnowledgeSourceDialog({ notes, evidence, replacing, onClose, onL
       {!loading && noteId && annotations.length === 0 ? <p className={styles.notice}>这篇笔记没有可关联的有效重点。请先打开笔记标记重点，或检查已失效的标注。</p> : null}
       {annotations.length ? <fieldset className={styles.sourceOptions}><legend>选择重点标记</legend>{annotations.map(annotation => <label key={annotation.id}>
         <input type="radio" name="knowledge-source" value={annotation.id} checked={annotationId === annotation.id} disabled={pending} onChange={() => setAnnotationId(annotation.id)} />
-        <span><strong>{annotation.headingPath.at(-1) || '正文摘录'}</strong><small>{annotation.quoteText}</small></span>
+        <span><strong>{annotation.headingPath.at(-1) || '正文摘录'}</strong><small><MathText text={annotation.quoteText} inlineOnly /></small></span>
       </label>)}</fieldset> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     </DialogBody>

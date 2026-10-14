@@ -10,9 +10,9 @@
   box-shadow: none;
   transition: box-shadow var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
-.shell:not([data-disabled]):focus-within { outline: 2px solid var(--accent-text); outline-offset: 2px; border-color: var(--accent); background: var(--surface-page); color: var(--text-secondary); box-shadow: var(--focus-ring); }
+.shell:not([data-disabled]):focus-within { outline: 0; border-color: color-mix(in srgb, var(--accent) 34%, transparent); background: var(--surface-page); color: var(--text-secondary); box-shadow: var(--focus-soft); }
 .shell[data-invalid] { border-color: var(--ink-danger); background: var(--ink-danger-soft); }
-.shell[data-invalid]:not([data-disabled]):focus-within { outline-color: var(--ink-danger); border-color: var(--ink-danger); background: var(--ink-danger-soft); box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
+.shell[data-invalid]:not([data-disabled]):focus-within { outline: 0; border-color: var(--ink-danger); background: var(--ink-danger-soft); box-shadow: var(--focus-ring-danger, var(--shadow-input-invalid)); }
 .shell[data-disabled] { border-color: var(--border-subtle); background: var(--surface-hover); box-shadow: none; opacity: 0.65; }
 .icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; pointer-events: none; }
 .input { flex: 1 1 auto; min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; box-shadow: none; color: var(--text-primary); font: 400 12px/1.4 var(--font-ui); }
@@ -27,7 +27,8 @@
 .clearText:hover { color: var(--text-primary); border-color: var(--border-strong); }
 .clearIcon:active, .clearText:active { background: var(--surface-pressed); }
 .clearIcon:focus-visible, .clearText:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
-.shell[data-size='toolbar'] { flex: 1 1 auto; min-width: var(--index-size-120); height: var(--index-size-34); gap: var(--index-size-9); padding: 0 var(--index-size-12); }
+/* 工作区工具栏：对照原型 28px 高。 */
+.shell[data-size='toolbar'] { flex: 1 1 auto; min-width: var(--index-size-120); height: 28px; gap: 6px; padding: 0 8px; }
 /* 侧栏搜索：半透明白底 + 发丝线，不用灰色实底，避免压住磨砂侧栏的通透感 */
 .shell[data-size='sidebar'] { flex: 0 0 32px; height: 32px; margin: 8px 12px 10px; padding: 0 10px; background: color-mix(in srgb, var(--surface-raised) 62%, transparent); border-color: var(--border-subtle); }
 .shell[data-size='command'] { gap: 10px; padding: 12px 14px; }

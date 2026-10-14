@@ -5,7 +5,7 @@
 .tab[data-hovered]:not([data-selected]):not([data-disabled]) { color: var(--text-primary); background: var(--surface-hover); }
 .tab[data-selected] { --knowra-icon-accent: var(--accent); color: var(--text-primary); background: var(--surface-raised); box-shadow: var(--shadow-control); font-weight: 500; }
 .tab[data-disabled] { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
-.tab[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); z-index: 1; }
+.tab[data-focus-visible] { outline: 0; box-shadow: var(--focus-soft, var(--focus-ring)); z-index: 1; }
 .tabBadge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text-secondary); background: var(--surface-hover); border-radius: 999px; }
 .tabPanel { padding: 14px 0 4px; outline: 0; }
 .tabPanel:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; box-shadow: var(--focus-ring); border-radius: var(--radius-control); }

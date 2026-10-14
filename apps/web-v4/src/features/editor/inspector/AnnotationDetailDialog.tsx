@@ -1,3 +1,4 @@
+import { MathText } from '../../../components/math/MathText';
 import { Button, Dialog, DialogBody, DialogFooter, DialogClose, Select, TextAreaField } from '../../../components/ui';
 import type { useAnnotationDetails } from './useAnnotationDetails';
 import type { EditorInspectorProps } from './types';
@@ -28,10 +29,10 @@ export function AnnotationDetailDialog({ props, details, pendingIds, run }: Deta
           <Select label="重要程度" options={IMPORTANCE_OPTIONS} selectedKey={importance} onSelectionChange={(key) => { setImportance(String(key)); setImportanceChanged(true); }} />
           <TextAreaField label="备注" maxLength={2000} value={comment} onChange={setComment} />
           {detail.annotation.scopeType === 'list' ? <p>本项及全部子项 · 子项 {detail.annotation.anchor?.list?.childCount ?? 0} 项</p> : null}
-          <pre>{detail.preview.resolution.quoteText ?? detail.annotation.quoteText}</pre>
+          <pre><MathText text={detail.preview.resolution.quoteText ?? detail.annotation.quoteText} inlineOnly /></pre>
           {detail.preview.pendingRange ? <>
             <p>原范围保留在上方。确认后将使用以下新范围：</p>
-            <pre>{detail.preview.pendingRange.anchor.quoteText}</pre>
+            <pre><MathText text={detail.preview.pendingRange.anchor.quoteText} inlineOnly /></pre>
             <Button isDisabled={!props.canWrite || !props.onConfirmAnnotationRange || pendingIds.has(detail.annotation.id)} onPress={() => void run(detail.annotation.id, async () => {
               if (!props.canWrite) return;
               await props.onConfirmAnnotationRange?.(detail.annotation.id, { expectedRevision: detail.annotation.revision ?? 1, noteContentHash: detail.preview.currentContentHash, candidateHash: detail.preview.pendingRange!.candidateHash });

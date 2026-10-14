@@ -17,7 +17,7 @@
 
 .item:hover:not([data-disabled]):not([aria-pressed='true']):not([aria-current='page']) { background: var(--surface-hover); color: var(--text-primary); }
 .item[aria-pressed='true'],
-.item[aria-current='page'] { background: var(--surface-raised); color: var(--text-primary); border-color: var(--border-subtle); box-shadow: var(--shadow-control); font-weight: 600; }
+.item[aria-current='page'] { background: var(--nav-selected-bg, var(--surface-raised)); color: var(--nav-selected-ink, var(--text-primary)); border-color: var(--nav-selected-line, var(--border-subtle)); box-shadow: var(--nav-selected-shadow, var(--shadow-control)); font-weight: 600; }
 .item[aria-pressed='true'] .icon,
 .item[aria-current='page'] .icon { --knowra-icon-accent: var(--accent); color: var(--accent); }
 .item[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
