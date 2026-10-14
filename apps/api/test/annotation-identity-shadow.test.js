@@ -139,11 +139,16 @@ export const annotationIdentityShadowTests = [
     const note = (id, table) => ({ collection: 'notes', id, value: { id, title: id, rawMarkdown: markdown, spaceId: 'space-sync', folderId: null, tagIds: [],
       annotationStructure: { ...updateStructure('', markdown), identity: table } } });
     const { createHash } = await import('node:crypto');
-    for (const id of ['kept', 'dropped']) {
+    for (const id of ['kept', 'dropped', 'empty-id']) {
       before.noteVersions.push({ id: `version-${id}`, noteId: id, content: markdown, contentHash: createHash('sha256').update(markdown).digest('hex'), createdAt: '2026-10-12T00:00:00.000Z', createdBy: 'demo' });
     }
-    const { state } = prepareBatchState(before, [note('kept', identity), note('dropped', { ...identity, blocks: identity.blocks.slice(1) })], 'demo');
+    const emptyId = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+    const { state } = prepareBatchState(before, [note('kept', identity), note('dropped', { ...identity, blocks: identity.blocks.slice(1) }), note('empty-id', emptyId)], 'demo');
     assert.deepEqual(state.notes.find(item => item.id === 'kept').annotationStructure.identity, identity);
     assert.equal(state.notes.find(item => item.id === 'dropped').annotationStructure.identity, undefined);
+    const fallback = state.notes.find(item => item.id === 'empty-id');
+    assert.equal(fallback.annotationStructure.identity, undefined);
+    assert.equal(fallback.rawMarkdown, markdown);
+    assert.deepEqual(fallback.annotationStructure.nodes, updateStructure('', markdown).nodes);
   } }
 ];

@@ -166,7 +166,7 @@ export function validIdentityTable(markdown, identity) {
   if (blocks.length !== identity.blocks.length) return false;
   const ids = new Set();
   return identity.blocks.every((block, index) => {
-    const ok = block && text(block.id, LIMITS.id) && !ids.has(block.id) && block.type === blocks[index].type;
+    const ok = block && text(block.id, LIMITS.id) && block.id.length > 0 && !ids.has(block.id) && block.type === blocks[index].type;
     ids.add(block?.id);
     return ok;
   });

@@ -457,4 +457,16 @@ describe('块身份表（S2b）', () => {
     expect(rebound?.rootBlockId).not.toBe(oldRoot);
     expect(blockIds(e.view.state.doc)).toContain(rebound!.rootBlockId);
   });
+
+  it('读取空 ID 身份表时回退到本会话 ID，正文和合法快照保持可用', async () => {
+    const e = await createEditor(markdown);
+    const serialized = e.markdown();
+    const identity = tableFrom(e);
+    const invalid = { ...identity, blocks: identity.blocks.map((block, index) => index === 0 ? { ...block, id: '' } : block) };
+    const before = blockIds(e.view.state.doc);
+    expect(applyBlockIdentity(e.view, serialized, invalid)).toBe(false);
+    expect(blockIds(e.view.state.doc)).toEqual(before);
+    expect(e.markdown()).toBe(serialized);
+    expect(tableFrom(e)).toEqual(identity);
+  });
 });

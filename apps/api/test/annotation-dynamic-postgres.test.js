@@ -20,12 +20,16 @@ export const annotationDynamicPostgresTests = process.env.KNOWRA_SYNC_TEST_DATAB
       const anchor=anchorForSection(projectMarkdown(before),0);
       const annotation=await k.contentAnnotationService.createAnnotation({spaceId:space.id,noteId:note.id,schemaVersion:2,scopeType:'section',anchor,quoteText:anchor.quoteText,fromPosition:anchor.sourceStart,toPosition:anchor.sourceEnd,anchorFingerprint:'pg',noteContentHash:calculateContentHash(before),idempotencyKey:randomUUID()});
       const after=before.replace('原内容','新增内容');
-      const saved=await k.noteService.updateNote(note.id,{rawMarkdown:after,expectedUpdatedAt:note.updatedAt,annotationMapping:{formatVersion:1,operationId:randomUUID(),baseContentHash:calculateContentHash(before),targetContentHash:calculateContentHash(after),edits:[sourceEdit(before,after)]}});
+      const identityBlocks=[{id:'pg-heading-a',type:'heading'},{id:'pg-paragraph-a',type:'paragraph'},{id:'pg-heading-b',type:'heading'},{id:'pg-paragraph-b',type:'paragraph'}];
+      const saved=await k.noteService.updateNote(note.id,{rawMarkdown:after,expectedUpdatedAt:note.updatedAt,annotationMapping:{formatVersion:1,operationId:randomUUID(),baseContentHash:calculateContentHash(before),targetContentHash:calculateContentHash(after),edits:[sourceEdit(before,after)],
+        editorState:{formatVersion:2,targetContentHash:calculateContentHash(after),blocks:identityBlocks.map(block=>({...block,empty:false})),annotations:[]}}});
       const updated=await k.contentAnnotationService.getAnnotation(annotation.id);
       assert.equal(updated.anchorStatus,'resolved');assert.match(updated.quoteText,/新增内容/);
       assert.equal((await app.repositories.noteRepository.findById(note.id)).annotationStructure.contentHash,calculateContentHash(after));
+      assert.deepEqual((await app.repositories.noteRepository.findById(note.id)).annotationStructure.identity,{formatVersion:2,contentHash:calculateContentHash(after),blocks:identityBlocks});
       const boundary=after.replace('# B','## B');
       const changed=await k.noteService.updateNote(note.id,{rawMarkdown:boundary,expectedUpdatedAt:saved.updatedAt});
+      assert.equal(changed.annotationStructure.identity,undefined,'PostgreSQL 外部改写同样丢弃影子身份表');
       const preview=await k.annotationScopeService.previewAnnotation(annotation.id);assert.ok(preview.pendingRange);
       await assert.rejects(k.contentAnnotationService.confirmAnnotationRange(annotation.id,{expectedRevision:1,noteContentHash:preview.currentContentHash,candidateHash:preview.pendingRange.candidateHash}),{code:'ANNOTATION_CONTENT_CONFLICT'});
       const confirmed=await k.contentAnnotationService.confirmAnnotationRange(annotation.id,{expectedRevision:preview.annotation.revision,noteContentHash:preview.currentContentHash,candidateHash:preview.pendingRange.candidateHash});
