@@ -254,7 +254,7 @@
   background: var(--surface-page);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-popover);
-  padding: 5px;
+  padding: 6px;
   overflow: auto;
 }
 
@@ -278,15 +278,18 @@
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 8px 10px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 0;
   background: transparent;
   color: var(--text-primary);
+  font-family: var(--font-ui);
   font-size: 13px;
-  font-weight: 450;
+  font-weight: 400;
+  line-height: 1.4;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-control);
+  border-radius: 7px;
 }
 
 .item[data-focused] {
@@ -371,14 +374,14 @@
 /* rich 变体：操作面板。分组标题、图标底板和说明行，行高与点击区域更宽松。 */
 .menuRich { min-width: 248px; padding: 6px; border-radius: 14px; }
 .menuRich .menuHead { padding: 10px 10px 4px; font-size: 11px; letter-spacing: .06em; }
-.menuRich .item { gap: 10px; padding: 7px 8px; border-radius: 10px; }
+.menuRich .item { gap: 10px; min-height: 0; padding: 7px 8px; border-radius: 10px; }
 .menuRich .itemIcon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--surface-hover); transition: background var(--motion-fast) var(--motion-ease); }
 .menuRich .item[data-focused] .itemIcon { background: var(--surface-pressed); }
 .menuRich .item[data-danger] .itemIcon { background: var(--ink-danger-soft); }
 .menuRich .item[data-disabled] .itemIcon { opacity: .6; }
 .menuRich .separator { margin: 6px 4px; }
 .itemText { display: grid; gap: 1px; min-width: 0; }
-.itemDesc { color: var(--text-muted); font-size: 11.5px; font-weight: 400; line-height: 1.4; }
+.itemDesc { color: var(--text-muted); font-size: 11px; font-weight: 400; line-height: 1.4; }
 .item[data-danger] .itemDesc { color: color-mix(in srgb, var(--ink-danger) 70%, var(--text-muted)); }
 
 /* Tooltip */
