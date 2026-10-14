@@ -1,15 +1,16 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmptyWorkspaceSnapshot, type Note, type NoteQueryPage, type WorkspaceApi } from '@study-accelerator/web-core';
 import { AppStoreProvider } from '../../store/AppStoreProvider';
 import { createAppStore } from '../../store/createAppStore';
 import { NotesIndexView } from './NotesIndexView';
 
 const title = '规划草案';
+const fixtureNow = new Date(2026, 0, 15, 12).getTime();
 const createNote = (id: string, overrides: Partial<Note> = {}): Note => ({
   id, title: id === 'note-1' ? title : id, folderId: null, tagIds: [], internalLinks: [], rawMarkdown: '',
-  contentLoaded: false, favorite: false, deleted: false, status: 'draft', updatedAt: new Date(Date.now() - 1_000).toISOString(), ...overrides
+  contentLoaded: false, favorite: false, deleted: false, status: 'draft', updatedAt: new Date(fixtureNow - 1_000).toISOString(), ...overrides
 });
 
 async function setup(options: { notes?: Note[]; readOnly?: boolean } = {}) {
@@ -45,6 +46,12 @@ async function chooseGroup(user: ReturnType<typeof userEvent.setup>, label: stri
 }
 
 describe('笔记索引新版真实交互', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(fixtureNow);
+  });
+  afterEach(() => vi.useRealTimers());
+
   it('三种视图读取同一数据并保留笔记打开行为', async () => {
     const { user, onOpenNote } = await setup();
     expect(screen.getByRole('button', { name: '列表视图' })).toHaveAttribute('aria-pressed', 'true');
@@ -79,7 +86,7 @@ describe('笔记索引新版真实交互', () => {
   it('状态与时间只筛选已加载项目，空结果仍可用原始游标加载后续命中项', async () => {
     const notes = Array.from({ length: 35 }, (_, index) => createNote(`paged-${index}`, {
       status: index === 34 ? 'draft' : 'active', title: index === 34 ? '后续批次草稿' : `进行中 ${index}`,
-      updatedAt: new Date(Date.now() - (index + 1) * 1_000).toISOString()
+      updatedAt: new Date(fixtureNow - (index + 1) * 1_000).toISOString()
     }));
     const { user, api } = await setup({ notes });
     await user.click(screen.getByRole('button', { name: '筛选' }));
@@ -187,7 +194,10 @@ describe('笔记索引新版真实交互', () => {
   });
 
   it('末页折叠到单页后重新展开仍停留第1页，不恢复过期页码', async () => {
-    const notes = Array.from({ length: 40 }, (_, index) => createNote(`collapse-${index}`));
+    // 默认按更新时间降序，让 collapse-0 明确位于首页，不依赖生成夹具时的毫秒差。
+    const notes = Array.from({ length: 40 }, (_, index) => createNote(`collapse-${index}`, {
+      updatedAt: new Date(fixtureNow - (index + 1) * 1_000).toISOString()
+    }));
     const { user } = await setup({ notes, readOnly: true });
     await user.click(screen.getByRole('button', { name: '笔记' }));
     await chooseGroup(user, '状态');
@@ -205,8 +215,8 @@ describe('笔记索引新版真实交互', () => {
 
   it.each(['search', 'folder'] as const)('丢弃加载更多期间发生%s切换后的旧分页响应', async change => {
     const notes = [
-      ...Array.from({ length: 35 }, (_, index) => createNote(`old-${index}`, { updatedAt: new Date(Date.now() - (index + 1) * 1_000).toISOString() })),
-      createNote('current', { title: '当前结果', folderId: 'folder-1', updatedAt: new Date(Date.now() - 60_000).toISOString() })
+      ...Array.from({ length: 35 }, (_, index) => createNote(`old-${index}`, { updatedAt: new Date(fixtureNow - (index + 1) * 1_000).toISOString() })),
+      createNote('current', { title: '当前结果', folderId: 'folder-1', updatedAt: new Date(fixtureNow - 60_000).toISOString() })
     ];
     const { user, api, store } = await setup({ notes });
     let finish!: (page: NoteQueryPage) => void;
