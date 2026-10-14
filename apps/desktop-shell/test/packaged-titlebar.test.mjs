@@ -103,7 +103,7 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   const allTabs = tabs.getByRole('button', { name: '查看全部标签页', exact: true });
   await expect(allTabs).toBeVisible();
   await allTabs.click();
-  const allTabsMenu = page.getByRole('menu', { name: '全部标签页', exact: true });
+  const allTabsMenu = page.getByRole('menu', { name: '查看全部标签页', exact: true });
   await expect(allTabsMenu).toBeVisible();
   const orderedTitles = await tabs.getByRole('tab').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
   await expect(allTabsMenu.getByRole('menuitem')).toHaveText(orderedTitles.map((title, index) => `${String(index + 1).padStart(2, '0')} · ${title}`));
