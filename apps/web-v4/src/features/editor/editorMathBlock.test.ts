@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { TextSelection } from '@milkdown/kit/prose/state';
-import { getMarkdown } from '@milkdown/kit/utils';
+import { history, undo, redo, undoDepth, closeHistory } from '@milkdown/kit/prose/history';
+import { $prose, getMarkdown, replaceAll } from '@milkdown/kit/utils';
 import {
+  configureMathBlockDocument,
+  mathBlockSerializerGuard,
   createMathFromFence,
   insertMathBlock,
   mathBlockBehavior,
@@ -14,13 +17,17 @@ import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import { renderMath, stripTexDelimiters } from './editorMathRender';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
 
+const editors: Editor[] = [];
+afterEach(async () => { await Promise.all(editors.splice(0).map(editor => editor.destroy())); document.body.replaceChildren(); });
+
 async function create(markdown: string) {
   const root = document.createElement('div');
   document.body.append(root);
   const editor = await Editor.make()
-    .config((ctx) => { ctx.set(rootCtx, root); ctx.set(defaultValueCtx, markdown); })
-    .use(commonmark).use(gfm).use(mathRemark).use(mathInlineGuardRemark).use(mathBlockSchema).use(mathBlockBehavior).use(mathInlineSchema).use(mathInlineBehavior).use(mathInlineInputRule)
+    .config((ctx) => { configureMathBlockDocument(ctx); ctx.set(rootCtx, root); ctx.set(defaultValueCtx, markdown); })
+    .use($prose(() => history())).use(commonmark).use(gfm).use(mathRemark).use(mathInlineGuardRemark).use(mathBlockSchema).use(mathBlockBehavior).use(mathBlockSerializerGuard).use(mathInlineSchema).use(mathInlineBehavior).use(mathInlineInputRule)
     .create();
+  editors.push(editor);
   return { editor, root };
 }
 
@@ -41,9 +48,105 @@ describe('math block', () => {
     view.dispatch(view.state.tr.insertText('$$', 1, 2));
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)));
     expect(createMathFromFence(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.childCount).toBe(2);
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
     expect(view.state.doc.child(0).type.name).toBe('math_block');
     expect(insertMathBlock(view.state, view.dispatch)).toBe(true);
     expect(view.state.doc.child(0).type.name).toBe('paragraph');
+  });
+
+  it('normalizes loaded and replaced trailing formulas without history or changing Markdown', async () => {
+    const md = '$$\nx^2\n$$\n';
+    const { editor } = await create(md);
+    const view = editor.ctx.get(editorViewCtx);
+    expect(view.state.doc.childCount).toBe(2);
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+    expect(editor.action(getMarkdown())).toBe(md);
+    expect(undoDepth(view.state)).toBe(0);
+    editor.action(replaceAll('$$\ny^2\n$$\n', true));
+    expect(view.state.doc.childCount).toBe(2);
+    expect(undoDepth(view.state)).toBe(0);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)));
+    expect(view.state.doc.childCount).toBe(2);
+  });
+
+  it.each(['', '前文\n'])('normalizes menu insertion and undoes it atomically from %j', async md => {
+    const { editor } = await create(md);
+    const view = editor.ctx.get(editorViewCtx);
+    const before = view.state.doc;
+    expect(insertMathBlock(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+    expect(view.state.doc.lastChild?.content.size).toBe(0);
+    expect(view.state.selection.$from.parent.type.name).toBe('math_block');
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.eq(before)).toBe(true);
+    expect(redo(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+  });
+
+  it('restores a deleted tail once, supports subsequent typing and preserves formula undo', async () => {
+    const { editor } = await create('$$\nx\n$$\n');
+    const view = editor.ctx.get(editorViewCtx);
+    const original = view.state.doc;
+    const tail = view.state.doc.content.size - 2;
+    view.dispatch(view.state.tr.delete(tail, tail + 2));
+    expect(view.state.doc.eq(original)).toBe(true);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.eq(original)).toBe(true);
+    expect(undoDepth(view.state)).toBe(0);
+    view.dispatch(closeHistory(view.state.tr).setSelection(TextSelection.create(view.state.doc, tail + 1)).insertText('后文'));
+    expect(view.state.doc.childCount).toBe(2);
+    expect(view.state.doc.lastChild?.textContent).toBe('后文');
+  });
+
+  it('adds only one tail after consecutive formulas and never changes inline or nested formulas', async () => {
+    const { editor } = await create('$$\nx\n$$\n\n$$\ny\n$$\n');
+    const view = editor.ctx.get(editorViewCtx);
+    expect(view.state.doc.childCount).toBe(3);
+    expect(view.state.doc.lastChild?.type.name).toBe('paragraph');
+    for (const md of ['$$\nx\n$$\n\n后文\n', '正文 $x$\n', '> $$\n> x\n> $$\n']) {
+      editor.action(replaceAll(md, true));
+      expect(editor.action(getMarkdown())).toBe(md);
+      expect(view.state.doc.lastChild?.type.name).toBe(md.startsWith('>') ? 'blockquote' : 'paragraph');
+    }
+  });
+
+  it('preserves multiple and middle empty paragraphs and stabilizes parse/serialize cycles', async () => {
+    const { editor } = await create('$$\nx\n$$\n');
+    const view = editor.ctx.get(editorViewCtx);
+    for (let i = 0; i < 3; i++) {
+      const serialized = editor.action(getMarkdown());
+      expect(serialized).toBe('$$\nx\n$$\n');
+      editor.action(replaceAll(serialized, true));
+      expect(view.state.doc.childCount).toBe(2);
+    }
+    const paragraph = view.state.schema.nodes.paragraph;
+    view.dispatch(view.state.tr.insert(view.state.doc.content.size, paragraph.create()));
+    expect(view.state.doc.childCount).toBe(3);
+    const multiple = editor.action(getMarkdown());
+    expect(multiple).toContain('<br />');
+    expect(multiple).not.toBe('$$\nx\n$$\n');
+    view.dispatch(view.state.tr.insert(view.state.doc.content.size, paragraph.create(null, view.state.schema.text('后文'))));
+    expect(view.state.doc.childCount).toBe(4);
+    const middle = editor.action(getMarkdown());
+    expect(middle.match(/<br \/>/g)).toHaveLength(2);
+    expect(middle).toContain('后文');
+  });
+
+  it('keeps fence conversion and its automatic tail in one undo event', async () => {
+    const { editor } = await create('\\$\\$\n');
+    const view = editor.ctx.get(editorViewCtx);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 3)));
+    const before = view.state.doc;
+    expect(createMathFromFence(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.childCount).toBe(2);
+    expect(undoDepth(view.state)).toBe(1);
+    expect(undo(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.eq(before)).toBe(true);
+    expect(redo(view.state, view.dispatch)).toBe(true);
+    expect(view.state.doc.childCount).toBe(2);
   });
 
   it('shows a readable error for invalid LaTeX', () => {

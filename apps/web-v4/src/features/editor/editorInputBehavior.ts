@@ -1,4 +1,4 @@
-import { liftEmptyBlock } from '@milkdown/kit/prose/commands';
+import { liftEmptyBlock, setBlockType } from '@milkdown/kit/prose/commands';
 import type { ResolvedPos } from '@milkdown/kit/prose/model';
 import { Plugin, PluginKey, TextSelection, type Command } from '@milkdown/kit/prose/state';
 import { $prose } from '@milkdown/kit/utils';
@@ -20,7 +20,7 @@ export interface EditorBoundaryInput {
   viewComposing?: boolean;
 }
 
-export type EditorBoundaryAction = 'lift-empty-structured-block' | null;
+export type EditorBoundaryAction = 'reset-empty-heading' | 'lift-empty-structured-block' | null;
 
 export interface TrailingCodeBlockClickInput {
   button: number;
@@ -48,6 +48,7 @@ export function resolveEditorBoundaryAction(input: EditorBoundaryInput): EditorB
   }
   if (input.key !== 'Enter' && input.key !== 'Backspace') return null;
   if (!input.selectionEmpty || !input.parentEmpty || input.parentOffset !== 0) return null;
+  if (input.key === 'Backspace' && input.ancestors[0] === 'heading') return 'reset-empty-heading';
   return input.ancestors.some((name) => STRUCTURED_BLOCKS.has(name))
     ? 'lift-empty-structured-block'
     : null;
@@ -137,6 +138,10 @@ export const editorInputBehavior = $prose(() => new Plugin({
         keyCode: event.keyCode,
         viewComposing: view.composing
       });
+      if (action === 'reset-empty-heading') {
+        const paragraph = view.state.schema.nodes.paragraph;
+        return Boolean(paragraph && setBlockType(paragraph)(view.state, view.dispatch));
+      }
       if (action !== 'lift-empty-structured-block') return false;
       return liftEmptyBlock(view.state, view.dispatch);
     }

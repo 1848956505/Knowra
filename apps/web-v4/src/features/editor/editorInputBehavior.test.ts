@@ -84,3 +84,21 @@ describe('editorInputBehavior', () => {
     expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, metaKey: true })).toBe(false);
   });
 });
+
+describe('empty heading Backspace', () => {
+  it('resets headings before lifting their structured container', () => {
+    for (const ancestors of [['heading'], ['heading', 'blockquote'], ['heading', 'list_item', 'bullet_list']]) {
+      expect(resolveEditorBoundaryAction({ ...baseInput, key: 'Backspace', ancestors })).toBe('reset-empty-heading');
+    }
+    expect(resolveEditorBoundaryAction({ ...baseInput, key: 'Enter', ancestors: ['heading'] })).toBeNull();
+  });
+
+  it('preserves nonempty headings, selections, modified shortcuts and IME', () => {
+    const input: EditorBoundaryInput = { ...baseInput, key: 'Backspace', ancestors: ['heading'] };
+    for (const overrides of [{ parentEmpty: false }, { selectionEmpty: false }, { parentOffset: 1 },
+      { ctrlKey: true }, { altKey: true }, { metaKey: true }, { shiftKey: true },
+      { isComposing: true }, { viewComposing: true }, { keyCode: 229 }]) {
+      expect(resolveEditorBoundaryAction({ ...input, ...overrides })).toBeNull();
+    }
+  });
+});
