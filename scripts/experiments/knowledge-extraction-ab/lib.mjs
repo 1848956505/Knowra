@@ -10,40 +10,93 @@ export function buildUserPayload({ variant, requestId, sources, existingTitles =
 }
 
 /**
- * 按线上 validateKnowledgeExtractionResult 的同等规则逐个检查候选。
- * 线上任一候选不合格会整批拒绝；这里逐个记录，便于看出具体失败在哪里。
+ * A/B 独立评估工具。与线上 knowledge-extraction-contract.js 的 anchorQuote
+ * 保持相同的“精确匹配优先、否则唯一 quote 重定位”规则；不调用实际存储。
+ * 只有能在所选片段中找到唯一来源时才算定位有效；引文有效≠语义正确。
+ */
+const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const onlyKeys = (value, expected) => isRecord(value)
+  && Object.keys(value).length === expected.length && expected.every(key => Object.hasOwn(value, key));
+const splitsSurrogate = (value, index) => {
+  const left = value.charCodeAt(index - 1);
+  const right = value.charCodeAt(index);
+  return left >= 0xd800 && left <= 0xdbff && right >= 0xdc00 && right <= 0xdfff;
+};
+const validRange = (start, end, value) => Number.isSafeInteger(start) && Number.isSafeInteger(end)
+  && start >= 0 && start < end && end <= value.length
+  && !splitsSurrogate(value, start) && !splitsSurrogate(value, end);
+
+export function locateQuote(markdown, citation) {
+  if (typeof markdown !== 'string' || !onlyKeys(citation, ['sourceId', 'start', 'end', 'quote'])
+      || !Number.isSafeInteger(citation.start) || !Number.isSafeInteger(citation.end)
+      || typeof citation.quote !== 'string' || !citation.quote.trim()
+      || citation.quote.length > 8000) return { status: 'invalid', reason: '引文结构无效' };
+  const { start, end, quote } = citation;
+  if (validRange(start, end, markdown) && markdown.slice(start, end) === quote) {
+    return { status: 'exact', start, end };
+  }
+  const first = markdown.indexOf(quote);
+  if (first < 0) return { status: 'invalid', reason: '原文中找不到引文' };
+  if (markdown.indexOf(quote, first + 1) >= 0) {
+    return { status: 'invalid', reason: '引文多处出现，原偏移又不正确，无法唯一定位' };
+  }
+  if (!validRange(first, first + quote.length, markdown)) {
+    return { status: 'invalid', reason: '引文跨越非法 UTF-16 边界' };
+  }
+  return { status: 'relocated', start: first, end: first + quote.length };
+}
+
+/**
+ * 按“线上 quote 唯一重定位”验证引用；标题质量另外统计，不受偏移错位干扰。
+ * 模型陈述是否真正由 quote 支持仍需人工判断，不能用定位成功代替语义审核。
  */
 export function checkResult({ content, requestId, sources }) {
   let parsed;
   try { parsed = JSON.parse(content); }
   catch { return { ok: false, batchError: 'JSON 解析失败', candidates: [] }; }
-  if (!parsed || parsed.contractVersion !== 1 || parsed.requestId !== requestId || !Array.isArray(parsed.candidates)) {
-    return { ok: false, batchError: 'contractVersion / requestId / candidates 不符合契约', candidates: [] };
+  if (!onlyKeys(parsed, ['contractVersion', 'requestId', 'candidates'])
+      || parsed.contractVersion !== 1 || parsed.requestId !== requestId
+      || !Array.isArray(parsed.candidates) || parsed.candidates.length > 40) {
+    return { ok: false, batchError: '输出契约/请求 ID/候选数不符合线上要求', candidates: [] };
   }
   const byId = new Map(sources.map(source => [source.sourceId, source]));
   const candidates = parsed.candidates.map(candidate => {
     const problems = [];
-    const extraKeys = Object.keys(candidate ?? {}).filter(key => !['title', 'canonicalStatement', 'knowledgeType', 'citations'].includes(key));
-    if (extraKeys.length) problems.push(`多余字段 ${extraKeys.join(',')}`);
-    if (typeof candidate?.title !== 'string' || !candidate.title.trim()) problems.push('title 为空');
-    if (typeof candidate?.canonicalStatement !== 'string' || !candidate.canonicalStatement.trim()) problems.push('陈述为空');
-    if (!TYPES.has(candidate?.knowledgeType)) problems.push(`类型无效 ${candidate?.knowledgeType}`);
-    const citations = Array.isArray(candidate?.citations) ? candidate.citations : [];
-    if (citations.length === 0) problems.push('缺少引文');
-    let badCitations = 0;
-    for (const citation of citations) {
-      const source = byId.get(citation?.sourceId);
-      const exact = source && Number.isInteger(citation.start) && Number.isInteger(citation.end)
-        && citation.start >= 0 && citation.end > citation.start && citation.end <= source.markdown.length
-        && source.markdown.slice(citation.start, citation.end) === citation.quote;
-      if (!exact) badCitations += 1;
+    if (!onlyKeys(candidate, ['title', 'canonicalStatement', 'knowledgeType', 'citations'])) {
+      problems.push('候选字段不符合契约');
     }
-    if (badCitations) problems.push(`引文偏移不匹配 ${badCitations}/${citations.length}`);
-    const quoteFound = citations.some(citation => byId.get(citation?.sourceId)?.markdown.includes(citation?.quote ?? '\u0000'));
+    if (typeof candidate?.title !== 'string' || !candidate.title.trim() || candidate.title.length > 200) problems.push('title 无效');
+    if (typeof candidate?.canonicalStatement !== 'string' || !candidate.canonicalStatement.trim()
+        || candidate.canonicalStatement.length > 8000) problems.push('陈述无效');
+    if (!TYPES.has(candidate?.knowledgeType)) problems.push('knowledgeType 无效');
+    const citations = Array.isArray(candidate?.citations) ? candidate.citations : [];
+    if (citations.length === 0 || citations.length > 8) problems.push('引文数量不合规');
+    const seen = new Set();
+    const resolutions = citations.map(citation => {
+      const source = byId.get(citation?.sourceId);
+      const located = locateQuote(source?.markdown, citation);
+      if (located.status === 'invalid') {
+        problems.push(located.reason);
+        return located;
+      }
+      const identity = `${citation.sourceId}:${located.start}:${located.end}`;
+      if (seen.has(identity)) {
+        problems.push('同一候选重复引用相同片段');
+        return { status: 'invalid', reason: '重复引文' };
+      }
+      seen.add(identity);
+      return located;
+    });
+    const citationsExact = resolutions.length > 0 && resolutions.every(item => item.status === 'exact');
+    const citationsLocated = resolutions.length > 0 && resolutions.every(item => item.status !== 'invalid');
+    const citationsRelocated = citationsLocated && resolutions.some(item => item.status === 'relocated');
+    const quoteFoundInSource = citations.some(citation => typeof citation?.quote === 'string'
+      && byId.get(citation.sourceId)?.markdown.includes(citation.quote));
     return {
       title: String(candidate?.title ?? ''), canonicalStatement: String(candidate?.canonicalStatement ?? ''),
       knowledgeType: String(candidate?.knowledgeType ?? ''), citationCount: citations.length,
-      citationsExact: citations.length > 0 && badCitations === 0, quoteFoundInSource: quoteFound, problems
+      citationsExact, citationsLocated, citationsRelocated, quoteFoundInSource,
+      problems
     };
   });
   return { ok: candidates.every(candidate => candidate.problems.length === 0), batchError: null, candidates };
@@ -112,6 +165,10 @@ export function summarize(runs) {
     batchesRejectedOnline: runs.filter(run => !run.check.ok).length,
     candidates: all.length,
     exactCitationCandidates: all.filter(candidate => candidate.citationsExact).length,
+    relocatedCitationCandidates: all.filter(candidate => candidate.citationsRelocated).length,
+    locatedCitationCandidates: all.filter(candidate => candidate.citationsLocated).length,
+    invalidCitationCandidates: all.filter(candidate => !candidate.citationsLocated).length,
+    notesWithExistingTitles: runs.filter(run => run.existingTitles.length > 0).length,
     quoteFoundCandidates: all.filter(candidate => candidate.quoteFoundInSource).length,
     questionTitles: count('问题句'),
     fillerTitles: count('空泛后缀'),
@@ -136,8 +193,12 @@ export function renderReport({ variants, summaries, runsByVariant, meta }) {
     ['笔记数', s => s.notes],
     ['候选总数', s => s.candidates],
     ['线上会被整批拒绝的笔记数', s => s.batchesRejectedOnline],
-    ['引文偏移完全正确的候选', s => `${s.exactCitationCandidates}（${pct(s.exactCitationCandidates, s.candidates)}）`],
-    ['引文原文存在但偏移不对的候选', s => s.quoteFoundCandidates - s.exactCitationCandidates],
+    ['引文偏移直接正确的候选', s => s.exactCitationCandidates],
+    ['偏移有误但可唯一重定位的候选', s => s.relocatedCitationCandidates],
+    ['引文最终定位有效的候选', s => `${s.locatedCitationCandidates}（${pct(s.locatedCitationCandidates, s.candidates)}）`],
+    ['引文无法安全定位的候选', s => s.invalidCitationCandidates],
+    ['至少有引文内容出现在来源中的候选', s => s.quoteFoundCandidates],
+    ['收到已有标题上下文的笔记数', s => s.notesWithExistingTitles],
     ['问题句标题', s => `${s.questionTitles}（${pct(s.questionTitles, s.candidates)}）`],
     ['“的概念”类空泛后缀标题', s => s.fillerTitles],
     ['照抄笔记小标题', s => s.headingCopies],
@@ -153,7 +214,8 @@ export function renderReport({ variants, summaries, runsByVariant, meta }) {
     `> 模型：${meta.model}，temperature ${meta.temperature}  `,
     `> 笔记目录：${meta.notesLabel}  `,
     `> v2 已有知识点：${meta.existingNote}`, '',
-    '标题质量指标由规则自动判断，只能发现明显问题；概念是否选对、陈述是否准确，需要人工阅读下方明细。', '',
+    '标题质量由启发式规则估计；引文有效只说明 quote 可以定位，不能证明陈述被来源支持，更不能证明真伪。',
+    'v2 的“已有标题”包括预置清单与逐篇整批校验成功后模拟采用的候选；它们不等于用户已确认的正式知识。', '',
     '## 汇总', '',
     `| 指标 | ${variants.join(' | ')} |`, `| --- | ${variants.map(() => '---').join(' | ')} |`,
     ...rows.map(([label, get]) => `| ${label} | ${variants.map(variant => cell(get(summaries[variant]))).join(' | ')} |`),
@@ -168,7 +230,7 @@ export function renderReport({ variants, summaries, runsByVariant, meta }) {
       if (!run || run.error || run.check.batchError) { lines.push(''); continue; }
       lines.push('| 标题 | 类型 | 标记 | 陈述 |', '| --- | --- | --- | --- |');
       for (const candidate of run.check.candidates) {
-        const marks = [...titleFlags(candidate.title, run), ...candidate.problems].join('；') || '—';
+        const marks = [...titleFlags(candidate.title, run), ...(candidate.citationsRelocated ? ['引文重新定位'] : []), ...candidate.problems].join('；') || '—';
         lines.push(`| ${cell(candidate.title)} | ${candidate.knowledgeType} | ${cell(marks)} | ${cell(candidate.canonicalStatement)} |`);
       }
       lines.push('');
