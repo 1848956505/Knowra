@@ -237,8 +237,17 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
     await expect(clientChoice).toBeVisible();
     await clientChoice.getByRole('button', { name: '使用 Claude Code', exact: true }).click();
     await expect(clientChoice).toBeHidden();
-    const creation = page.getByRole('dialog', { name: '允许外部 AI 客户端读取笔记？', exact: true });
+    const creation = page.getByRole('dialog', { name: '选择外部 AI 客户端权限', exact: true });
     await creation.getByRole('textbox', { name: '客户端名称', exact: true }).fill(syntheticClientName);
+    const scope = creation.getByRole('button', { name: /授权范围/ });
+    await expect(scope).toContainText('不授权普通笔记（仅任务工作区）');
+    await expect(creation.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
+    await scope.click();
+    await page.getByRole('option', { name: '当前知识空间', exact: true }).click();
+    await expect(scope).toContainText('当前知识空间');
+    await expect(creation.getByRole('checkbox', { name: '我了解所选范围内的笔记片段会发给该客户端所属的厂商', exact: true })).not.toBeChecked();
+    await expect(creation.getByRole('checkbox', { name: '允许读取知识点（全部开放，默认关闭）', exact: true })).not.toBeChecked();
+    await expect(creation.getByRole('checkbox', { name: '同时允许该客户端提交待审核的知识候选（默认不允许）', exact: true })).not.toBeChecked();
     await expect(creation.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
     await capture('14-external-client-unapproved-draft', creation);
     await creation.getByRole('button', { name: '取消', exact: true }).click();

@@ -31,12 +31,22 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   const screenshots = fileURLToPath(new URL('../../../../test-results/task-workspace-journey/', import.meta.url));
   fs.mkdirSync(screenshots, { recursive: true });
   // 仅在合成工作区页面调用，绝不捕获配对配置、令牌或设置页。
-  const captureWorkspace = async name => {
+  const captureWorkspace = async (name, target) => {
     assert(new URL(page.url()).hash.startsWith('#/task-workspaces'));
+    await target.scrollIntoViewIfNeeded();
+    await expect(target).toBeInViewport({ ratio: 1 });
     await page.screenshot({ path: path.join(screenshots, `${name}-desktop.png`), fullPage: true, animations: 'disabled' });
     const desktop = page.viewportSize();
     try {
       await page.setViewportSize({ width: 390, height: 844 });
+      // 工作区使用内部滚动容器；必须看到实际图片/进度卡/验收结果，而非只截入口。
+      await target.scrollIntoViewIfNeeded();
+      await expect(target).toBeInViewport({ ratio: 1 });
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect.poll(() => target.evaluate(node => {
+        const bounds = node.getBoundingClientRect();
+        return bounds.left >= 0 && bounds.right <= innerWidth;
+      })).toBe(true);
       await page.screenshot({ path: path.join(screenshots, `${name}-narrow.png`), fullPage: true, animations: 'disabled' });
     } finally { await page.setViewportSize(desktop); }
   };
@@ -86,7 +96,7 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await page.reload(); await expect(image).toHaveAttribute('src', `${imageUri}?versionId=${requirementVersion}`);
   await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth)).toBe(19);
 
-  await captureWorkspace('document-image');
+  await captureWorkspace('document-image', image);
 
   // 恢复不可信的未保存草稿，验证真实 Milkdown DOM 在任何请求发出前屏蔽资源。
   // route 只记录并阻止意外外发；出现一次请求就失败，绝不以 route.fulfill 伪装通过。
@@ -109,9 +119,10 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   const publish = page.getByRole('dialog', { name: '发布需求', exact: true });
   await publish.getByRole('button', { name: /需求说明文档/ }).click();
   await page.getByRole('option', { name: '合成图文说明', exact: true }).click();
-  await publish.getByLabel('验收标准（每行一条）', { exact: true }).fill('图片字节与上传一致\n成果正文包含核对结论');
-  await publish.getByLabel('包含范围', { exact: true }).fill('当前工作区');
-  await publish.getByLabel('不包含范围', { exact: true }).fill('私人笔记');
+  // 必填星号在 label.textContent 中，但 aria-hidden 不属于用户可访问名称。
+  await publish.getByRole('textbox', { name: '验收标准（每行一条）', exact: true }).fill('图片字节与上传一致\n成果正文包含核对结论');
+  await publish.getByRole('textbox', { name: '包含范围', exact: true }).fill('当前工作区');
+  await publish.getByRole('textbox', { name: '不包含范围', exact: true }).fill('私人笔记');
   await publish.getByRole('button', { name: '确认发布冻结版本' }).click();
   await expect(publish).toHaveCount(0); await expect(taskRegion.getByText('待领取', { exact: true })).toBeVisible();
   const taskPath = `/api/task-workspaces/${workspaceId}/tasks/${taskId}`;
@@ -126,7 +137,7 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await page.getByRole('button', { name: '添加外部客户端', exact: true }).click();
   await page.getByRole('dialog', { name: '选择客户端', exact: true }).getByRole('button', { name: '使用 Codex', exact: true }).click();
   const permissions = page.getByRole('dialog', { name: '选择外部 AI 客户端权限', exact: true });
-  await permissions.getByLabel('客户端名称', { exact: true }).fill('合成任务验收 Agent');
+  await permissions.getByRole('textbox', { name: '客户端名称', exact: true }).fill('合成任务验收 Agent');
   await expect(permissions.getByRole('button', { name: /授权范围/ })).toContainText('不授权普通笔记（仅任务工作区）');
   const checkPermission = async name => {
     const checkbox = permissions.getByRole('checkbox', { name, exact: true });
@@ -190,7 +201,7 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await expect(taskCard).toContainText('最新进度：正在核对合成图片字节');
   await expect(taskCard).toContainText('执行客户端：');
   await expect(taskCard.locator('time[datetime]')).toHaveCount(1);
-  await captureWorkspace('board-progress');
+  await captureWorkspace('board-progress', taskCard);
   await taskCard.getByRole('button', { name: '核对图文并协写', exact: true }).click();
   const readImage = async versionId => {
     const result = await call('task_images_read', { workspaceId, documentId, versionId, attachmentId: attachment.id });
@@ -212,7 +223,7 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await page.reload(); await expect(taskRegion.getByText('待验收', { exact: true })).toBeVisible();
   await taskRegion.getByRole('button', { name: '退回重做', exact: true }).click();
   const returned = page.getByRole('dialog', { name: '退回重做', exact: true });
-  await returned.getByLabel('验收意见', { exact: true }).fill('请再次确认冻结图片版本。');
+  await returned.getByRole('textbox', { name: '验收意见', exact: true }).fill('请再次确认冻结图片版本。');
   await returned.getByRole('button', { name: '确认退回当前成果' }).click();
   await expect(returned).toHaveCount(0); await expect(taskRegion.getByText('待领取', { exact: true })).toBeVisible();
   task = await request(taskPath);
@@ -227,10 +238,10 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await page.getByRole('button', { name: '核对图文并协写', exact: true }).click();
   await taskRegion.getByRole('button', { name: '接受成果', exact: true }).click();
   const accept = page.getByRole('dialog', { name: '确认接受成果', exact: true });
-  await accept.getByLabel('验收意见', { exact: true }).fill('已查看冻结成果，接受。');
+  await accept.getByRole('textbox', { name: '验收意见', exact: true }).fill('已查看冻结成果，接受。');
   await accept.getByRole('button', { name: '确认接受当前成果' }).click();
   await expect(accept).toHaveCount(0); await expect(taskRegion.getByText('已接受', { exact: true })).toBeVisible();
-  await captureWorkspace('review-accepted');
+  await captureWorkspace('review-accepted', taskRegion.getByText('已接受成果', { exact: true }));
   task = await request(taskPath); assert.equal(task.status, 'accepted'); assert.equal(task.latestReview.actor.kind, 'user');
   assert.equal(runtime.store.state.notes.length, 1); assert.equal(runtime.store.state.attachments.length, 0);
   assert(!JSON.stringify(runtime.store.exportSnapshot()).includes('已核对蓝色合成图片'), '工作区不进入原笔记同步快照');
