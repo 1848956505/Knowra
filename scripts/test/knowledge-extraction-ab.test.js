@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { buildUserPayload, checkResult, headingsOf, locateQuote, summarize, titleFlags } from '../experiments/knowledge-extraction-ab/lib.mjs';
 import { buildPromptV2 } from '../experiments/knowledge-extraction-ab/prompt-v2.mjs';
-import { main, resolveApiKey } from '../experiments/knowledge-extraction-ab/run.mjs';
+import { main, parseArgs, resolveApiKey } from '../experiments/knowledge-extraction-ab/run.mjs';
 
 const markdown = '## 2.3 线性代数\n\n矩阵和向量如何相乘？矩阵乘向量的结果是一个向量。';
 const sources = [{ sourceId: 's1', markdown }];
@@ -91,6 +91,15 @@ test('只有 v2 请求携带已有知识点标题，v1 外发结构与线上一�
     ['contractVersion', 'requestId', 'sources']);
   assert.deepEqual(buildUserPayload({ variant: 'v2', requestId: 'r', sources, existingTitles: ['x'] }).existingKnowledgeTitles, ['x']);
   assert.match(buildPromptV2({ type: 'object' }), /不能是问题句/);
+});
+
+test('--max-tokens 限定真实实验的最大模型输出，不接受非法预算', () => {
+  const args = parseArgs(['--notes', 'synthetic', '--max-tokens', '2048']);
+  assert.equal(args.maxTokens, 2048);
+  assert.equal(parseArgs(['--notes', 'synthetic']).maxTokens, 8192);
+  for (const value of ['0', '-1', 'abc', '2048.5', '99999']) {
+    assert.throws(() => parseArgs(['--notes', 'synthetic', '--max-tokens', value]), /--max-tokens/);
+  }
 });
 
 test('API key 只从环境变量解析，多个候选变量时要求显式指定', () => {
