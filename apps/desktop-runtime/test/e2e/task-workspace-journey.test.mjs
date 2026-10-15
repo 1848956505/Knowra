@@ -38,16 +38,27 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
     await page.screenshot({ path: path.join(screenshots, `${name}-desktop.png`), fullPage: true, animations: 'disabled' });
     const desktop = page.viewportSize();
     try {
-      await page.setViewportSize({ width: 390, height: 844 });
+      for (const [size, width, height] of [['narrow', 390, 844], ['tablet', 820, 1180], ['tablet-landscape', 1024, 768]]) {
+      await page.setViewportSize({ width, height });
       // 工作区使用内部滚动容器；必须看到实际图片/进度卡/验收结果，而非只截入口。
       await target.scrollIntoViewIfNeeded();
+      if (name === 'board-progress') {
+        const board = page.getByLabel('任务看板', { exact: true });
+        await expect.poll(() => board.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+        await expect.poll(() => board.evaluate(node => {
+          const main = node.closest('main');
+          return main.scrollWidth <= main.clientWidth;
+        })).toBe(true);
+        await expect.poll(() => board.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(1);
+      }
       await expect(target).toBeInViewport({ ratio: 1 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect.poll(() => target.evaluate(node => {
         const bounds = node.getBoundingClientRect();
         return bounds.left >= 0 && bounds.right <= innerWidth;
       })).toBe(true);
-      await page.screenshot({ path: path.join(screenshots, `${name}-narrow.png`), fullPage: true, animations: 'disabled' });
+      await page.screenshot({ path: path.join(screenshots, `${name}-${size}.png`), fullPage: true, animations: 'disabled' });
+      }
     } finally { await page.setViewportSize(desktop); }
   };
   await page.goto(runtime.launchUrl);
@@ -201,6 +212,47 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
   await expect(taskCard).toContainText('最新进度：正在核对合成图片字节');
   await expect(taskCard).toContainText('执行客户端：');
   await expect(taskCard.locator('time[datetime]')).toHaveCount(1);
+  // 真浏览器验证卡片不继承 pill；手机首屏直接看到执行卡，收纳入口仍可键盘访问。
+  await expect.poll(() => page.getByLabel('任务看板', { exact: true }).evaluate(node =>
+    getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(3);
+  await expect.poll(() => taskCard.getByRole('button').evaluate(node =>
+    parseFloat(getComputedStyle(node).borderRadius) < 24)).toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => taskCard.evaluate(node => node.getBoundingClientRect().top < 500)).toBe(true);
+  await expect(taskCard).toBeInViewport({ ratio: 1 });
+  const contexts = [
+    page.getByRole('button', { name: /^协作工作区 ·/ }),
+    page.getByRole('button', { name: /^协作文档 ·/ })
+  ];
+  for (const trigger of contexts) {
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    assert((await trigger.boundingBox()).height >= 44);
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await trigger.click();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      await page.keyboard.press('Escape');
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(trigger).toBeFocused();
+    }
+  }
+  for (let repeat = 0; repeat < 2; repeat++) {
+    await contexts[1].click();
+    await page.getByRole('button', { name: '合成图文说明', exact: true }).click();
+    await expect(contexts[1]).toHaveAttribute('aria-expanded', 'false');
+    // 打开文档发生路由切换：沿用 App 的 feature-stage 焦点语义，
+    // 不与新内容导航争抢焦点；Escape/取消的触发器恢复在上面单独强断言。
+    await expect.poll(() => routeIds().get('document')).toBe(documentId);
+    await expect(page.locator('#feature-stage')).toBeFocused();
+    await expect(editor).toBeVisible();
+    await expect(editorRegion.getByRole('textbox', { name: '文档标题', exact: true })).toHaveValue('合成图文说明');
+    await page.getByRole('button', { name: '任务看板', exact: true }).click();
+    await expect(taskCard).toBeVisible();
+  }
+  await contexts[0].click();
+  await page.getByRole('button', { name: '合成端到端工作区', exact: true }).click();
+  await expect(contexts[0]).toBeFocused();
+  await expect(contexts[0]).toHaveAttribute('aria-expanded', 'false');
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await captureWorkspace('board-progress', taskCard);
   await taskCard.getByRole('button', { name: '核对图文并协写', exact: true }).click();
   const readImage = async versionId => {

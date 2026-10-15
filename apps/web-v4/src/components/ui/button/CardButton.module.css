@@ -1,0 +1,11 @@
+.card {
+  display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2);
+  width: 100%; min-width: 0; min-height: 44px; padding: var(--space-4);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-panel);
+  background: var(--surface-raised); color: var(--text-primary);
+  font: inherit; line-height: 1.5; text-align: left; white-space: normal; cursor: pointer;
+}
+.card[data-hovered] { background: var(--surface-hover); border-color: var(--border-strong); }
+.card[data-pressed] { background: var(--surface-pressed); }
+.card[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.card[data-disabled] { opacity: .65; cursor: not-allowed; }
