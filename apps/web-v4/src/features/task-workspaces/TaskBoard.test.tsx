@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { TaskBoard } from './TaskBoard';
 import { syntheticTask } from './testFixtures';
 afterEach(cleanup);
@@ -31,4 +32,17 @@ it('uses an identifiable short client ID when no trusted label is supplied', () 
   render(<TaskBoard tasks={[syntheticTask({ status: 'running', currentExecutor: { kind: 'mcp', id: '12345678-private-remainder', label: '' } })]} onOpen={vi.fn()} />);
   expect(screen.getByText('执行客户端：客户端 12345678')).toBeInTheDocument();
   expect(screen.queryByText(/private-remainder/)).toBeNull();
+});
+
+it('has one whole-card keyboard action with no nested controls', async () => {
+  const onOpen = vi.fn();
+  const user = userEvent.setup();
+  render(<TaskBoard tasks={[syntheticTask()]} onOpen={onOpen} />);
+  const card = screen.getByRole('article');
+  expect(card.querySelectorAll('button')).toHaveLength(1);
+  await user.tab();
+  expect(screen.getByRole('button', { name: '合成任务' })).toHaveFocus();
+  await user.keyboard('{Enter}');
+  await user.keyboard(' ');
+  expect(onOpen).toHaveBeenCalledTimes(2);
 });

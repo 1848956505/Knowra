@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button/Button';
 import { useLocation, useNavigate } from '../../app/router';
 import { taskWorkspaceApi, createEpochTaskWorkspaceApi } from './taskWorkspaceClient';
 import { CreateEntityDialog } from './CreateEntityDialog';
+import { WorkspaceContextPanel } from './WorkspaceContextPanel';
 import { WorkspaceContents } from './WorkspaceContents';
 import { taskError } from './taskPresentation';
 import styles from './TaskWorkspaces.module.css';
@@ -44,19 +45,19 @@ export function TaskWorkspacesView({ api = taskWorkspaceApi }: { api?: TaskWorks
   const available = capabilities?.available && capabilities.datasetId && capabilities.datasetEpoch;
   return <section className={styles.root} aria-label="任务工作区">
     <header className={styles.header}><div><h1>任务工作区</h1><p>共同写文档，冻结需求，按版本验收成果。</p></div>
-      <span className={styles.spacer} /><Button variant="ghost" onPress={() => void refresh()}>刷新工作区</Button>
+      <span className={styles.spacer} /><WorkspaceContextPanel label="工作区操作" toolbar>{() => <><Button variant="ghost" onPress={() => void refresh()}>刷新工作区</Button>
       <Button isDisabled={!available} onPress={() => setCreating(true)}>创建工作区</Button>
-      <Button variant="ghost" onPress={() => navigate('/settings')}>外部 Agent 授权</Button>
+      <Button variant="ghost" onPress={() => navigate('/settings')}>外部 Agent 授权</Button></>}</WorkspaceContextPanel>
     </header>
     {error && <p className={`${styles.notice} ${styles.error}`} role="alert">{error}</p>}
     {!capabilities && !error && <p className={styles.notice} role="status">正在检查任务工作区能力…</p>}
     {capabilities && !available && <p className={styles.notice} role="status">当前宿主尚未提供任务工作区能力。私人笔记仍可正常使用。</p>}
     {available && <div className={styles.layout}>
-      <aside className={styles.sidebar} aria-label="工作区列表"><h2>协作工作区</h2>
+      <aside className={styles.sidebar} aria-label="工作区列表"><WorkspaceContextPanel label="协作工作区" current={active?.name ?? "选择工作区"}>{close => <><h2>协作工作区</h2>
         {workspaces.map(workspace => <Button key={workspace.id} variant="ghost" aria-current={workspace.id === workspaceId ? 'true' : undefined}
-          onPress={() => navigate(`/task-workspaces?workspace=${encodeURIComponent(workspace.id)}`)}>{workspace.name}{workspace.archivedAt ? '（已归档）' : ''}</Button>)}
+          onPress={() => { close(); navigate(`/task-workspaces?workspace=${encodeURIComponent(workspace.id)}`); }}>{workspace.name}{workspace.archivedAt ? '（已归档）' : ''}</Button>)}
         {!workspaces.length && <p className={styles.meta}>创建一个工作区开始。不会自动导入私人笔记。</p>}
-      </aside>
+      </>}</WorkspaceContextPanel></aside>
       {active ? <WorkspaceContents key={`${capabilities.datasetId}:${capabilities.datasetEpoch}:${active.id}`} api={boundApi} workspace={active}
         datasetId={capabilities.datasetId!} datasetEpoch={capabilities.datasetEpoch!} query={query} />
         : <main className={styles.main}><p>选择工作区，或创建一个新的协作空间。</p></main>}

@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button/Button';
 import { useNavigate } from '../../app/router';
 import { CreateEntityDialog } from './CreateEntityDialog';
 import { useWorkspaceContents } from './useWorkspaceContents';
+import { WorkspaceContextPanel } from './WorkspaceContextPanel';
 import { TaskBoard } from './TaskBoard';
 import { WorkspaceDocumentPane } from './WorkspaceDocumentPane';
 import { WorkspaceTaskPane } from './WorkspaceTaskPane';
@@ -21,16 +22,16 @@ export function WorkspaceContents({ api, workspace, datasetId, datasetEpoch, que
   const base = `/task-workspaces?workspace=${encodeURIComponent(workspace.id)}`;
   const openDocument = (id: string, version?: string) => navigate(`${base}&document=${encodeURIComponent(id)}${version ? `&version=${encodeURIComponent(version)}` : ''}`);
   return <div className={styles.root}>
-    <header className={styles.header}><h2>{workspace.name}</h2><span className={styles.spacer} />
+    <header className={`${styles.header} ${styles.workspaceHeader}`}><h2>{workspace.name}</h2><span className={styles.spacer} />
       <Button variant="default" onPress={() => navigate(base)}>任务看板</Button>
-      <Button variant="ghost" onPress={() => void refresh()}>刷新看板</Button>
+      <WorkspaceContextPanel label="看板操作" toolbar>{() => <><Button variant="ghost" onPress={() => void refresh()}>刷新看板</Button>
       <Button variant="default" isDisabled={archived} onPress={() => setCreating('document')}>新建文档</Button>
-      <Button isDisabled={archived} onPress={() => setCreating('task')}>新建任务</Button>
+      <Button isDisabled={archived} onPress={() => setCreating('task')}>新建任务</Button></>}</WorkspaceContextPanel>
     </header>
     {archived && <p className={styles.notice}>工作区已归档，不能继续编辑或执行任务。</p>}
     {error && <p role="alert" className={styles.notice}>{error}</p>}
     <div className={styles.layout}>
-      <aside className={styles.sidebar} aria-label="协作文档列表"><h2>协作文档</h2>{documents.map(document => <Button key={document.id} variant="ghost" aria-current={documentId === document.id ? 'true' : undefined} onPress={() => openDocument(document.id)}>{document.title}</Button>)}</aside>
+      <aside className={styles.sidebar} aria-label="协作文档列表"><WorkspaceContextPanel label="协作文档" current={documents.find(document => document.id === documentId)?.title ?? `${documents.length} 篇文档`}>{close => <><h2>协作文档</h2>{documents.map(document => <Button key={document.id} variant="ghost" aria-current={documentId === document.id ? 'true' : undefined} onPress={() => { close(); openDocument(document.id); }}>{document.title}</Button>)}</>}</WorkspaceContextPanel></aside>
       <main className={styles.main}>
         {documentId ? <WorkspaceDocumentPane key={`${documentId}:${versionId ?? 'current'}`} api={api} workspaceId={workspace.id} documentId={documentId} versionId={versionId}
           datasetId={datasetId} datasetEpoch={datasetEpoch} archived={archived} onChanged={() => void refresh()} />
