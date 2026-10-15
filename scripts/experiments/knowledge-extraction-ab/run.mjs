@@ -5,7 +5,7 @@
 //
 // 用法（仓库根目录，已 npm install）：
 //   node scripts/experiments/knowledge-extraction-ab/run.mjs --notes <笔记目录或单个 .md> [--out <输出目录>]
-//     [--existing <已有标题文件，每行一个>] [--variants v1,v2] [--model deepseek-chat] [--key-env 变量名] [--dry-run]
+//     [--existing <已有标题文件，每行一个>] [--variants v1,v2] [--model deepseek-chat] [--max-tokens 3072] [--key-env 变量名] [--dry-run]
 
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -18,7 +18,7 @@ const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const MAX_NOTE_CHARACTERS = 120_000;
 
 export function parseArgs(argv) {
-  const args = { variants: ['v1', 'v2'], model: 'deepseek-chat', out: 'storage/experiments/knowledge-extraction-ab', dryRun: false, temperature: 0 };
+  const args = { variants: ['v1', 'v2'], model: 'deepseek-chat', out: 'storage/experiments/knowledge-extraction-ab', dryRun: false, temperature: 0, maxTokens: 8192 };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     const next = () => { const value = argv[++i]; if (value === undefined) throw new Error(`${flag} 缺少参数`); return value; };
@@ -27,6 +27,10 @@ export function parseArgs(argv) {
     else if (flag === '--existing') args.existing = next();
     else if (flag === '--variants') args.variants = next().split(',').map(value => value.trim()).filter(Boolean);
     else if (flag === '--model') args.model = next();
+    else if (flag === '--max-tokens') {
+      args.maxTokens = Number(next());
+      if (!Number.isSafeInteger(args.maxTokens) || args.maxTokens < 256 || args.maxTokens > 8192) throw new Error('--max-tokens 必须是 256 到 8192 的整数');
+    }
     else if (flag === '--key-env') args.keyEnv = next();
     else if (flag === '--dry-run') args.dryRun = true;
     else throw new Error(`未知参数 ${flag}`);
@@ -64,15 +68,16 @@ async function loadNotes(target) {
   return notes;
 }
 
-async function callDeepSeek({ fetchImpl, apiKey, model, temperature, system, user }) {
+async function callDeepSeek({ fetchImpl, apiKey, model, temperature, maxTokens, system, user }) {
   const response = await fetchImpl(ENDPOINT, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, temperature, max_tokens: 8192, response_format: { type: 'json_object' },
+    body: JSON.stringify({ model, temperature, max_tokens: maxTokens, response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }] })
   });
   const text = await response.text();
-  if (!response.ok) throw new Error(`HTTP ${response.status} ${text.slice(0, 200)}`);
+  // 第三方响应内容不写进 Actions 日志，避免将敏感服务信息意外公开。
+  if (!response.ok) throw new Error(`DeepSeek HTTP ${response.status}；供应商响应正文已省略`);
   const body = JSON.parse(text);
   const choice = body.choices?.[0];
   if (choice?.finish_reason !== 'stop') throw new Error(`finish_reason=${choice?.finish_reason}`);
@@ -110,7 +115,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
         run.check = { ok: true, batchError: null, candidates: [] };
       } else {
         try {
-          const result = await callDeepSeek({ fetchImpl, apiKey: key.value, model: args.model, temperature: args.temperature, system: prompts[variant], user });
+          const result = await callDeepSeek({ fetchImpl, apiKey: key.value, model: args.model, temperature: args.temperature, maxTokens: args.maxTokens, system: prompts[variant], user });
           run.usage = result.usage;
           run.raw = result.content;
           run.check = checkResult({ content: result.content, requestId, sources });
