@@ -23,7 +23,7 @@ export function createTaskMcpExecutor({ pairings, getService, getIdentity, asser
       return Object.entries(tools).filter(([, tool]) => access.allows(row, tool.taskCapability))
         .map(([name, { description, inputSchema }]) => ({ name, description, inputSchema }));
     },
-    async call(row, name, input = {}, outerGuard = () => {}) {
+    async call(row, name, input = {}, outerGuard = () => {}, track = null) {
       const entry = Object.hasOwn(tools, name) ? tools[name] : null;
       if (!entry) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
       // 权限检查先于参数校验，不泄露未授权工作区的信息。
@@ -42,7 +42,7 @@ export function createTaskMcpExecutor({ pairings, getService, getIdentity, asser
       const { ctx, guard } = captured;
       const args = { ...input }; delete args.end;
       try {
-        return await Promise.race([(async () => {
+        const execution = (async () => {
           guard();
           const raw = await service[entry.method](ctx, args);
           guard();
@@ -69,7 +69,10 @@ export function createTaskMcpExecutor({ pairings, getService, getIdentity, asser
           const output = { taskContent: result.content };
           outputs.set(output, assertCurrent);
           return output;
-        })(), new Promise((_, reject) => { timer = setTimeout(() => { aborted = true; reject(timedOut()); }, timeoutMs); })]);
+        })();
+        // 受管桥保留实际工作槽直到底层读取结束；只暴露完成信号，不暴露正文。
+        track?.(execution.then(() => undefined, () => undefined));
+        return await Promise.race([execution, new Promise((_, reject) => { timer = setTimeout(() => { aborted = true; reject(timedOut()); }, timeoutMs); })]);
       } catch (error) {
         if (error?.code?.startsWith('MCP_')) throw error;
         if (error?.code?.startsWith('TASK_WORKSPACE_')) throw mcpError(`MCP_${error.code}`, '任务操作被拒绝，请重新读取当前状态并检查授权。', { status: error.status ?? error.statusCode ?? 422 });
