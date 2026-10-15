@@ -96,6 +96,8 @@ jobs:
           else
             echo "实验没有生成报告（检查依赖或调用状态），没有调用结果可供比较。" >> "$GITHUB_STEP_SUMMARY"
           fi
+          # 为只读审查工具提供同一份脱敏聚合指标；不显示模型正文或原始请求。
+          cat "$GITHUB_STEP_SUMMARY"
 
       - name: Upload synthetic-only report
         if: always()
