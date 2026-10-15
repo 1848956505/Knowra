@@ -1,6 +1,6 @@
 import { ScopedAppearanceProvider } from '../../components/ui/overlay';
-import { Button, Checkbox } from '../../components/ui';
-import { ChevronDownIcon, NoteIcon } from '../../components/icons/knowra';
+import { Button, Checkbox, EmptyArt } from '../../components/ui';
+import { ChevronDownIcon, PlusIcon } from '../../components/icons/knowra';
 import { WorkspacePanel, WorkspacePanelBody } from '../../components/workspace/WorkspacePanel';
 import type { PathSegment } from '../../shell/path';
 import { LOCAL_PERMANENT_DELETE_REASON } from '../../store/workspaceCapabilities';
@@ -27,6 +27,7 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
   const theme = notesIndexAppearanceProps(appearance);
   const compact = useCompactLayout();
   if (!c.indexPath.length) return null;
+  const filtered = Boolean(c.notesIndex.query || c.filters.statuses.length || c.filters.updatedWithin || c.urlTagIds.length || c.typeFilter !== 'all');
   const itemProps = {
     selectedNoteId: c.navigation.selectedNoteId,
     onSelectFolder: (id: string) => { const item = c.allItems.find(value => value.kind === 'folder' && value.folder.id === id); if (item) c.selectItem(item); },
@@ -63,7 +64,13 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
           if (event.target !== event.currentTarget || c.isRecycleView) return;
           if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); c.setBackgroundMenu({ x: rect.left + 16, y: rect.top + 16 }); }
         }}>
-        {!c.allItems.length ? <div className={styles.empty} role="status"><span className={styles.emptyArt} aria-hidden="true"><NoteIcon size={38} /></span><strong>没有符合当前筛选条件的笔记或文件夹</strong><p>试试其他关键词，或调整筛选条件。</p></div>
+        {!c.allItems.length ? <div className={styles.empty} role="status">
+          {filtered ? <><EmptyArt variant="search" /><strong>没有符合当前条件的结果</strong><p>试试换个关键词，或者清除筛选条件。</p>
+            <Button variant="ghost" onPress={() => { c.clearFilters(); c.setTypeFilter('all'); if (c.notesIndex.query) c.store.setNotesQuery(''); }}>清除搜索与筛选</Button></>
+            : <><EmptyArt variant="note" /><strong>{c.isRecycleView ? '回收站是空的' : '这里还没有内容'}</strong>
+              <p>{c.isRecycleView ? '删除的笔记会先放在这里。' : '新建一篇笔记或文件夹，也可以从 Markdown 导入。'}</p>
+              {c.canWrite && !c.isRecycleView ? <Button variant="accent" onPress={() => c.treeOperations.openCreate('note', c.navigation.selectedFolderId)}><PlusIcon size={16} />新建笔记</Button> : null}</>}
+        </div>
           : c.groups.map(section => <section key={section.id} aria-label={section.label}>
             {c.group !== 'none' ? <button type="button" className={styles.groupHeading} aria-expanded={!c.collapsed.has(section.id)}
               onClick={() => c.setCollapsed(current => { const next = new Set(current); if (next.has(section.id)) next.delete(section.id); else next.add(section.id); return next; })}>

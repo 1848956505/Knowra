@@ -12,7 +12,7 @@ import styles from './NotesIndexMenus.module.css';
 type RowRole = 'menuitem' | 'menuitemcheckbox' | 'menuitemradio';
 
 /** 菜单行：键盘上下移动由列表容器统一处理。 */
-function Row({ role = 'menuitem', checked, icon, count, box, trailing, children, onPress }: {
+export function Row({ role = 'menuitem', checked, icon, count, box, trailing, children, onPress }: {
   role?: RowRole; checked?: boolean; icon?: ReactNode; count?: ReactNode; box?: boolean; trailing?: ReactNode;
   children: ReactNode; onPress(): void;
 }) {
@@ -26,7 +26,7 @@ function Row({ role = 'menuitem', checked, icon, count, box, trailing, children,
   </PressableButton>;
 }
 
-function moveFocus(event: KeyboardEvent<HTMLElement>) {
+export function moveFocus(event: KeyboardEvent<HTMLElement>) {
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
   const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]'));
   if (!rows.length) return;

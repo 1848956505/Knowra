@@ -8,3 +8,5 @@ export { SkeletonPulse } from './SkeletonPulse';
 export type { SkeletonPulseProps } from './SkeletonPulse';
 export { Panel } from './Panel';
 export type { PanelProps } from './Panel';
+export { EmptyArt } from './EmptyArt';
+export type { EmptyArtVariant } from './EmptyArt';

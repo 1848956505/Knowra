@@ -34,6 +34,8 @@ describe('KnowledgeWorkspaceView', () => {
     act(() => list.focus());
     expect(list).toHaveFocus();
     await user.tab();
+    expect(within(list).getByRole('button', { expanded: true })).toHaveFocus();
+    await user.tab();
     expect(selected).toHaveFocus();
     await user.tab();
     expect(detail).toHaveFocus();
@@ -66,14 +68,18 @@ describe('KnowledgeWorkspaceView', () => {
     const user = userEvent.setup(); const input = props();
     render(<KnowledgeWorkspaceView {...input} />);
     const list = screen.getByRole('region', { name: '知识列表' });
-    const statusFilters = screen.getByRole('group', { name: '按知识状态筛选' });
+    const chooseStatus = async (name: RegExp) => {
+      await user.click(screen.getByRole('button', { name: '筛选' }));
+      await user.click(within(await screen.findByRole('menu', { name: '知识状态' })).getByRole('menuitemradio', { name }));
+      await user.keyboard('{Escape}');
+    };
     await within(list).findByRole('button', { name: /数据增强/ });
     expect(within(list).queryByRole('button', { name: /已归档的观点/ })).not.toBeInTheDocument();
     expect(input.onList).toHaveBeenCalledWith({ includeArchived: true, includeDeleted: true });
-    await user.click(within(statusFilters).getByRole('button', { name: '已归档 1' }));
+    await chooseStatus(/已归档/);
     expect(within(list).getByRole('button', { name: /已归档的观点/ })).toBeInTheDocument();
     expect(within(list).queryByRole('button', { name: /数据增强/ })).not.toBeInTheDocument();
-    await user.click(within(statusFilters).getByRole('button', { name: '全部未归档' }));
+    await chooseStatus(/全部未归档/);
     await user.type(screen.getByRole('searchbox', { name: '搜索知识' }), '不存在的知识');
     expect(within(list).getByText('没有符合条件的知识。')).toBeInTheDocument();
     await user.clear(screen.getByRole('searchbox', { name: '搜索知识' }));
@@ -298,5 +304,45 @@ describe('CreateKnowledgeCandidateDialog', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(onCreate).toHaveBeenCalledOnce();
     expect(disk).toEqual({});
+  });
+});
+
+describe('KnowledgeWorkspaceView 索引交互', () => {
+  it('J/K 在条目间移动焦点，Esc 关闭检查器，右键菜单提供条目操作', async () => {
+    const user = userEvent.setup();
+    const second = { ...candidate, id: 'k3', title: '正则化', updatedAt: '2026-09-20T11:00:00.000Z' };
+    const input = props({ onCloseItem: vi.fn(), onList: vi.fn().mockResolvedValue([candidate, second]) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    const list = screen.getByRole('region', { name: '知识列表内容' });
+    const first = await within(list).findByRole('button', { name: /数据增强/ });
+    first.focus();
+    await user.keyboard('j');
+    expect(within(list).getByRole('button', { name: /正则化/ })).toHaveFocus();
+    await user.keyboard('k');
+    expect(first).toHaveFocus();
+    await user.pointer({ keys: '[MouseRight]', target: within(list).getByRole('button', { name: /正则化/ }) });
+    const menu = await screen.findByRole('menu', { name: '知识操作' });
+    expect(within(menu).getByRole('menuitem', { name: '编辑' })).toBeInTheDocument();
+    await user.click(within(menu).getByRole('menuitem', { name: '查看详情' }));
+    expect(input.onSelectItem).toHaveBeenCalledWith('k3');
+    first.focus();
+    await user.keyboard('{Escape}');
+    expect(input.onCloseItem).toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '关闭详情' }));
+    expect(input.onCloseItem).toHaveBeenCalledTimes(2);
+  });
+  it('显示选项切换卡片布局，未选中知识时不显示检查器', async () => {
+    const user = userEvent.setup();
+    render(<KnowledgeWorkspaceView {...props({ selectedItemId: null })} />);
+    await within(screen.getByRole('region', { name: '知识列表内容' })).findByRole('button', { name: /数据增强/ });
+    expect(screen.queryByRole('region', { name: '知识详情面板' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /显示选项/ }));
+    await user.click(await screen.findByRole('button', { name: '卡片' }));
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('list', { name: '知识卡片视图' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /显示选项/ }));
+    await user.click(await screen.findByRole('button', { name: '列表' }));
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('list', { name: '知识列表视图' })).toBeInTheDocument();
   });
 });
