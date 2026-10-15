@@ -69,7 +69,10 @@ async function createInUi(page, request, name, snippetId) {
   await expect(consent.getByRole('textbox', { name: '客户端名称' })).toHaveValue(name);
   await expect(consent.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
   assert.equal((await request(PAIRINGS)).items.length, 0, '选择客户端不会提前创建授权');
-  await consent.getByRole('checkbox', { name: '我了解所选范围内的笔记片段会发给该客户端所属的厂商', exact: true }).check();
+  const egressConsent = consent.getByRole('checkbox', { name: '我了解所选范围内的笔记片段会发给该客户端所属的厂商', exact: true });
+  // react-aria 的真实 input 为读屏/键盘保留，指针交互应点击可见 label。
+  await consent.getByText('我了解所选范围内的笔记片段会发给该客户端所属的厂商', { exact: true }).click();
+  await expect(egressConsent).toBeChecked();
   await consent.getByRole('button', { name: '创建配对', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: `连接方式：${name}`, exact: true });
   await expect(dialog).toBeVisible();
