@@ -9,11 +9,10 @@
 .edge .edgeDashed { stroke-dasharray: 6 5; }
 .edgeLabel { fill: var(--text-secondary); font: 500 12px var(--font-ui); paint-order: stroke; stroke: var(--surface-page); stroke-width: 4px; stroke-linejoin: round; }
 .edgeItem { cursor: pointer; }
-.edgeItem:focus-visible { outline: none; }
 .edgeItem:focus-visible rect { stroke: var(--accent-text); stroke-width: 2.5; }
 
 .concept { cursor: pointer; transition: opacity .18s; }
-.concept:focus-visible { outline: none; }
+.concept:focus, .item:focus, .edgeItem:focus { outline: none; }
 .concept:focus-visible .node { stroke-width: 3; stroke: var(--accent-text); }
 .node { stroke-width: 1.5; transition: fill .18s; }
 .ringTrack { fill: none; stroke: var(--border-subtle); stroke-width: 3; }
@@ -36,7 +35,6 @@
 .expansion .itemLink { stroke: var(--color-info); stroke-width: 1; opacity: .45; }
 .item { cursor: pointer; }
 .item rect { stroke-width: 1.5; }
-.item:focus-visible { outline: none; }
 .item:focus-visible rect { stroke: var(--accent-text); stroke-width: 2.5; }
 .unconfirmed { stroke-dasharray: 3 3; }
 .selectedItem { stroke: var(--color-info) !important; stroke-width: 3 !important; stroke-dasharray: none; }

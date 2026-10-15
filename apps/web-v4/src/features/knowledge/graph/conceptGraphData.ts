@@ -52,16 +52,16 @@ const NOTE_25 = '2.5 自动微分';
 
 export const CONCEPT_GRAPH_SAMPLE: ConceptGraphData = {
   concepts: [
-    { id: 'tensor', name: '张量', sense: '深度学习框架中的多维数组', aliases: ['tensor'], x: 500, y: 110 },
-    { id: 'vector', name: '向量', sense: '一维张量', aliases: ['vector'], x: 300, y: 250 },
-    { id: 'matrix', name: '矩阵', sense: '二维张量', aliases: ['matrix'], x: 700, y: 250 },
-    { id: 'dot', name: '点积', sense: '两个等长向量逐元素相乘再求和', aliases: ['dot product', '内积'], x: 160, y: 420 },
-    { id: 'norm', name: '范数', sense: '衡量向量或矩阵“大小”的数', aliases: ['norm'], x: 330, y: 520 },
-    { id: 'matmul', name: '矩阵乘法', sense: '矩阵与向量、矩阵与矩阵的乘积', aliases: ['矩阵-向量乘法', 'matmul'], x: 600, y: 440 },
-    { id: 'gradient', name: '梯度', sense: '数学：多元函数偏导数组成的向量', aliases: ['gradient'], x: 860, y: 420 },
-    { id: 'grad-attr', name: 'x.grad', sense: 'PyTorch：张量上存放梯度值的属性', aliases: ['.grad'], x: 900, y: 580 },
-    { id: 'autograd', name: '自动微分', sense: '框架根据计算过程自动求梯度', aliases: ['autograd', '自动求导'], x: 680, y: 590 },
-    { id: 'chain', name: '链式法则', sense: '复合函数求导规则', aliases: ['chain rule'], x: 500, y: 600 }
+    { id: 'tensor', name: '张量', sense: '深度学习框架中的多维数组', aliases: ['tensor'], x: 500, y: 150 },
+    { id: 'vector', name: '向量', sense: '一维张量', aliases: ['vector'], x: 300, y: 290 },
+    { id: 'matrix', name: '矩阵', sense: '二维张量', aliases: ['matrix'], x: 700, y: 290 },
+    { id: 'dot', name: '点积', sense: '两个等长向量逐元素相乘再求和', aliases: ['dot product', '内积'], x: 160, y: 460 },
+    { id: 'norm', name: '范数', sense: '衡量向量或矩阵“大小”的数', aliases: ['norm'], x: 330, y: 560 },
+    { id: 'matmul', name: '矩阵乘法', sense: '矩阵与向量、矩阵与矩阵的乘积', aliases: ['矩阵-向量乘法', 'matmul'], x: 600, y: 480 },
+    { id: 'gradient', name: '梯度', sense: '数学：多元函数偏导数组成的向量', aliases: ['gradient'], x: 850, y: 440 },
+    { id: 'grad-attr', name: 'x.grad', sense: 'PyTorch：张量上存放梯度值的属性', aliases: ['.grad'], x: 950, y: 640 },
+    { id: 'autograd', name: '自动微分', sense: '框架根据计算过程自动求梯度', aliases: ['autograd', '自动求导'], x: 680, y: 630 },
+    { id: 'chain', name: '链式法则', sense: '复合函数求导规则', aliases: ['chain rule'], x: 500, y: 640 }
   ],
   items: [
     { id: 'tensor-def', title: '张量的定义', kind: 'definition', statement: '张量是多维数组。', conceptIds: ['tensor'], verification: 'confirmed', mastery: 'mastered', source: { note: NOTE_21, quote: '张量：多维数组' } },

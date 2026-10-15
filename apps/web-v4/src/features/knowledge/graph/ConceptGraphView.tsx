@@ -6,13 +6,13 @@ import { PathTrail } from '../../../shell/PathTrail';
 import { useNavigate } from '../../../app/router';
 import { CONCEPT_GRAPH_SAMPLE, type ConceptGraphData, type GraphItem, type MasteryLevel } from './conceptGraphData';
 import {
-  KIND_LABELS, MASTERY_LABELS, VERIFICATION_LABELS, conceptEmphasis, conceptStatus, itemPositions, itemsOf,
+  KIND_LABELS, MASTERY_LABELS, VERIFICATION_LABELS, conceptEmphasis, conceptStatus, edgeLabelOffset, itemLabelPlacement, itemPositions, itemsOf,
   neighborIds, relationLabel, relationMidpoint, relationsOf, type GraphFocus
 } from './conceptGraphModel';
 import styles from './ConceptGraphView.module.css';
 
 const VIEW_WIDTH = 1040;
-const VIEW_HEIGHT = 690;
+const VIEW_HEIGHT = 760;
 const CONCEPT_RADIUS = 30;
 const RING_RADIUS = 36;
 const ITEM_SIZE = 24;
@@ -71,7 +71,10 @@ export function ConceptGraphView({ data = CONCEPT_GRAPH_SAMPLE }: { data?: Conce
               const basis = relation.basisItemId ? data.items.find(item => item.id === relation.basisItemId) : undefined;
               return <g key={relation.id} className={active ? styles.edge : `${styles.edge} ${styles.faded}`} data-relation={relation.type}>
                 <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} className={relation.type === 'prerequisiteOf' ? styles.edgeDashed : undefined} />
-                <text x={mid.x} y={mid.y - (basis ? 18 : 6)} className={styles.edgeLabel} textAnchor="middle">{relationLabel(relation)}</text>
+                {(() => {
+                  const offset = edgeLabelOffset(from, to, basis ? 20 : 10);
+                  return <text x={mid.x + offset.x} y={mid.y + offset.y + 4} className={styles.edgeLabel} textAnchor="middle">{relationLabel(relation)}</text>;
+                })()}
                 {basis ? <g role="button" tabIndex={0} aria-label={`关系说明：${basis.title}`} className={styles.edgeItem}
                   onClick={event => { event.stopPropagation(); selectItem(basis, null); }} onKeyDown={event => activate(event, () => selectItem(basis, null))}>
                   <rect x={mid.x - 7} y={mid.y - 7} width={14} height={14} rx={3} className={`${LEVEL_CLASS[basis.mastery]} ${focusItem?.id === basis.id ? styles.selectedItem : ''}`} />
@@ -95,7 +98,7 @@ export function ConceptGraphView({ data = CONCEPT_GRAPH_SAMPLE }: { data?: Conce
             })}
             {focusConcept ? <g className={styles.expansion} aria-label={`${focusConcept.name} 的知识条目`} role="group">
               {expanded.map(({ item, x, y }) => <line key={`link-${item.id}`} x1={focusConcept.x} y1={focusConcept.y} x2={x} y2={y} className={styles.itemLink} />)}
-              {expanded.map(({ item, x, y }) => <g key={item.id} role="button" tabIndex={0} aria-pressed={focusItem?.id === item.id}
+              {expanded.map(({ item, x, y, angle }) => <g key={item.id} role="button" tabIndex={0} aria-pressed={focusItem?.id === item.id}
                 aria-label={`${item.title}，${KIND_LABELS[item.kind]}，${VERIFICATION_LABELS[item.verification]}，${MASTERY_LABELS[item.mastery]}`}
                 className={styles.item} transform={`translate(${x} ${y})`}
                 onClick={event => { event.stopPropagation(); selectItem(item, focusConcept.id); }} onKeyDown={event => activate(event, () => selectItem(item, focusConcept.id))}>
@@ -103,7 +106,10 @@ export function ConceptGraphView({ data = CONCEPT_GRAPH_SAMPLE }: { data?: Conce
                   className={`${LEVEL_CLASS[item.mastery]} ${item.verification !== 'confirmed' ? styles.unconfirmed : ''} ${focusItem?.id === item.id ? styles.selectedItem : ''}`} />
                 {item.verification === 'disputed' ? <text y={5} textAnchor="middle" className={styles.disputedMark}>!</text> : null}
                 {basisItemIds.has(item.id) ? <circle cx={ITEM_SIZE / 2} cy={-ITEM_SIZE / 2} r={3.5} className={styles.basisDot} /> : null}
-                <text y={ITEM_SIZE / 2 + 15} textAnchor="middle" className={styles.itemLabel}>{shortTitle(item.title)}</text>
+                {(() => {
+                  const label = itemLabelPlacement(angle, ITEM_SIZE);
+                  return <text x={label.dx} y={label.dy} textAnchor={label.anchor} className={styles.itemLabel}>{shortTitle(item.title)}</text>;
+                })()}
               </g>)}
             </g> : null}
           </svg>

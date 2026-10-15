@@ -9,7 +9,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildUserPayload, checkResult, headingsOf, renderReport, splitBySection, summarize } from './lib.mjs';
 import { PROMPT_V2_VERSION, buildPromptV2 } from './prompt-v2.mjs';
 
@@ -141,7 +141,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
 }
 
 async function loadOnlinePrompt() {
-  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
   const gatewayFile = path.join(root, 'apps/api/src/modules/ai/knowledge-extraction-gateway.js');
   const gateway = await import(pathToFileURL(gatewayFile).href);
   const contract = await import(pathToFileURL(path.join(root, 'apps/api/src/modules/knowledge/application/knowledge-extraction-contract.js')).href);

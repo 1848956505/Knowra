@@ -45,13 +45,34 @@ export function relationLabel(relation: GraphRelation): string {
   return relation.label ?? RELATION_LABELS[relation.type];
 }
 
-/** 选中概念后，条目方块沿圆周均匀展开。 */
-export function itemPositions(concept: GraphConcept, items: GraphItem[], radius = 92): Array<{ item: GraphItem; x: number; y: number }> {
+/** 选中概念后，条目方块沿圆周均匀展开；条目越多半径越大，避免标签互相压住。 */
+export function itemPositions(concept: GraphConcept, items: GraphItem[], radius?: number): Array<{ item: GraphItem; x: number; y: number; angle: number }> {
   const count = items.length;
+  const r = radius ?? Math.max(92, 34 + count * 12);
   return items.map((item, index) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * index) / Math.max(count, 1);
-    return { item, x: concept.x + Math.cos(angle) * radius, y: concept.y + Math.sin(angle) * radius };
+    return { item, angle, x: concept.x + Math.cos(angle) * r, y: concept.y + Math.sin(angle) * r };
   });
+}
+
+/** 条目标签朝外放：右侧左对齐、左侧右对齐、正上下居中。 */
+export function itemLabelPlacement(angle: number, size: number): { dx: number; dy: number; anchor: 'start' | 'middle' | 'end' } {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  if (cos > 0.35) return { dx: size / 2 + 6, dy: 4, anchor: 'start' };
+  if (cos < -0.35) return { dx: -(size / 2 + 6), dy: 4, anchor: 'end' };
+  return sin < 0 ? { dx: 0, dy: -(size / 2 + 6), anchor: 'middle' } : { dx: 0, dy: size / 2 + 15, anchor: 'middle' };
+}
+
+/** 连线标签沿法线方向偏移，避免压在线或概念名称上。 */
+export function edgeLabelOffset(from: { x: number; y: number }, to: { x: number; y: number }, distance: number): { x: number; y: number } {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy) || 1;
+  let nx = -dy / length;
+  let ny = dx / length;
+  if (ny > 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
+  return { x: nx * distance, y: ny * distance };
 }
 
 export function relationMidpoint(data: ConceptGraphData, relation: GraphRelation): { x: number; y: number } | null {
