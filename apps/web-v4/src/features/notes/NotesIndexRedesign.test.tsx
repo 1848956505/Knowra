@@ -104,7 +104,7 @@ describe('笔记索引新版真实交互', () => {
     await user.click(screen.getByRole('menuitemradio', { name: '今天' }));
     await user.keyboard('{Escape}');
     expect(screen.getByRole('group', { name: '已启用的筛选' })).toHaveTextContent('状态与时间仅筛选已加载笔记，可在底部加载更多');
-    expect(screen.getByText('没有符合当前筛选条件的笔记或文件夹')).toBeInTheDocument();
+    expect(screen.getByText('没有符合当前条件的结果')).toBeInTheDocument();
     expect(api.queryNotes).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: '加载更多' }));
     await vi.waitFor(() => expect(api.queryNotes).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 30, limit: 30 })));
@@ -197,7 +197,7 @@ describe('笔记索引新版真实交互', () => {
     expect(screen.getByRole('button', { name: /^草稿\s*20$/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^进行中\s*20$/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '第 2 页' })).not.toBeInTheDocument();
-    expect(screen.queryByText('没有符合当前筛选条件的笔记或文件夹')).not.toBeInTheDocument();
+    expect(screen.queryByText('没有符合当前条件的结果')).not.toBeInTheDocument();
   });
 
   it('末页折叠到单页后重新展开仍停留第1页，不恢复过期页码', async () => {
