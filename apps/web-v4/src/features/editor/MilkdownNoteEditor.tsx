@@ -75,7 +75,7 @@ import {
 import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
-import { createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema } from './editorMathBlock';
+import { configureMathBlockDocument, mathBlockSerializerGuard, normalizeTrailingMathBlock, createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema } from './editorMathBlock';
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
@@ -277,7 +277,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         const editor = editorRef.current;
         if (!editor || !readyRef.current) return false;
         // 编辑器文档带块 ID 与重点 mark，重新解析的文档没有；比较正文时忽略身份信息。
-        try { return withoutIdentity(editor.ctx.get(editorViewCtx).state.doc).eq(editor.ctx.get(parserCtx)(markdown)); }
+        try { return withoutIdentity(editor.ctx.get(editorViewCtx).state.doc).eq(normalizeTrailingMathBlock(editor.ctx.get(parserCtx)(markdown))); }
         catch { return false; }
       },
       async runEdit(action) {
@@ -420,6 +420,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       const editor = Editor.make()
         .config((ctx) => {
           configureImageSize(ctx);
+          configureMathBlockDocument(ctx);
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, incomingMarkdownRef.current);
           ctx.set(historyProviderConfig.key, { depth: 500, newGroupDelay: 750 });
@@ -471,6 +472,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(mathInlineGuardRemark)
         .use(mathBlockSchema)
         .use(mathBlockBehavior)
+        .use(mathBlockSerializerGuard)
         .use(mathInlineSchema)
         .use(mathInlineBehavior)
         .use(mathInlineInputRule)

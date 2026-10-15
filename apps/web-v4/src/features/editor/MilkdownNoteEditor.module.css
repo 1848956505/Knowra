@@ -18,14 +18,17 @@
 }
 .milkdownEditor[data-readonly] :global(.ProseMirror) { cursor: default; }
 .milkdownEditor :global(.ProseMirror) > :first-child { margin-top: 0; }
-.milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4) { scroll-margin-top: calc(var(--docbar-size) + var(--tab-size) + 8px); }
+.milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4, h5, h6) { scroll-margin-top: calc(var(--docbar-size) + var(--tab-size) + 8px); }
 .milkdownEditor :global(.ProseMirror) :is(h1, h2, h3, h4, h5, h6) { color: var(--text-primary); font-family: var(--font-ui); letter-spacing: -.3px; }
-.milkdownEditor :global(.ProseMirror) h1 { margin: 1.5em 0 .6em; font-size: 1.6em; line-height: 1.35; font-weight: 700; }
-.milkdownEditor :global(.ProseMirror) h2 { margin: 1.58em 0 .63em; font-size: 1.267em; line-height: 1.5; font-weight: 600; }
-.milkdownEditor :global(.ProseMirror) h3 { margin: 1.4em 0 .6em; font-size: 1.13em; line-height: 1.5; font-weight: 600; }
-.milkdownEditor :global(.ProseMirror) h4 { margin: 1.3em 0 .5em; font-size: 1em; line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h1 { margin: 1.5em 0 .6em; font-size: var(--note-heading-1-size); line-height: 1.35; font-weight: 700; }
+.milkdownEditor :global(.ProseMirror) h2 { margin: 1.58em 0 .63em; font-size: var(--note-heading-2-size); line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h3 { margin: 1.4em 0 .6em; font-size: var(--note-heading-3-size); line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h4 { margin: 1.3em 0 .5em; font-size: var(--note-heading-4-size); line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h5 { margin: 1.3em 0 .5em; font-size: var(--note-heading-5-size); line-height: 1.5; font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h6 { margin: 1.3em 0 .5em; font-size: var(--note-heading-6-size); line-height: 1.5; font-weight: 600; color: var(--text-secondary); }
 .milkdownEditor :global(.ProseMirror) p { margin: 0 0 1.067em; }
 .milkdownEditor :global(.ProseMirror) strong { color: var(--text-primary); font-weight: 600; }
+.milkdownEditor :global(.ProseMirror) h6 strong { color: inherit; }
 .milkdownEditor :global(.ProseMirror) ul,
 .milkdownEditor :global(.ProseMirror) ol { margin: .75em 0 1.3em; padding-left: 0; }
 .milkdownEditor :global(.ProseMirror) ul { list-style: none; }

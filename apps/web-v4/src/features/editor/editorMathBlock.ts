@@ -1,3 +1,6 @@
+import { editorStateOptionsCtx, SerializerReady, serializerCtx } from '@milkdown/kit/core';
+import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx';
+import { Fragment, type Node as ProseNode } from '@milkdown/kit/prose/model';
 import { setBlockType } from '@milkdown/kit/prose/commands';
 import { Plugin, PluginKey, TextSelection, type Command } from '@milkdown/kit/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
@@ -59,11 +62,39 @@ export const insertMathBlock: Command = (state, dispatch) => {
     const pos = $from.after(depth);
     const node = type.create();
     const tr = state.tr.insert(pos, node);
-    if (depth === 1 && pos === state.doc.content.size) tr.insert(pos + node.nodeSize, paragraph.create());
     tr.setSelection(TextSelection.create(tr.doc, pos + 1));
     dispatch(tr.scrollIntoView());
   }
   return true;
+};
+
+/** 只为文末公式补正文入口；已有段落（包括空段）和行内公式保持原样。 */
+export function normalizeTrailingMathBlock(doc: ProseNode): ProseNode {
+  const paragraph = doc.type.schema.nodes.paragraph;
+  if (doc.lastChild?.type.name !== 'math_block' || !paragraph
+    || !doc.canReplaceWith(doc.childCount, doc.childCount, paragraph)) return doc;
+  return doc.copy(doc.content.append(Fragment.from(paragraph.create())));
+}
+
+/** 加载和 flush 替换时直接建立规范化的编辑基线，不派发事务或写入撤销历史。 */
+export function configureMathBlockDocument(ctx: Ctx) {
+  ctx.update(editorStateOptionsCtx, previous => options => {
+    const configured = previous(options);
+    return configured.doc ? { ...configured, doc: normalizeTrailingMathBlock(configured.doc) } : configured;
+  });
+}
+
+/** 文末公式后的空正文是输入入口，不为保存正文制造额外空行。 */
+export const mathBlockSerializerGuard: MilkdownPlugin = ctx => async () => {
+  await ctx.wait(SerializerReady);
+  ctx.update(serializerCtx, serialize => doc => {
+    const last = doc.lastChild;
+    if (last?.type.name === 'paragraph' && last.content.size === 0
+      && doc.childCount > 1 && doc.child(doc.childCount - 2).type.name === 'math_block') {
+      return serialize(doc.copy(doc.content.cut(0, doc.content.size - last.nodeSize)));
+    }
+    return serialize(doc);
+  });
 };
 
 const EDITING_KEY = new PluginKey<DecorationSet>('V4_MATH_BLOCK_EDITING');
@@ -71,6 +102,13 @@ const EDITING_KEY = new PluginKey<DecorationSet>('V4_MATH_BLOCK_EDITING');
 /** 光标在公式块内时显示源码；离开后仅显示渲染结果。 */
 export const mathBlockBehavior = $prose(() => new Plugin({
   key: EDITING_KEY,
+  appendTransaction(transactions, _oldState, state) {
+    if (!transactions.some(transaction => transaction.docChanged)) return null;
+    const normalized = normalizeTrailingMathBlock(state.doc);
+    if (normalized === state.doc) return null;
+    // 跟随原编辑事务进入同一个历史事件，撤销插入公式时不会残留额外空行。
+    return state.tr.insert(state.doc.content.size, normalized.lastChild!);
+  },
   props: {
     decorations(state) {
       const { $from, $to } = state.selection;
