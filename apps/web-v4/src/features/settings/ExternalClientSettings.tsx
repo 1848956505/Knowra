@@ -7,8 +7,11 @@ import { Select, TextField } from '../../components/ui/input';
 import { Dialog, DialogBody, DialogFooter } from '../../components/ui/overlay/Dialog';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { KnowledgeReadConsent } from './KnowledgeReadConsent';
-import { claudeCodeSnippet, codexSnippet, externalClients, isDesktopRuntime, type McpAuditEntry, type McpOverview, type McpPairing, type PairingScope } from './externalClients';
+import { externalClients, isDesktopRuntime, type McpAuditEntry, type McpOverview, type McpPairing, type PairingScope } from './externalClients';
 import styles from './SettingsView.module.css';
+import { McpClientChoice } from './McpClientChoice';
+import { McpConnectionDialog } from './McpConnectionDialog';
+import { clientNames, inferMcpClient, type McpClient } from './mcpConnection';
 
 const time = (value: string) => new Date(value).toLocaleString('zh-CN', { hour12: false });
 const statusBadge = { active: { tone: 'success', text: '有效' }, expired: { tone: 'neutral', text: '已过期' }, revoked: { tone: 'neutral', text: '已撤销' } } as const;
@@ -48,7 +51,8 @@ function ExternalClientPanel() {
   const [knowledgeUnderstood, setKnowledgeUnderstood] = useState(false);
   const [busy, setBusy] = useState(false);
   const [audit, setAudit] = useState<{ pairingId: string; items: McpAuditEntry[] } | null>(null);
-  const [copied, setCopied] = useState('');
+  const [chooseOpen, setChooseOpen] = useState(false);
+  const [client, setClient] = useState<McpClient>('claude');
   // 创建表单
   const [label, setLabel] = useState('');
   const [kind, setKind] = useState<'library' | 'folder' | 'fixed'>('library');
@@ -79,8 +83,9 @@ function ExternalClientPanel() {
   const canCreate = Boolean(spaceId && scope && label.trim() && understood && (!allowPropose || proposeUnderstood)
     && (!allowKnowledgeRead || createKnowledgeUnderstood) && !busy);
 
-  function openCreate() {
-    setLabel(''); setKind('library'); setFolderId(folders[0]?.id ?? ''); setNoteId(notes[0]?.id ?? ''); setDays('7'); setUnderstood(false); setAllowPropose(false); setProposeUnderstood(false);
+  function openCreate(selected: McpClient) {
+    setClient(selected); setChooseOpen(false);
+    setLabel(clientNames[selected]); setKind('library'); setFolderId(folders[0]?.id ?? ''); setNoteId(notes[0]?.id ?? ''); setDays('7'); setUnderstood(false); setAllowPropose(false); setProposeUnderstood(false);
     setAllowKnowledgeRead(false); setCreateKnowledgeUnderstood(false);
     setError(''); setNotice(''); setCreateOpen(true);
   }
@@ -123,9 +128,7 @@ function ExternalClientPanel() {
     try { setAudit({ pairingId: pairing.pairingId, items: await externalClients.audit(pairing.pairingId) }); }
     catch { setError('无法读取最近调用记录。'); }
   }
-  async function copy(id: string, text: string) {
-    try { await navigator.clipboard.writeText(text); setCopied(id); } catch { setCopied(`${id}-failed`); }
-  }
+
 
   if (unsupported) return null;
   const blocked = overview && !overview.aiEnabled ? 'AI 功能未开启，无法创建外部客户端配对。'
@@ -138,12 +141,12 @@ function ExternalClientPanel() {
       <div className={styles.settingRow}>
         <div className={styles.settingCopy}>
           <h4>外部 AI 客户端（MCP）</h4>
-          <p>让 Claude Code、Codex 等本机 AI 客户端只读访问你选定范围内的笔记。知识点读取由每个客户端的独立总开关控制，默认关闭。每个客户端单独配对，可随时撤销，到期自动失效。</p>
+          <p>让 Claude Code 或 Codex 通过本机连接读取你选定范围内的笔记。知识点读取由每个客户端的独立总开关控制，默认关闭。每个客户端单独配对，可随时撤销，到期自动失效。</p>
           {blocked ? <p role="status">{blocked}</p> : null}
           {!blocked && overview && !spaceId ? <p role="status">正在加载知识空间，加载完成后即可添加。</p> : null}
         </div>
         <div className={styles.settingControl}>
-          <Button variant="primary" size="compact" isDisabled={loading || !overview || Boolean(blocked) || !spaceId} onPress={openCreate}>添加外部客户端</Button>
+          <Button variant="primary" size="compact" isDisabled={loading || !overview || Boolean(blocked) || !spaceId} onPress={() => setChooseOpen(true)}>添加外部客户端</Button>
         </div>
       </div>
       {overview?.items.length ? <ul className={styles.clientList} aria-label="已配对的外部客户端">
@@ -166,7 +169,7 @@ function ExternalClientPanel() {
                 if (pairing.allowKnowledgeRead) void setKnowledgeRead(pairing, false);
                 else { setKnowledgeUnderstood(false); setError(''); setNotice(''); setKnowledgePairing(pairing); }
               }}>{pairing.allowKnowledgeRead ? '关闭知识点读取' : '开启知识点读取'}</Button> : null}
-            {pairing.status === 'active' ? <Button size="compact" aria-label={`查看连接方式：${pairing.label}`} onPress={() => { setCopied(''); setConnection(pairing); }}>查看连接方式</Button> : null}
+            {pairing.status === 'active' ? <Button size="compact" aria-label={`查看连接方式：${pairing.label}`} onPress={() => { setClient(inferMcpClient(pairing.label)); setConnection(pairing); }}>查看连接方式</Button> : null}
             <Button size="compact" variant="ghost" aria-label={`最近调用：${pairing.label}`} onPress={() => void toggleAudit(pairing)}>最近调用</Button>
             {pairing.status === 'active' ? <Button size="compact" variant="ghost" aria-label={`撤销：${pairing.label}`} onPress={() => setRevoking(pairing)}>撤销</Button> : null}
           </div>
@@ -179,9 +182,12 @@ function ExternalClientPanel() {
     {error && !createOpen && !revoking && !knowledgePairing ? <p role="alert" className={styles.modelError}>{error}</p> : null}
     {!loading && !overview && !unsupported ? <Button size="compact" onPress={() => setAttempt(value => value + 1)}>重试读取</Button> : null}
 
+    {chooseOpen ? <McpClientChoice onChoose={openCreate} onClose={() => setChooseOpen(false)} /> : null}
+
     <Dialog title="允许外部 AI 客户端读取笔记？" isOpen={createOpen} onOpenChange={open => { if (!busy) setCreateOpen(open); }} isPending={busy} size="md">
       <DialogBody>
         <div className={styles.dialogFields}>
+          <p className={styles.dialogNote}>2 确认权限 · {clientNames[client]}。创建后再配置和检查连接。</p>
           <TextField label="客户端名称" value={label} onChange={setLabel} isRequired maxLength={60} placeholder="例如：Claude Code" />
           <Select label="授权范围" selectedKey={kind} onSelectionChange={key => setKind(String(key) as typeof kind)}
             options={[{ id: 'library', label: '当前知识空间' }, { id: 'folder', label: '一个目录' }, { id: 'fixed', label: '一篇笔记' }]} />
@@ -204,6 +210,7 @@ function ExternalClientPanel() {
         </div>
       </DialogBody>
       <DialogFooter>
+        <Button variant="ghost" isDisabled={busy} onPress={() => { setCreateOpen(false); setChooseOpen(true); }}>上一步</Button>
         <Button variant="ghost" isDisabled={busy} onPress={() => setCreateOpen(false)}>取消</Button>
         <Button variant="primary" isPending={busy} isDisabled={!canCreate} onPress={() => void create()}>创建配对</Button>
       </DialogFooter>
@@ -221,26 +228,7 @@ function ExternalClientPanel() {
       </DialogFooter>
     </Dialog>
 
-    <Dialog title={connection ? `连接方式：${connection.label}` : '连接方式'} isOpen={Boolean(connection)} onOpenChange={open => { if (!open) setConnection(null); }} size="md">
-      <DialogBody>
-        {connection ? <div>
-          <p className={styles.warning}>配对文件相当于访问密码，请勿分享、提交到代码仓库或放进云盘。</p>
-          <p className={styles.dialogNote}>配对文件：<code>{connection.pairingFile}</code></p>
-          {adapter ? <>
-            {([['claude', 'Claude Code（在终端运行）', claudeCodeSnippet(adapter, connection.pairingFile)],
-              ['codex', 'Codex（写入 ~/.codex/config.toml）', codexSnippet(adapter, connection.pairingFile)]] as const).map(([id, title, text]) => <div key={id}>
-              <div className={styles.snippetHead}><h5>{title}</h5>
-                <Button size="compact" aria-label={`复制 ${id} 配置`} onPress={() => void copy(id, text)}>复制</Button></div>
-              <pre className={styles.snippet} aria-label={`${id} 配置`}>{text}</pre>
-              {copied === id ? <p role="status" className={styles.modelNotice}>已复制。</p> : null}
-              {copied === `${id}-failed` ? <p role="alert" className={styles.modelError}>无法写入剪贴板，请手动选择上面的文字复制。</p> : null}
-            </div>)}
-            <p className={styles.dialogNote}>配置里只有启动命令和配对文件路径，没有令牌。客户端启动时会通过本机通道连接正在运行的知境；知境未运行时读取会失败。</p>
-          </> : <p role="alert" className={styles.modelError}>此版本没有内置外部客户端适配器，无法生成连接方式。请使用包含适配器的新版应用。</p>}
-        </div> : null}
-      </DialogBody>
-      <DialogFooter><Button variant="primary" onPress={() => setConnection(null)}>完成</Button></DialogFooter>
-    </Dialog>
+    {connection ? <McpConnectionDialog key={connection.pairingId} pairing={connection} adapter={adapter} initialClient={client} onOverview={setOverview} onClose={() => setConnection(null)} /> : null}
 
     <Dialog title={revoking ? `撤销“${revoking.label}”？` : '撤销配对'} isOpen={Boolean(revoking)} onOpenChange={open => { if (!open && !busy) setRevoking(null); }} isPending={busy} size="sm">
       <DialogBody>
