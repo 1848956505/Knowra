@@ -65,11 +65,19 @@ async function createInUi(page, request, name, snippetId) {
   const selection = page.getByRole('dialog', { name: '选择客户端', exact: true });
   await expect(selection).toBeVisible();
   await selection.getByRole('button', { name: `使用 ${name}`, exact: true }).click();
-  const consent = page.getByRole('dialog', { name: '允许外部 AI 客户端读取笔记？', exact: true });
+  const consent = page.getByRole('dialog', { name: '选择外部 AI 客户端权限', exact: true });
   await expect(consent.getByRole('textbox', { name: '客户端名称' })).toHaveValue(name);
   await expect(consent.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
   assert.equal((await request(PAIRINGS)).items.length, 0, '选择客户端不会提前创建授权');
+  const scope = consent.getByRole('button', { name: /授权范围/ });
+  await expect(scope).toContainText('不授权普通笔记（仅任务工作区）');
+  await scope.click();
+  await page.getByRole('option', { name: '当前知识空间', exact: true }).click();
+  await expect(scope).toContainText('当前知识空间');
+  await expect(consent.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
+  assert.equal((await request(PAIRINGS)).items.length, 0, '选择普通笔记范围仍需明确同意，不能提前创建授权');
   const egressConsent = consent.getByRole('checkbox', { name: '我了解所选范围内的笔记片段会发给该客户端所属的厂商', exact: true });
+  await expect(egressConsent).not.toBeChecked();
   // react-aria 的真实 input 为读屏/键盘保留，指针交互应点击可见 label。
   await consent.getByText('我了解所选范围内的笔记片段会发给该客户端所属的厂商', { exact: true }).click();
   await expect(egressConsent).toBeChecked();
@@ -81,6 +89,8 @@ async function createInUi(page, request, name, snippetId) {
   const pairing = overview.items[0];
   assert.equal(pairing.label, name);
   assert.equal(pairing.status, 'active');
+  assert.deepEqual(pairing.scope, { kind: 'library' });
+  assert.deepEqual(pairing.taskWorkspaceGrants, []);
   assert.equal(pairing.allowKnowledgeRead, false);
   assert.equal(pairing.allowPropose, false);
   const snippet = dialog.locator(`pre[aria-label="${snippetId} 配置"]`);

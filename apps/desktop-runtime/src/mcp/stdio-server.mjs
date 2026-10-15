@@ -8,7 +8,7 @@ import { createAdapterHandlers } from './adapter-core.mjs';
 export async function runStdioAdapter({ pairingFile, version = '0.1.0' }) {
   const handlers = createAdapterHandlers({ client: connectMcpRuntime({ pairingFile }) });
   const server = new Server({ name: 'knowra', version }, { capabilities: { tools: {} },
-    instructions: '知境·Knowra 授权知识库访问：先用 workspace_describe / notes_list 了解可读笔记范围，再用 notes_search / notes_read / annotations_list 读取原文。knowledge_search / knowledge_read 需要独立的全部知识读取授权；默认搜索 confirmed，其他审核状态须明确指定。只有单独获准的配对可以 knowledge_propose 提交待审核候选，用 proposals_get 查看状态；没有确认、直接修改或删除知识的工具。' });
+    instructions: '知境·Knowra 独立授权访问：任务工作区先用 task_workspaces_list / tasks_list；任务协写与执行分别授权，图片读取需单独授权且必须给出精确文档版本；提交后由用户验收，没有发布、验收或取消任务的工具。仅任务配对不提供普通笔记或知识工具。知识库访问：先用 workspace_describe / notes_list 了解可读笔记范围，再用 notes_search / notes_read / annotations_list 读取原文。knowledge_search / knowledge_read 需要独立的全部知识读取授权；默认搜索 confirmed，其他审核状态须明确指定。只有单独获准的配对可以 knowledge_propose 提交待审核候选，用 proposals_get 查看状态；没有确认、直接修改或删除知识的工具。' });
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     try { return await handlers.listTools(); }
     catch (error) { throw Object.assign(new Error(`${error?.code ?? 'MCP_INTERNAL'}：${error?.message ?? '无法获取工具清单。'}`), { code: -32603 }); }
