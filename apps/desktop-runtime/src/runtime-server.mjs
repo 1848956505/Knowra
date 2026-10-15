@@ -34,6 +34,8 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   let getAi;
   let getAnnotations;
   let getAiFeatures;
+  let getTaskService;
+  let getTaskIdentity;
   let mcp = null;
   let closeHttp;
   const reportCloseStage = stage => {
@@ -41,7 +43,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
   };
   try {
     let activeDirectory = readActiveDirectory(dataDirectory);
-    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+    ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures, getTaskService, getTaskIdentity } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
     // AI 恢复在后台进行，不能延迟本地笔记服务启动。
     void recoverAi;
     const secret = randomBytes(32).toString('hex');
@@ -118,7 +120,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   const record = { restoredAt: new Date().toISOString(), sourceBackupId: backupRoute[1], protectionBackupId: path.basename(protectionDirectory), previousDirectory: activeDirectory };
                   activateRestoredDirectory(dataDirectory, restoredDirectory, record);
                   const previousStore = store;
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = replacement);
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures, getTaskService, getTaskIdentity } = replacement);
                   activeDirectory = restoredDirectory;
                   try { previousStore.close(); } catch (failure) { logger.error?.('Previous local store close failed', failure); }
                   result = { ...record, datasetId: store.getStatus().datasetId, directory: restoredDirectory, syncPaused: true };
@@ -126,7 +128,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
                   if (replacement) { await replacement.closeAi(); await replacement.sync.close(); replacement.store.close(); }
                   // 原资料仍原封不动；重建同步服务以恢复暂停前的可用状态。
                   store.close();
-                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
+                  ({ store, sync, handleApi, recoverAi, closeAi, getAi, getAnnotations, getAiFeatures, getTaskService, getTaskIdentity } = createRuntimeServices({ dataDirectory: activeDirectory, budgetDirectory: dataDirectory, logger, syncOptions, credentialSource, aiRuntimeFactory }));
                   void recoverAi;
                   throw failure;
                 }
@@ -223,7 +225,7 @@ export async function startLocalRuntime({ dataDirectory, distRoot, port = 0, log
     origin = `http://127.0.0.1:${server.address().port}`;
     // 外部 AI 客户端入口只在本机 socket 上；装配失败不能影响本地笔记，只是该入口不可用。
     try {
-      mcp = await startMcpRuntime({ dataDirectory, logger, proposalsEnabled: async () => Boolean((await getAiFeatures?.()?.get())?.knowledgeProposals),
+      mcp = await startMcpRuntime({ dataDirectory, logger, getTaskService: () => getTaskService?.(), getTaskIdentity: () => getTaskIdentity?.(), proposalsEnabled: async () => Boolean((await getAiFeatures?.()?.get())?.knowledgeProposals),
         proposalsNow: () => Boolean(getAiFeatures?.()?.peek().knowledgeProposals),
         tools: mcpTools ?? createMcpTools({ getAnnotations: () => getAnnotations?.(), getAi: () => getAi?.() }), limits: mcpLimits, now: mcpNow,
         // 适配器启动方式由装配方给出：开发时是 node 加源码路径，Mac 应用里是应用自带的可执行文件加打包后的脚本。

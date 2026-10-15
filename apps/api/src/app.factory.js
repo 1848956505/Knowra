@@ -1,3 +1,5 @@
+import { createTaskWorkspaceService } from './modules/task-workspaces/service.js';
+import { createTaskWorkspaceFiles } from './infrastructure/task-workspace-files.js';
 import { createLocalPurgeTaskReader } from './infrastructure/asset-purge-task-state.js';
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
 import path from 'node:path';
@@ -192,7 +194,23 @@ export function createAppContext(options = {}) {
     ? createKnowledgeExtractionTaskService({ ...options.knowledgeExtractionMock, ownerId,
       store: dataStore.knowledgeExtractionTaskStore, createContext: extractionContext, commit: knowledgeExtractionCommit,
       receiptStore: dataStore.knowledgeExtractionCommitStore }) : null;
+  const taskStore = dataStore?.taskWorkspaceStore ?? null;
+  let taskFiles = options.taskWorkspaceFiles ?? null;
+  if (taskStore && !taskFiles) {
+    try { taskFiles = createTaskWorkspaceFiles({ uploadsDirectory: options.uploadsDir ?? resolveStoragePath('storage/uploads') }); }
+    catch { /* 文件能力关闭不影响普通笔记或文字工作区。 */ }
+  }
+  const taskWorkspaces = createTaskWorkspaceService({ store: taskStore, files: taskFiles,
+    authorize: options.authorizeTaskWorkspace ?? (ctx => ctx.actor?.kind === 'user' && ctx.actor.id === ownerId) });
+  const taskWorkspaceContext = (request, response) => {
+    const deadline = Date.now() + 30_000;
+    return { actor: { kind: 'user', id: ownerId },
+      ...(taskStore?.readSnapshot(tx => tx.identity()) ?? { datasetId: null, datasetEpoch: null }),
+      guard: () => !request.aborted && !(response?.destroyed && !response.writableFinished) && Date.now() < deadline };
+  };
   return {
+    taskWorkspaces,
+    taskWorkspaceContext,
     knowledgeExtractionCommit,
     knowledgeExtractionTasks,
     dataStore,

@@ -32,6 +32,8 @@ jobs:
         run: npm run prisma:generate
       - name: 纯构建候选 APP（不安装）
         run: npm run build:mac
+      - name: 验证候选 APP 的 PNG、JPEG、WebP 原生解码
+        run: node apps/desktop-shell/scripts/native-image-runtime.mjs "dist/mac/知境·Knowra-darwin-arm64/知境·Knowra.app/Contents/Resources/app"
       - name: 校验 zip 解压后的身份、哈希、签名和隔离合成数据测试
         run: npm run test:mac
       - name: 保存合成退出诊断（不包含资料库或凭据）

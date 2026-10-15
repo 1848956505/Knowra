@@ -64,7 +64,7 @@ export function McpConnectionDialog({ pairing, adapter, initialClient, onClose, 
         {copied === 'ok' ? <p role="status">已复制。请在客户端保存并重新加载；复制不代表连接成功。</p> : null}
         {copied === 'failed' ? <p role="alert">无法写入剪贴板，请手动选择上面的文字复制。</p> : null}
       </> : <p role="alert">{valid ? '此版本没有内置外部客户端适配器，无法生成连接方式。请使用包含适配器的新版应用。' : '此配对不可用，请关闭向导，重新创建配对并替换客户端配置。'}</p>}
-      <p>配置只包含启动命令与配对文件路径，没有令牌。保持知境运行，重新加载客户端的 MCP 配置，然后在客户端请求调用 knowra 的 notes_search 工具搜索一条已授权笔记。</p>
+      <p>配置只包含启动命令与配对文件路径，没有令牌。保持知境运行，重新加载客户端的 MCP 配置，然后在客户端请求调用 knowra 的 {currentPairing.scope.kind === 'none' ? 'task_workspaces_list 工具列出已授权任务工作区。' : 'notes_search 工具搜索一条已授权笔记。'}</p>
       <div className={styles.actions}><Button variant="primary" isPending={checking} isDisabled={checking} onPress={() => void inspect()}>检查连接</Button></div>
       {checking ? <p role="status">正在读取本地状态与最近调用记录…</p> : null}
       {error ? <p role="alert">{error}</p> : null}

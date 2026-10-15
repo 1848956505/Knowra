@@ -5,6 +5,7 @@ import { build } from 'esbuild';
 import { packager } from '@electron/packager';
 import { execFileSync } from 'node:child_process';
 import { readBuildInfo, resolveBuildInfo } from '../../../scripts/build-info.mjs';
+import { stageNativeImageRuntime, verifyNativeImageRuntime } from './native-image-runtime.mjs';
 import { SHELL_FILES } from './shell-files.mjs';
 import { CANDIDATE_DISTRIBUTION } from './verify-distribution.mjs';
 import { assertDesktopBuild, sha256 } from '../../../scripts/release-artifact.mjs';
@@ -22,7 +23,7 @@ const output = path.join(repo, 'dist/mac');
 fs.rmSync(staging, { recursive: true, force: true });
 fs.mkdirSync(staging, { recursive: true });
 for (const name of SHELL_FILES) fs.copyFileSync(path.join(repo, 'apps/desktop-shell/src', name), path.join(staging, name));
-await build({ entryPoints: [path.join(repo, 'apps/desktop-shell/src/runtime-entry.mjs')], outfile: path.join(staging, 'runtime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', external: ['@prisma/client'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
+await build({ entryPoints: [path.join(repo, 'apps/desktop-shell/src/runtime-entry.mjs')], outfile: path.join(staging, 'runtime.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node24', external: ['@prisma/client', 'sharp'], banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });
 for (const name of ['worker-child', 'provider-child']) {
   await build({ entryPoints: [path.join(repo, 'apps/api/src/modules/ai', `${name}.js`)],
     outfile: path.join(staging, `${name}.js`), bundle: true, platform: 'node', format: 'esm', target: 'node24',
@@ -36,6 +37,8 @@ fs.cpSync(path.join(repo, 'apps/web-v4/dist'), path.join(staging, 'web'), { recu
 const version = buildInfo.version;
 fs.writeFileSync(path.join(staging, 'build-info.json'), `${JSON.stringify(buildInfo, null, 2)}\n`);
 fs.writeFileSync(path.join(staging, 'package.json'), JSON.stringify({ name: 'knowra-desktop', productName: '知境·Knowra', version, main: 'main.cjs', description: '知境·Knowra 个人离线知识工作台', author: 'Knowra', private: true }));
+stageNativeImageRuntime({ repo, staging, platform: 'darwin', arch: 'arm64' });
+await verifyNativeImageRuntime(staging);
 const apps = await packager({ electronZipDir: process.env.KNOWRA_ELECTRON_ZIP_DIR, dir: staging, out: output, name: '知境·Knowra', icon: path.join(repo, 'apps/desktop-shell/assets/Knowra.icns'), executableName: 'Knowra', appBundleId: 'com.knowra.personal', appVersion: version, buildVersion: `${version}.1`, platform: 'darwin', arch: 'arm64', electronVersion: JSON.parse(fs.readFileSync(path.join(repo, 'node_modules/electron/package.json'))).version, overwrite: true, asar: false, prune: false, darwinDarkModeSupport: true, extendInfo: { NSHumanReadableCopyright: 'Knowra 个人使用版', KnowraBuildCommit: buildInfo.commit || 'unknown', KnowraBuildState: buildInfo.state, KnowraBuiltAt: buildInfo.builtAt } });
 for (const directory of apps) {
   const application = path.join(directory, '知境·Knowra.app');

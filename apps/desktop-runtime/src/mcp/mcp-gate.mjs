@@ -46,7 +46,7 @@ export function validateInput(schema, input) {
  * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
  * 因此响应内容与清单来自同一处，工具实现无法绕过。
  */
-export function createMcpGate({ pairings, getAccess, getEntityResult = null, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, audit, limits = {}, now = () => new Date() } = {}) {
+export function createMcpGate({ pairings, getAccess, getEntityResult = null, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, taskExecutor = null, audit, limits = {}, now = () => new Date() } = {}) {
   const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
   const windows = new Map();
   const inflight = new Map();
@@ -182,6 +182,15 @@ export function createMcpGate({ pairings, getAccess, getEntityResult = null, fla
     try {
       pairings.assertActive(row);
       assertFlags();
+      if (taskExecutor && Object.hasOwn(taskExecutor.tools, tool)) {
+        if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
+        admit(row); admitted = true;
+        const outcome = await taskExecutor.call(row, tool, input, () => { pairings.assertActive(row); assertFlags(); });
+        taskExecutor.assertCurrent(outcome);
+        audit.append({ ...base, status: 'ok', fragments: 0, bytes: Buffer.byteLength(JSON.stringify(outcome), 'utf8'), manifest: [] });
+        return outcome;
+      }
+      if (row.scope?.kind === 'none') throw mcpError('MCP_SCOPE_FORBIDDEN', '此配对仅授权任务工作区，未授权普通笔记或知识。', { status: 403 });
       const entry = Object.hasOwn(tools, tool) ? normalize(tools[tool]) : null;
       const handler = entry?.run ?? null;
       if (!handler) throw mcpError('MCP_TOOL_UNKNOWN', '未知工具。', { status: 404 });
@@ -274,11 +283,11 @@ export function createMcpGate({ pairings, getAccess, getEntityResult = null, fla
   function describeTools({ token }) {
     const row = pairings.authenticate(token);
     pairings.assertActive(row);
-    return Object.entries(tools).filter(([name, raw]) => (!normalize(raw).write || row.allowPropose)
+    return [...Object.entries(tools).filter(([name, raw]) => row.scope?.kind !== 'none' && (!normalize(raw).write || row.allowPropose)
       && (!(normalize(raw).knowledgeRead || ['knowledge_search', 'knowledge_read'].includes(name)) || row.allowKnowledgeRead === true)).map(([name, raw]) => {
       const entry = normalize(raw);
       return { name, description: entry.description ?? '', inputSchema: entry.inputSchema ?? { type: 'object', properties: {}, additionalProperties: false } };
-    });
+    }), ...(taskExecutor?.describe(row) ?? [])];
   }
-  return { call, describeTools, limits: limit, forgetGrant: id => { grants.delete(id); ledgers.delete(id); } };
+  return { call, describeTools, assertResult: result => { if (result?.taskContent !== undefined) taskExecutor?.assertCurrent(result); }, limits: limit, forgetGrant: id => { grants.delete(id); ledgers.delete(id); } };
 }

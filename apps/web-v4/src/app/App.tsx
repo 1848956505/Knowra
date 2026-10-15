@@ -240,7 +240,7 @@ export function App() {
       contextSidebar={isNotesIndex || isNoteEditor ? (
         <NotesContextSidebar onOpenNote={openNote} onOpenIndex={openNotesIndex} onOpenSearch={() => setSearchOpen(true)} />
       ) : undefined}
-      stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? 'workspace' : 'default'}
+      stageMode={isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' || routeDomain === 'task-workspaces' ? 'workspace' : 'default'}
       desktopTitlebarEditor={isNoteEditor && Boolean(editorNote)}
       desktopTitlebarTabs={openNoteTabs.length > 0 ? <EditorTabs
         notes={openNoteTabs}
@@ -324,7 +324,7 @@ export function App() {
       mobileTabs
       liveAnnouncement={liveAnnouncement}
     >
-      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' ? styles.routeWorkspace : ''}`}>
+      <div className={`${styles.route} ${isNoteEditor || isNotesIndex || isTagManager || isSettingsActive || isAssistantActive || isKnowledgeWorkspace || routeDomain === 'training' || routeDomain === 'task-workspaces' ? styles.routeWorkspace : ''}`}>
         <RecoveryDraftNotice onOpenNote={openNote} />
         <BudgetAlertBanner />
         <AppRoutes

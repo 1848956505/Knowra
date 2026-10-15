@@ -1,3 +1,9 @@
+import { taskWorkspaceCommitGuardTests } from './task-workspace-commit-guard.test.js';
+import { taskWorkspaceDiskIdentityTests } from './task-workspace-disk-identity.test.js';
+import { taskWorkspaceBoundaryTests } from './task-workspace-boundaries.test.js';
+import { taskWorkspacePersistenceTests } from './task-workspace-persistence.test.js';
+import { taskWorkspaceHttpTests } from './task-workspace-http.test.js';
+import { taskWorkspaceServiceTests } from './task-workspace-service.test.js';
 import { noteDependencyLifecycleTests } from './note-dependency-lifecycle.test.js';
 import { spaceAssetLifecyclePostgresTests } from './space-asset-lifecycle-postgres.test.js';
 import { spaceAssetLifecycleTests } from './space-asset-lifecycle.test.js';
@@ -128,6 +134,12 @@ import { annotationListPostgresTests } from './annotation-list-postgres.test.js'
 import { annotationListTests } from './annotation-list.test.js';
 
 const tests = [
+  ...taskWorkspaceServiceTests,
+  ...taskWorkspaceHttpTests,
+  ...taskWorkspacePersistenceTests,
+  ...taskWorkspaceDiskIdentityTests,
+  ...taskWorkspaceCommitGuardTests,
+  ...taskWorkspaceBoundaryTests,
   ...noteDependencyLifecycleTests,
   ...spaceAssetLifecycleTests,
   ...spaceAssetLifecyclePostgresTests,

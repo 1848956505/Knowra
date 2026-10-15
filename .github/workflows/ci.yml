@@ -102,6 +102,15 @@ jobs:
           npx playwright install --with-deps chromium
           npm run test:e2e -w @study-accelerator/desktop-runtime
 
+      - name: Save synthetic task workspace screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-workspace-journey-${{ github.sha }}
+          path: test-results/task-workspace-journey/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Audit production dependencies
         # Prisma is future scaffolding and reaches its CLI through an optional
         # peer dependency. Audit the dependencies shipped by the active runtime.

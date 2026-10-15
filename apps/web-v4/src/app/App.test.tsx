@@ -1,3 +1,5 @@
+// 本套验证真实编辑交互；预加载编辑器模块，避免把 Vite 冷编译计入正文就绪断言。
+import '../features/editor/MilkdownNoteEditor';
 import { StrictMode, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createEmptyWorkspaceSnapshot, normalizeNotes, type Note, type WorkspaceApi } from '@study-accelerator/web-core';

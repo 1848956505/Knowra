@@ -17,6 +17,7 @@ export function connectionEvidence(check: ConnectionCheck) {
   const permission = !pairing ? '找不到此配对，请返回列表确认或重新创建。'
     : pairing.status === 'revoked' ? '配对已撤销，请重新创建并替换客户端配置。'
     : pairing.status === 'expired' ? '配对已过期，请重新创建并替换客户端配置。'
+    : pairing.scope.kind === 'none' && pairing.taskWorkspaceReauthorizationRequired ? '任务工作区授权已失效，请重新选择并确认权限。'
     : !check.overview.aiEnabled ? 'AI 功能未开启，请先在设置中开启。'
     : !check.overview.egressEnabled ? '外发已被紧急停止，请确认后恢复外发。'
     : '配对有效，AI 与外发开关已开启。';
