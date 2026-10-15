@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 知识提炼提示词 A/B 实验：用同一批 Markdown 笔记分别跑线上 v1 提示词与 v2 草案，输出对比报告。
 // 只读笔记文件、只调用 DeepSeek，不写知识库。API key 只从环境变量读取，不打印、不落盘。
+// 默认输出到被 git 忽略的 storage/；原始报告含笔记摘录，禁止上传到公开仓库。
 //
 // 用法（仓库根目录，已 npm install）：
 //   node scripts/experiments/knowledge-extraction-ab/run.mjs --notes <笔记目录或单个 .md> [--out <输出目录>]
@@ -17,7 +18,7 @@ const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const MAX_NOTE_CHARACTERS = 120_000;
 
 export function parseArgs(argv) {
-  const args = { variants: ['v1', 'v2'], model: 'deepseek-chat', out: 'tmp-knowledge-ab', dryRun: false, temperature: 0 };
+  const args = { variants: ['v1', 'v2'], model: 'deepseek-chat', out: 'storage/experiments/knowledge-extraction-ab', dryRun: false, temperature: 0 };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     const next = () => { const value = argv[++i]; if (value === undefined) throw new Error(`${flag} 缺少参数`); return value; };
@@ -93,7 +94,8 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
 
   const runsByVariant = {};
   for (const variant of args.variants) {
-    // v2 模拟知识库逐渐增长：每处理完一篇，把本篇合格候选的标题加入“已有知识点”，供后续笔记复用。
+    // v2 模拟知识库逐渐增长：只有整篇候选全部通过当前线上引文定位规则，
+    // 才把标题模拟采纳到下一篇。此为实验上下文，并非用户确认的正式知识。
     const existing = [...seedTitles];
     runsByVariant[variant] = [];
     for (const note of notes) {
@@ -117,9 +119,9 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
           run.check = { ok: false, batchError: null, candidates: [] };
         }
       }
-      if (variant === 'v2') {
+      if (variant === 'v2' && run.check.ok) {
         for (const candidate of run.check.candidates) {
-          if (candidate.problems.length === 0 && !existing.includes(candidate.title)) existing.push(candidate.title);
+          if (!existing.includes(candidate.title)) existing.push(candidate.title);
         }
       }
       runsByVariant[variant].push(run);
@@ -131,7 +133,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
   const report = renderReport({ variants: args.variants, summaries, runsByVariant, meta: {
     generatedAt: new Date().toISOString(), model: args.model, temperature: args.temperature,
     notesLabel: path.basename(path.resolve(args.notes)),
-    existingNote: seedTitles.length ? `预置 ${seedTitles.length} 条，并随处理逐篇累积` : `无预置，随处理逐篇累积（${PROMPT_V2_VERSION}）`
+    existingNote: seedTitles.length ? `预置 ${seedTitles.length} 条；整批校验通过才模拟累积（${PROMPT_V2_VERSION}）` : `无预置；整批校验通过才模拟累积（${PROMPT_V2_VERSION}）`
   } });
   await writeFile(path.join(args.out, 'report.md'), report);
   await writeFile(path.join(args.out, 'raw.json'), JSON.stringify({ runsByVariant, summaries: Object.fromEntries(
