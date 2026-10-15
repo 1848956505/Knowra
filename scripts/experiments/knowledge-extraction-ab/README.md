@@ -40,6 +40,18 @@ node --test scripts/test/knowledge-extraction-ab.test.js
 
 **关于隐私：** 真实运行的 `raw.json`、`report.md` 和 `*.request.json` 可能包含笔记原文及 AI 输出，**不得提交到 GitHub，尤其是公开仓库**。默认输出放在忽略目录；若使用 `--out` 自定位置，请确保它位于 Git 忽略目录或仓库外。请勿在命令中明文写 API key。真实实验请只使用获准外发的资料。
 
+## GitHub Actions：Secret 不进入聊天
+
+仓库的 [Knowledge extraction A/B (synthetic DeepSeek)](../../../.github/workflows/knowledge-extraction-ab.yml) 专用工作流读取 **Repository Secret `DEEPSEEK`**，仅在执行模型调用的步骤将其映射为 `DEEPSEEK_API_KEY`。不需要公开密钥，也不必将它保存到 Markdown、GitHub Issue 或代码中。
+
+- 工作流**只会使用本目录 `fixtures/` 下的三篇公开合成笔记**，按 v1、v2 各调用一次每篇，共最多 6 次请求；`--max-tokens 2048` 为每次请求限定模型输出上限。
+- 第一次合并此工作流到 `main` 时自动跑一次；后续可以在 GitHub Actions 页面手动运行，**不监听 PR、其它分支 push 或定时事件**。
+- 如果 Secret 缺失或无效，将按错误停止，不会尝试获取或打印密钥。
+- Actions step summary 只显示汇总指标，Artifacts **仅上传合成样本的 `report.md`**（保留 7 天）。完整 `raw.json` 不上传。
+- 供应商错误响应内容不会原样打印到公开日志；对比结果仅代表**合成笔记上的一次运行**，不能代表真实私人笔记的普遍表现。
+- 本工具不会接入 Knowra 生产提炼、不会读取用户笔记、不会保存正式知识点，也不会向 GitHub 提交实验结果。
+- 使用 Repository Secret 时，应限制仓库写入权限；具有写权限的协作者可能通过修改 workflow 来使用 Secret。试验完成如不再需要，可删除或轮换此 Secret。
+
 ## 推荐测试设计
 
 1. **引用可靠性**：原偏移、唯一 quote 重定位、多处 quote、找不到 quote、含 emoji 的 UTF-16 边界。
