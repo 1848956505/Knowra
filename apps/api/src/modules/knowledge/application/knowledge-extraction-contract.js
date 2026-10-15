@@ -132,17 +132,17 @@ export function validateKnowledgeExtractionResult({ request, result } = {}) {
     const provenance = Array.from(candidate.citations, (citation) => {
       assertKeys(citation, ['sourceId', 'start', 'end', 'quote']);
       const source = byId.get(citation.sourceId);
-      if (!source || !validRange(citation.start, citation.end, source.markdown)
-        || !text(citation.quote, LIMITS.quoteCharacters)
-        || citation.quote !== source.markdown.slice(citation.start, citation.end)) {
+      if (!source || !Number.isSafeInteger(citation.start) || !Number.isSafeInteger(citation.end)
+        || !text(citation.quote, LIMITS.quoteCharacters)) {
         fail('KNOWLEDGE_EXTRACTION_CITATION_INVALID', '提炼引文必须逐字对应所选范围，不能引用范围之外的内容。');
       }
-      const identity = `${source.sourceId}:${citation.start}:${citation.end}`;
+      const { start, end } = anchorQuote(source.markdown, citation);
+      const identity = `${source.sourceId}:${start}:${end}`;
       if (used.has(identity)) fail('KNOWLEDGE_EXTRACTION_CITATION_INVALID', '同一候选不能重复引用同一片段。');
       used.add(identity);
       return {
         sourceId: source.sourceId, noteId: source.noteId, noteVersionId: source.noteVersionId,
-        contentHash: source.contentHash, start: source.start + citation.start, end: source.start + citation.end,
+        contentHash: source.contentHash, start: source.start + start, end: source.start + end,
         quoteText: citation.quote, annotationRevisions: structuredClone(source.annotationRevisions)
       };
     });
@@ -162,6 +162,20 @@ export function validateKnowledgeExtractionResult({ request, result } = {}) {
   // 对已解析对象也执行整体大小限制。所有字段先经上面的白名单和长度校验。
   if (Buffer.byteLength(JSON.stringify(result), 'utf8') > LIMITS.resultBytes) fail('KNOWLEDGE_EXTRACTION_RESULT_TOO_LARGE', '提炼结果超出大小限制。');
   return { requestId: request.requestId, scopeId: request.scopeId, inputHash: request.inputHash, outputHash: hash(result), candidates };
+}
+
+/**
+ * 模型能逐字复制原文，却常把 UTF-16 偏移数错。偏移只作提示：与 quote 逐字吻合时直接采用；
+ * 否则在本片段中按 quote 定位，必须恰好出现一次（与 Agent 知识提议的定位规则一致），
+ * 找不到或出现多次仍然拒绝，“引文逐字来自所选范围”的约束不放松。
+ */
+export function anchorQuote(markdown, { start, end, quote }) {
+  if (validRange(start, end, markdown) && markdown.slice(start, end) === quote) return { start, end };
+  const first = markdown.indexOf(quote);
+  if (first === -1) fail('KNOWLEDGE_EXTRACTION_CITATION_INVALID', '提炼引文必须逐字对应所选范围，不能引用范围之外的内容。');
+  if (markdown.indexOf(quote, first + 1) !== -1) fail('KNOWLEDGE_EXTRACTION_CITATION_INVALID', '提炼引文在所选范围中出现多次，偏移又不吻合，无法唯一定位。');
+  if (!validRange(first, first + quote.length, markdown)) fail('KNOWLEDGE_EXTRACTION_CITATION_INVALID', '提炼引文不能切断 emoji 代理对。');
+  return { start: first, end: first + quote.length };
 }
 
 function assertKeys(value, keys) {
