@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ApiRequestError } from '@study-accelerator/web-core';
 import { ExternalClientSettings } from './ExternalClientSettings';
 import { claudeCodeSnippet, codexSnippet, externalClients, type McpOverview, type McpPairing } from './externalClients';
@@ -27,7 +28,7 @@ beforeEach(() => {
   loadWorkspace.mockResolvedValue(undefined);
   storeState.current = workspace();
   (globalThis as { knowraRuntime?: unknown }).knowraRuntime = { persistenceMode: 'desktop-local' };
-  Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue(undefined) } });
 });
 afterEach(() => { delete (globalThis as { knowraRuntime?: unknown }).knowraRuntime; });
 
@@ -371,5 +372,21 @@ it('选择客户端可取消；返回重选清空权限确认，不提前创建�
   expect(within(permission).getByRole('textbox', { name: /客户端名称/ })).toHaveValue('Codex');
   expect(within(permission).getByRole('checkbox', { name: /我了解所选范围内的笔记片段/ })).not.toBeChecked();
   expect(within(permission).getByRole('button', { name: '创建配对' })).toBeDisabled();
+  expect(externalClients.create).not.toHaveBeenCalled();
+});
+
+
+it.each(['取消', 'Escape'])('选择与授权共用焦点范围，授权步骤%s后回到添加入口', async dismiss => {
+  const user = userEvent.setup();
+  vi.mocked(externalClients.overview).mockResolvedValue(overview());
+  render(<ExternalClientSettings />);
+  const trigger = await screen.findByRole('button', { name: '添加外部客户端' });
+  await user.click(trigger);
+  await user.click(await screen.findByRole('button', { name: '使用 Claude Code' }));
+  const permission = await screen.findByRole('dialog', { name: '允许外部 AI 客户端读取笔记？' });
+  if (dismiss === 'Escape') await user.keyboard('{Escape}');
+  else await user.click(within(permission).getByRole('button', { name: '取消' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
   expect(externalClients.create).not.toHaveBeenCalled();
 });

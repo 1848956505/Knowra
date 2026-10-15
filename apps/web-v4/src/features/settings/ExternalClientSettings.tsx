@@ -182,9 +182,10 @@ function ExternalClientPanel() {
     {error && !createOpen && !revoking && !knowledgePairing ? <p role="alert" className={styles.modelError}>{error}</p> : null}
     {!loading && !overview && !unsupported ? <Button size="compact" onPress={() => setAttempt(value => value + 1)}>重试读取</Button> : null}
 
-    {chooseOpen ? <McpClientChoice onChoose={openCreate} onClose={() => setChooseOpen(false)} /> : null}
-
-    <Dialog title="允许外部 AI 客户端读取笔记？" isOpen={createOpen} onOpenChange={open => { if (!busy) setCreateOpen(open); }} isPending={busy} size="md">
+    {/* 步骤共用同一焦点范围，取消/Escape 始终归还最初的添加入口。 */}
+    <Dialog title={chooseOpen ? '选择客户端' : '允许外部 AI 客户端读取笔记？'} isOpen={chooseOpen || createOpen}
+      onOpenChange={open => { if (!open && !busy) { setChooseOpen(false); setCreateOpen(false); } }} isPending={busy} size="md">
+      {chooseOpen ? <McpClientChoice onChoose={openCreate} onClose={() => setChooseOpen(false)} /> : <>
       <DialogBody>
         <div className={styles.dialogFields}>
           <p className={styles.dialogNote}>2 确认权限 · {clientNames[client]}。创建后再配置和检查连接。</p>
@@ -214,6 +215,7 @@ function ExternalClientPanel() {
         <Button variant="ghost" isDisabled={busy} onPress={() => setCreateOpen(false)}>取消</Button>
         <Button variant="primary" isPending={busy} isDisabled={!canCreate} onPress={() => void create()}>创建配对</Button>
       </DialogFooter>
+      </>}
     </Dialog>
 
     <Dialog title={knowledgePairing ? `允许“${knowledgePairing.label}”读取全部知识点？` : '允许读取知识点'} isOpen={Boolean(knowledgePairing)}
