@@ -239,8 +239,12 @@ test('真实页面与 stdio：创建图文任务、领取协写、退回重做�
     await contexts[1].click();
     await page.getByRole('button', { name: '合成图文说明', exact: true }).click();
     await expect(contexts[1]).toHaveAttribute('aria-expanded', 'false');
-    await expect(contexts[1]).toBeFocused();
+    // 打开文档发生路由切换：沿用 App 的 feature-stage 焦点语义，
+    // 不与新内容导航争抢焦点；Escape/取消的触发器恢复在上面单独强断言。
+    await expect.poll(() => routeIds().get('document')).toBe(documentId);
+    await expect(page.locator('#feature-stage')).toBeFocused();
     await expect(editor).toBeVisible();
+    await expect(editorRegion.getByRole('textbox', { name: '文档标题', exact: true })).toHaveValue('合成图文说明');
     await page.getByRole('button', { name: '任务看板', exact: true }).click();
     await expect(taskCard).toBeVisible();
   }
