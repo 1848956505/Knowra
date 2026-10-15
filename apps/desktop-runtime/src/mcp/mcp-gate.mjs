@@ -1,3 +1,4 @@
+import { createRemoteBindingPort } from './remote-binding-port.mjs';
 import { calculateContentHash } from '@study-accelerator/content-anchor';
 import { randomUUID } from 'node:crypto';
 import { mcpError } from './mcp-error.mjs';
@@ -46,8 +47,9 @@ export function validateInput(schema, input) {
  * 工具只能返回“正文片段 + 偏移”，由本出口逐条对照授权范围内笔记的当前正文复核，再生成响应与片段清单，
  * 因此响应内容与清单来自同一处，工具实现无法绕过。
  */
-export function createMcpGate({ pairings, getAccess, getEntityResult = null, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, taskExecutor = null, audit, limits = {}, now = () => new Date() } = {}) {
+export function createMcpGate({ pairings, getAccess, getEntityResult = null, flags, proposalsEnabled = async () => false, proposalsNow = () => false, tools = {}, taskExecutor = null, remoteAuthority = null, audit, limits = {}, now = () => new Date() } = {}) {
   const limit = { ...DEFAULT_MCP_LIMITS, ...limits };
+  const remotePort = createRemoteBindingPort({ authority: remoteAuthority, pairings });
   const windows = new Map();
   const inflight = new Map();
   const grants = new Map();
@@ -177,19 +179,29 @@ export function createMcpGate({ pairings, getAccess, getEntityResult = null, fla
   async function call({ token, tool, input = {} }) {
     let row;
     try { row = pairings.authenticate(token); } catch (error) { audit.append({ event: 'rejected', status: 'error', code: error.code }); throw error; }
+    return callForRow(row, { tool, input });
+  }
+  async function callForRow(row, { tool, input }, remote = null) {
     const base = { event: 'call', pairingId: row.pairingId, tool: typeof tool === 'string' ? tool.slice(0, 64) : '?' };
     let admitted = false;
     try {
+      remote?.guard();
       pairings.assertActive(row);
       assertFlags();
       if (taskExecutor && Object.hasOwn(taskExecutor.tools, tool)) {
         if (!isPlainObject(input)) throw mcpError('MCP_REQUEST_INVALID', '工具参数必须是对象。', { status: 400 });
         admit(row); admitted = true;
-        const outcome = await taskExecutor.call(row, tool, input, () => { pairings.assertActive(row); assertFlags(); });
+        const outcome = await taskExecutor.call(row, tool, input, () => { remote?.guard(); pairings.assertActive(row); assertFlags(); }, remote?.track);
+        remote?.guard();
         taskExecutor.assertCurrent(outcome);
+        if (remote) {
+          // 同一同步段交给受信发送端；不把正文结果作为可重发 Promise 返回值暴露。
+          if (remote.deliver(outcome) !== undefined) throw mcpError('MCP_REMOTE_DELIVERY_INVALID', '远程发送端必须同步接收结果。', { status: 500 });
+        }
         audit.append({ ...base, status: 'ok', fragments: 0, bytes: Buffer.byteLength(JSON.stringify(outcome), 'utf8'), manifest: [] });
-        return outcome;
+        return remote ? undefined : outcome;
       }
+      if (remote) throw mcpError('MCP_REMOTE_DENIED', '远程任务读取服务未配置。', { status: 403 });
       if (row.scope?.kind === 'none') throw mcpError('MCP_SCOPE_FORBIDDEN', '此配对仅授权任务工作区，未授权普通笔记或知识。', { status: 403 });
       const entry = Object.hasOwn(tools, tool) ? normalize(tools[tool]) : null;
       const handler = entry?.run ?? null;
@@ -289,5 +301,13 @@ export function createMcpGate({ pairings, getAccess, getEntityResult = null, fla
       return { name, description: entry.description ?? '', inputSchema: entry.inputSchema ?? { type: 'object', properties: {}, additionalProperties: false } };
     }), ...(taskExecutor?.describe(row) ?? [])];
   }
-  return { call, describeTools, assertResult: result => { if (result?.taskContent !== undefined) taskExecutor?.assertCurrent(result); }, limits: limit, forgetGrant: id => { grants.delete(id); ledgers.delete(id); } };
+  function assertRemoteRead(handle, request) { remotePort.capture(handle, request).guard(); assertFlags(); }
+  async function callRemoteRead(handle, request, { guard, deliver, track } = {}) {
+    if (typeof track !== 'function' || typeof guard !== 'function' || typeof deliver !== 'function' || deliver.constructor?.name === 'AsyncFunction') throw mcpError('MCP_REMOTE_DELIVERY_INVALID', '远程调用缺少同步出口。', { status: 500 });
+    const binding = remotePort.capture(handle, request);
+    const check = () => { if (guard() !== true) throw mcpError('MCP_REMOTE_DENIED', '远程请求已失效。', { status: 403 }); return binding.guard(); };
+    const row = check();
+    return callForRow(row, request, { guard: check, deliver, track });
+  }
+  return { call, describeTools, assertRemoteRead, callRemoteRead, assertResult: result => { if (result?.taskContent !== undefined) taskExecutor?.assertCurrent(result); }, limits: limit, forgetGrant: id => { grants.delete(id); ledgers.delete(id); } };
 }
