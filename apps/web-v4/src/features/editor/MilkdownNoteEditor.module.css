@@ -48,6 +48,17 @@
   background: var(--accent);
   transform: translateY(-50%);
 }
+/* 按 ul/ol 的视觉嵌套深度区分标记，任务项继续使用独立的复选框。 */
+.milkdownEditor :global(.ProseMirror) :is(ul, ol) ul > li:not([data-item-type='task'])::before {
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  background: transparent;
+}
+.milkdownEditor :global(.ProseMirror) :is(ul, ol) :is(ul, ol) ul > li:not([data-item-type='task'])::before {
+  border: 0;
+  border-radius: 0;
+  background: var(--accent);
+}
 .milkdownEditor :global(.ProseMirror) ol > li:not([data-item-type='task']) {
   position: relative;
   padding-left: 28px;
