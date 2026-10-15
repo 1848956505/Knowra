@@ -233,6 +233,10 @@ for (const viewport of viewports) test(`V5 同步备份状态与设置边界合�
     focusChecks.push('长名称连接方式弹窗完成/Escape 均返回同一客户端入口');
     const addClient = page.getByRole('button', { name: '添加外部客户端', exact: true });
     await addClient.click();
+    const clientChoice = page.getByRole('dialog', { name: '选择客户端', exact: true });
+    await expect(clientChoice).toBeVisible();
+    await clientChoice.getByRole('button', { name: '使用 Claude Code', exact: true }).click();
+    await expect(clientChoice).toBeHidden();
     const creation = page.getByRole('dialog', { name: '允许外部 AI 客户端读取笔记？', exact: true });
     await creation.getByRole('textbox', { name: '客户端名称', exact: true }).fill(syntheticClientName);
     await expect(creation.getByRole('button', { name: '创建配对', exact: true })).toBeDisabled();
