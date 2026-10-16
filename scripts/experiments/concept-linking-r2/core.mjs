@@ -248,6 +248,8 @@ export function markdownReport(runs, meta) {
   }
   const failures = runs.flatMap((run, i) => run.results.filter(result => result.error).map(result => `- 第 ${i + 1} 次 ${result.noteId}：${result.error}`));
   if (failures.length) lines.push('', '## 整篇失败', '', ...failures);
+  const repairs = runs.flatMap((run, i) => run.results.filter(result => result.repaired).map(result => `第 ${i + 1} 次 ${result.noteId}`));
+  if (repairs.length) lines.push('', `**修复了非法 JSON 转义：** ${repairs.join('、')}`);
   const others = runs.flatMap((run, i) => run.grade.rows.filter(row => ['extra', 'rejected'].includes(row.outcome)).map(row => `- 第 ${i + 1} 次 ${row.noteId} ${OUTCOME_LABEL[row.outcome]}：${row.detail}${row.conceptName ? `（${row.conceptName}）` : ''}`));
   if (others.length) lines.push('', '## 额外与被拒条目', '', ...others);
   const created = runs.flatMap((run, i) => run.created.map(concept => `- 第 ${i + 1} 次：${concept.name}（${concept.id}）——${concept.sense}`));
