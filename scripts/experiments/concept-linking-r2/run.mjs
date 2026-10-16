@@ -48,7 +48,12 @@ export async function invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens) {
     // 修复后 quote 仍须逐字出现在原文中，修错的内容会被引用校验拦下。
     const repaired = repairInvalidEscapes(choice.message.content);
     try { return { parsed: JSON.parse(repaired), usage: body.usage, repaired: true }; }
-    catch { throw Error('模型输出不是合法 JSON'); }
+    catch (error) {
+      // 合成样本是公开数据，可以在报告中展示出错位置附近的模型输出，便于定位原因。
+      const position = Number(/position (\d+)/.exec(error.message)?.[1] ?? -1);
+      const snippet = position >= 0 ? choice.message.content.slice(Math.max(0, position - 80), position + 40) : choice.message.content.slice(0, 160);
+      throw Object.assign(Error('模型输出不是合法 JSON'), { diagnostic: `${error.message.slice(0, 120)}｜附近内容：${JSON.stringify(snippet)}` });
+    }
   }
 }
 
@@ -69,7 +74,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
       } catch (error) {
         // 只记录本脚本自己生成的错误类别，不记录供应商响应正文。
         const known = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/.test(error?.message ?? '');
-        results.push({ noteId: note.id, error: known ? error.message : '模型调用失败（其他原因）' });
+        results.push({ noteId: note.id, error: known ? `${error.message}${error.diagnostic ? `（${error.diagnostic}）` : ''}` : '模型调用失败（其他原因）' });
       }
     }
     const grade = gradeRun(results);

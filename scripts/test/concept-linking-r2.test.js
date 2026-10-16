@@ -218,3 +218,11 @@ test('非法 JSON 转义（如 \(、\alpha）被修复，合法转义保持不�
   // 已知局限：\frac、\nabla 恰好是合法转义（\f、\n），解析不报错但内容被改变；这类条目会因 quote 不在原文而被拒。
   assert.equal(JSON.parse(repairInvalidEscapes('{"a":"\\frac"}')).a, '\frac');
 });
+
+test('JSON 无效时报告附出错位置附近的片段', async () => {
+  const out = await mkdtemp(path.join(os.tmpdir(), 'concept-r2-json-'));
+  const fetchImpl = async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{"requestId":"x","links":[{"a":"未闭合}]' } }] }));
+  await main(['--out', out, '--repeats', '1'], { env: { DEEPSEEK_API_KEY: 'k' }, fetchImpl, log: () => {} });
+  const report = await readFile(path.join(out, 'report.md'), 'utf8');
+  assert.match(report, /模型输出不是合法 JSON（.*附近内容/);
+});
