@@ -144,6 +144,21 @@ test('错误归属 ID 即使 JSON 结构合法，也应在结果中扣分',()=>{
   assert.equal(row.provenanceOk,true);
 });
 
+test('评分允许预先明确的合理辅助概念，但会记录与最小集合并非完全一致',()=>{
+  const state=startState(),c=SCENARIOS.find(c=>c.id==='H07'),p=mockProposal(state,c);
+  p.conceptIds=['C_TENSOR_RANK','C_TENSOR'];
+  const event=applyProposal(state,c,p);
+  assert.equal(event.accepted,true);
+  const row=evaluate([event],state).rows.find(x=>x.caseId==='H07');
+  assert.equal(row.conceptOk,true);
+  assert.equal(row.conceptExactOk,false);
+  const invalidState=startState(),bad=mockProposal(invalidState,c);
+  bad.conceptIds=['C_TENSOR_RANK','C_MATRIX_RANK'];
+  const wrong=applyProposal(invalidState,c,bad);
+  assert.equal(wrong.accepted,true);
+  assert.equal(evaluate([wrong],invalidState).rows.find(x=>x.caseId==='H07').conceptOk,false);
+});
+
 test('假模型端到端处理全部10个场景；评分与来源区分可重复',async()=>{
   const prompts=[];
   const mockFetch=async(_url,init)=>{
@@ -164,10 +179,11 @@ test('假模型端到端处理全部10个场景；评分与来源区分可重复
   });
   assert.equal(prompts.length,SCENARIOS.length);
   assert.equal(result.evaluation.scores.valid,10);
+  assert.equal(result.evaluation.scores.conceptsExact,10);
   for(const metric of ['concepts','action','conflicts','reviewStatus','provenance','kind'])
     assert.equal(result.evaluation.scores[metric],10);
   const report=await readFile(path.join(output,'report.md'),'utf8');
-  assert.match(report,/Concept ID 集合：10\/10/);
+  assert.match(report,/必需 Concept ID 均出现、无无关额外节点：10\/10/);
   assert.equal(report.includes('SYNTHETIC_ONLY_TEST_VALUE'),false);
   const raw=await readFile(path.join(output,'result.json'),'utf8');
   assert.equal(raw.includes('SYNTHETIC_ONLY_TEST_VALUE'),false);
