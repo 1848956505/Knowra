@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
 import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
-import { main } from '../experiments/concept-linking-r2/run.mjs';
+import { main, repairInvalidEscapes } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
 const item = (quote, kind = 'fact') => ({ title: quote.slice(0, 10), kind, statement: quote, quote });
@@ -207,4 +207,14 @@ test('整篇失败时报告给出原因类别，不含供应商正文', async ()
   const report = await readFile(path.join(out, 'report.md'), 'utf8');
   assert.match(report, /## 整篇失败/);
   assert.match(report, /finish_reason=length/);
+});
+
+test('非法 JSON 转义（如 \(、\alpha）被修复，合法转义保持不变', () => {
+  const broken = '{"a":"\\(x^2\\) 与 \\alpha","b":"行\\n引号\\"\\u4e2d"}';
+  assert.throws(() => JSON.parse(broken));
+  const fixed = JSON.parse(repairInvalidEscapes(broken));
+  assert.equal(fixed.a, '\\(x^2\\) 与 \\alpha');
+  assert.equal(fixed.b, '行\n引号"中');
+  // 已知局限：\frac、\nabla 恰好是合法转义（\f、\n），解析不报错但内容被改变；这类条目会因 quote 不在原文而被拒。
+  assert.equal(JSON.parse(repairInvalidEscapes('{"a":"\\frac"}')).a, '\frac');
 });

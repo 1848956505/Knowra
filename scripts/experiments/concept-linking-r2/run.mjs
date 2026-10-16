@@ -23,6 +23,11 @@ export function parseArgs(argv) {
   return args;
 }
 
+/** 把 JSON 字符串中不构成合法转义的反斜杠改为双反斜杠；合法转义（\" \\ \/ \b \f \n \r \t \uXXXX）保持不变。 */
+export function repairInvalidEscapes(text) {
+  return text.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\');
+}
+
 export async function invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens) {
   const response = await fetchImpl(ENDPOINT, {
     method: 'POST',
@@ -37,8 +42,14 @@ export async function invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens) {
   const body = await response.json();
   const choice = body?.choices?.[0];
   if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string') throw Error(`DeepSeek 响应未完整结束（finish_reason=${choice?.finish_reason ?? '无'}）`);
-  try { return { parsed: JSON.parse(choice.message.content), usage: body.usage }; }
-  catch { throw Error('模型输出不是合法 JSON'); }
+  try { return { parsed: JSON.parse(choice.message.content), usage: body.usage, repaired: false }; }
+  catch {
+    // 数学内容里模型常写出 \nabla、\frac 之类的非法 JSON 转义。只修这一种：把不合法的反斜杠转义成字面反斜杠。
+    // 修复后 quote 仍须逐字出现在原文中，修错的内容会被引用校验拦下。
+    const repaired = repairInvalidEscapes(choice.message.content);
+    try { return { parsed: JSON.parse(repaired), usage: body.usage, repaired: true }; }
+    catch { throw Error('模型输出不是合法 JSON'); }
+  }
 }
 
 export async function main(argv, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
@@ -52,9 +63,9 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
       const request = modelRequest(state, note);
       if (args.dryRun) { results.push({ noteId: note.id, request, error: 'dry-run' }); continue; }
       try {
-        const { parsed, usage } = await invokeDeepSeek(fetchImpl, env.DEEPSEEK_API_KEY, request, args.maxTokens);
+        const { parsed, usage, repaired } = await invokeDeepSeek(fetchImpl, env.DEEPSEEK_API_KEY, request, args.maxTokens);
         const response = applyResponse(state, note, parsed);
-        results.push({ noteId: note.id, raw: parsed, response, usage, error: response.accepted ? null : response.error });
+        results.push({ noteId: note.id, raw: parsed, response, usage, repaired, error: response.accepted ? null : response.error });
       } catch (error) {
         // 只记录本脚本自己生成的错误类别，不记录供应商响应正文。
         const known = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/.test(error?.message ?? '');
