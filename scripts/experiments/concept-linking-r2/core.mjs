@@ -25,6 +25,14 @@ export function longestCommon(a, b) {
 /** 说明里出现条件、计算或结论类措辞时，多半写进了知识内容（第二轮 R07 换了说法，连续字数检测漏掉）。 */
 export const senseLooksLikeContent = sense => /要求|等于|满足|得到|必须|不满足|计算|步骤|公式|=|≠|结果是|会累加/u.test(sense);
 
+/** 引用去掉标题行、列表序号、代码围栏后没有实质内容，说明陈述只能是推断出来的。 */
+export function quoteHasSubstance(quote) {
+  const body = String(quote).split(/\r?\n/)
+    .filter(line => !/^\s{0,3}#{1,6}\s/.test(line) && !/^\s*```/.test(line))
+    .map(line => line.replace(/^\s*(\d+[、.]|[-*])\s*/, '')).join('').replace(/[\s\p{P}]/gu, '');
+  return body.length >= 4;
+}
+
 const uniqueIn = (full, quote) => typeof quote === 'string' && quote.trim().length > 0
   && full.indexOf(quote) !== -1 && full.indexOf(quote, full.indexOf(quote) + 1) === -1;
 
@@ -40,9 +48,10 @@ export const SYSTEM_PROMPT = [
   '新建概念时，如果你怀疑它和某个候选其实是同一个概念（例如同名或近义），在 possibleDuplicateOf 填那个候选的 id，交给用户决定是否合并；否则填 null。复用概念时 possibleDuplicateOf 为 null。',
   'candidateItems 是候选概念下的已有知识条目。新知识与某个已有条目表达的是同一条可修订陈述时，itemAction=reuse 并给出它的 id，不要改写它；否则 itemAction=new。',
   '操作步骤或计算过程作为一条 procedure，不要拆成零散句子。几条独立的性质要分成几条。',
-  '必须忠于原文：item.quote 从 note.markdown 逐字复制，且在笔记中只出现一次；不要纠正笔记中的错误，不添加笔记没有的事实。',
+  '必须忠于原文：item.quote 从 note.markdown 逐字复制，且在笔记中只出现一次；quote 必须包含这条知识的实质内容，不能只引用标题。',
+  'statement 复述原文的说法，即使你认为原文有误也不要改正、不要替换原文用的术语、不要补充原文没有的内容。你认为原文有误或说法不清时，把意见写进 sourceIssue（不超过 200 字），否则 sourceIssue 为 null。',
   '只返回一个 JSON 对象，不用 Markdown。字段严格为 requestId, links, remarks。',
-  'links 是数组，每项字段严格为 conceptAction, conceptId, newConcept, possibleDuplicateOf, itemAction, existingItemId, item。',
+  'links 是数组，每项字段严格为 conceptAction, conceptId, newConcept, possibleDuplicateOf, itemAction, existingItemId, item, sourceIssue。',
   'conceptAction=reuse 时 conceptId 必须是 candidateConcepts 中的 id，newConcept 为 null；conceptAction=create 时 conceptId 为 null，newConcept 为 {name, sense}。',
   'itemAction=new 时 existingItemId 为 null；itemAction=reuse 时 existingItemId 必须是 candidateItems 中属于所选概念的 id。',
   'item 字段为 title, kind, statement, quote；kind 只能是 definition、fact、procedure、application。',
@@ -59,8 +68,9 @@ const bigrams = text => { const clean = normalize(text); const set = new Set(); 
 /** 简单检索：按字符二元组与笔记的重合度给概念打分，名称权重高于说明。 */
 export function retrieveConcepts(concepts, markdown, k = 8) {
   const target = bigrams(markdown);
-  const overlap = text => [...bigrams(text)].filter(gram => target.has(gram)).length;
-  return concepts.map(concept => ({ concept, score: overlap(concept.name) * 3 + overlap(concept.sense) }))
+  // 按“名称中有多大比例出现在笔记里”打分，而不是按重合个数：否则长名字靠偶然重合的字排到前面（真实笔记里漏掉了“梯度”）。
+  const coverage = text => { const grams = [...bigrams(text)]; return grams.length ? grams.filter(gram => target.has(gram)).length / grams.length : 0; };
+  return concepts.map(concept => ({ concept, score: coverage(concept.name) * 3 + coverage(concept.sense) }))
     .filter(entry => entry.score > 0).sort((a, b) => b.score - a.score).slice(0, k).map(entry => entry.concept);
 }
 
@@ -98,10 +108,12 @@ export function applyResponse(state, note, response) {
   const createdHere = new Map();
   const links = response.links.map((link, index) => {
     const errors = [];
-    if (!hasKeys(link, ['conceptAction', 'conceptId', 'newConcept', 'possibleDuplicateOf', 'itemAction', 'existingItemId', 'item'])) return { index, accepted: false, errors: ['字段不符合契约'] };
+    if (!hasKeys(link, ['conceptAction', 'conceptId', 'newConcept', 'possibleDuplicateOf', 'itemAction', 'existingItemId', 'item', 'sourceIssue'])) return { index, accepted: false, errors: ['字段不符合契约'] };
     const { item } = link;
     if (!hasKeys(item, ['title', 'kind', 'statement', 'quote']) || !validText(item.title, 160) || !validText(item.statement, 1200)
       || !KINDS.has(item.kind) || !uniqueIn(note.markdown, item.quote)) errors.push('条目结构或逐字 quote 不合格');
+    else if (!quoteHasSubstance(item.quote)) errors.push('引用只有标题，没有实质内容');
+    if (link.sourceIssue !== null && !validText(link.sourceIssue, 200)) errors.push('sourceIssue 必须为 null 或不超过 200 字的说明');
     let conceptId = null;
     let conceptAction = link.conceptAction;
     if (link.conceptAction === 'reuse') {
@@ -130,11 +142,12 @@ export function applyResponse(state, note, response) {
         duplicateOfHidden = state.concepts.find(concept => !shownIds.has(concept.id) && normalize(concept.name) === key)?.id ?? null;
         state.concepts.push({ id: conceptId, name: link.newConcept.name.trim(), sense: link.newConcept.sense.trim(), origin: 'created' });
         createdHere.set(key, conceptId);
+        // 只检查真正新建的概念；同一篇里复用同名新概念的条目不再重复判定（真实笔记报告曾因此误标 10 条）。
+        const sense = link.newConcept.sense;
+        const statements = [item.statement, item.quote, ...response.links.map(other => other?.item?.statement ?? ''), ...shownItems.map(entry => entry.statement)];
+        // 连续 6 个以上的字与某条知识相同，视为说明里写进了条目内容（规则判断，需人工复核）。
+        senseAbsorbs = statements.some(text => longestCommon(normalize(sense), normalize(text)) >= 6) || senseLooksLikeContent(sense);
       }
-      const sense = link.newConcept.sense;
-      const statements = [item.statement, item.quote, ...response.links.map(other => other?.item?.statement ?? ''), ...shownItems.map(entry => entry.statement)];
-      // 连续 6 个以上的字与某条知识相同，视为说明里写进了条目内容（规则判断，需人工复核）。
-      senseAbsorbs = statements.some(text => longestCommon(normalize(sense), normalize(text)) >= 6) || senseLooksLikeContent(sense);
     }
     let itemId = link.existingItemId;
     if (link.itemAction === 'new') {
@@ -146,7 +159,7 @@ export function applyResponse(state, note, response) {
       index, accepted: true, conceptAction, conceptId, conceptName: state.concepts.find(concept => concept.id === conceptId).name,
       itemAction: link.itemAction, itemId, title: item.title, kind: item.kind, statement: item.statement, quote: item.quote,
       sense: conceptAction === 'create' ? link.newConcept.sense : null, senseAbsorbs, duplicateOfHidden,
-      possibleDuplicateOf: link.possibleDuplicateOf
+      possibleDuplicateOf: link.possibleDuplicateOf, sourceIssue: link.sourceIssue
     };
   });
   return { accepted: true, links, remarks: typeof response.remarks === 'string' ? response.remarks.slice(0, 300) : '' };
@@ -177,7 +190,9 @@ export function gradeRun(results) {
         else outcome = 'wrong';
         const itemOk = expected.reuseItem ? link.itemAction === 'reuse' && link.itemId === expected.reuseItem
           : link.itemAction === 'new' || (expected.allowItemReuse ?? []).includes(link.itemId);
-        rows.push({ noteId: note.id, span: expected.span, outcome, itemOk, conceptName: link.conceptName, conceptId: link.conceptId,
+        const faithful = expected.mustKeep ? link.statement.includes(expected.mustKeep) : null;
+        const issueFlagged = expected.mustKeep ? Boolean(link.sourceIssue) : null;
+        rows.push({ noteId: note.id, span: expected.span, outcome, itemOk, faithful, issueFlagged, sourceIssue: link.sourceIssue, conceptName: link.conceptName, conceptId: link.conceptId,
           itemAction: link.itemAction, itemId: link.itemId, senseAbsorbs: link.senseAbsorbs, duplicateOfHidden: link.duplicateOfHidden, possibleDuplicateOf: link.possibleDuplicateOf, detail: link.title });
       }
     }
@@ -196,7 +211,8 @@ export function gradeRun(results) {
     itemOk: graded.filter(row => row.outcome !== 'missing' && row.itemOk).length,
     graded: graded.filter(row => row.outcome !== 'missing').length,
     senseAbsorbs: rows.filter(row => row.senseAbsorbs).length,
-    hiddenTest: rows.filter(row => row.noteId === 'R07').map(row => row.outcome)
+    hiddenTest: rows.filter(row => row.noteId === 'R07').map(row => row.outcome),
+    fidelity: rows.filter(row => row.faithful !== null && row.faithful !== undefined).map(row => `${row.faithful ? '保留原话' : '改写了原话'}${row.issueFlagged ? '，标注存疑' : '，未标注'}`)
   };
 }
 
@@ -221,6 +237,7 @@ export function markdownReport(runs, meta) {
   metric('条目新建 / 复用正确', g => `${g.itemOk}/${g.graded}`);
   metric('概念说明含条目内容', g => g.senseAbsorbs);
   metric('R07（正确概念被藏起来）', g => g.hiddenTest.map(o => OUTCOME_LABEL[o] ?? o).join('、') || '—');
+  metric('R09（原文有错）', g => g.fidelity.join('；') || '—');
   lines.push('', '## 逐条结果', '', `| 笔记 | 知识（原文开头） | ${runs.map((_, i) => `第 ${i + 1} 次`).join(' | ')} |`, `| --- | --- | ${runs.map(() => '---').join(' | ')} |`);
   for (const note of NOTES) {
     for (const expected of note.expected) {

@@ -38,7 +38,7 @@ jobs:
       - name: Run no-cost regression tests
         run: node --test scripts/test/concept-linking-r2.test.js
 
-      - name: Run 8 synthetic notes x 3 repeats (24 bounded DeepSeek calls)
+      - name: Run 9 synthetic notes x 3 repeats (27 bounded DeepSeek calls)
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
         shell: bash

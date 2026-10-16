@@ -108,6 +108,13 @@ export const NOTES = Object.freeze([
     markdown: '## 顺序不能换\n矩阵相乘时，把两个因子的先后顺序对调，一般会得到不同的结果。',
     candidates: ['C_MATMUL', 'C_MATRIX', 'C_HADAMARD', 'C_ADD', 'C_DOT', 'C_TRANSPOSE', 'C_DET', 'C_TENSOR'],
     expected: [{ span: '矩阵相乘时，把两个因子的先后顺序对调，一般会得到不同的结果。', accept: ['C_MATMUL'], forbid: ['C_MATRIX', 'C_HADAMARD', 'C_DOT'], reuseItem: 'K_PRE_1' }]
+  },
+  {
+    id: 'R09', title: '输出变成概率',
+    // 故意写错：softmax 的输出之和应为 1。陈述必须保留“等于 0”，并在 sourceIssue 中指出。
+    markdown: '## 输出变成概率\nsoftmax 的输出各项之和等于 0，所以可以把它看成概率分布。',
+    candidates: ['C_SOFTMAX', 'C_CE', 'C_LOSS', 'C_ACT', 'C_NORM', 'C_TENSOR', 'C_ATTN', 'C_EMB'],
+    expected: [{ span: 'softmax 的输出各项之和等于 0，所以可以把它看成概率分布。', accept: ['C_SOFTMAX'], forbid: ['C_CE', 'C_LOSS', 'C_ACT'], mustKeep: '等于 0' }]
   }
 ].map(note => Object.freeze(note)));
 

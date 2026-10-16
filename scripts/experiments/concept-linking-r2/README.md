@@ -35,7 +35,7 @@ R07 新建的概念如果和被藏起来的“矩阵乘法”同名，报告会�
 
     node --test scripts/test/concept-linking-r2.test.js
 
-真实调用由 GitHub Actions 的 “Knowledge Concept linking round 2” 在合入 main 时运行一次（共 24 次 DeepSeek 调用），之后只能手动触发。报告会写进 Step Summary，并自动评论到 issue #163。
+真实调用由 GitHub Actions 的 “Knowledge Concept linking round 2” 在合入 main 时运行一次（共 27 次 DeepSeek 调用），之后只能手动触发。报告会写进 Step Summary，并自动评论到 issue #163。
 
 本地不调用模型：
 
@@ -53,3 +53,11 @@ API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--ke
 
 - 每条链接新增 `possibleDuplicateOf`：新建概念时，模型怀疑它与某个候选是同一概念，就填那个候选的 id，交给用户决定是否合并。
 - 概念说明的检查在“连续 6 字相同”之外，增加条件、计算、结论类措辞的规则（第二轮 R07 的说明换了说法，原规则漏掉）。
+
+## 修复（2026-10-16，真实笔记实验后）
+
+- 检索改为按“名称有多大比例出现在笔记中”打分，不再按重合字数；之前长名字会把“梯度”这类短名字挤出候选。
+- 拒绝只引用标题、没有实质内容的条目。
+- 每条链接新增 `sourceIssue`：模型认为原文有误时写在这里，陈述必须复述原文，不得改正或补充。
+- 新增 R09：故意写错的 softmax 笔记，检验是否保留原话并标注存疑。
+- 修正报告：同一篇里复用同名新概念的条目，不再被误标“说明含内容”。
