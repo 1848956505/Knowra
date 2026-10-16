@@ -25,12 +25,13 @@ export function longestCommon(a, b) {
 /** 说明里出现条件、计算或结论类措辞时，多半写进了知识内容（第二轮 R07 换了说法，连续字数检测漏掉）。 */
 export const senseLooksLikeContent = sense => /要求|等于|满足|得到|必须|不满足|计算|步骤|公式|=|≠|结果是|会累加/u.test(sense);
 
-/** 引用去掉标题行、列表序号、代码围栏后没有实质内容，说明陈述只能是推断出来的。 */
+/** 引用去掉标题行、列表序号、代码围栏后什么都不剩，说明陈述只能是推断出来的。 */
 export function quoteHasSubstance(quote) {
   const body = String(quote).split(/\r?\n/)
     .filter(line => !/^\s{0,3}#{1,6}\s/.test(line) && !/^\s*```/.test(line))
-    .map(line => line.replace(/^\s*(\d+[、.]|[-*])\s*/, '')).join('').replace(/[\s\p{P}]/gu, '');
-  return body.length >= 4;
+    .map(line => line.replace(/^\s*(\d+[、.]|[-*])\s*/, '')).join('').replace(/\s/gu, '');
+  // 只要去掉标题行和代码围栏后还剩内容就算有实质内容；不按长度判断，否则 `A.T` 这类短代码会被误拒。
+  return body.length > 0;
 }
 
 const uniqueIn = (full, quote) => typeof quote === 'string' && quote.trim().length > 0

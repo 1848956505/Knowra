@@ -155,6 +155,8 @@ test('只引用标题的条目被拒；sourceIssue 必须为空或简短说明',
   assert.equal(quoteHasSubstance('## 1.3.1 监督学习'), false);
   assert.equal(quoteHasSubstance('```\nX.sum()\n```'), true);
   assert.equal(quoteHasSubstance('1、张量：多维数组'), true);
+  assert.equal(quoteHasSubstance('A.T'), true);
+  assert.equal(quoteHasSubstance('### 2.3.3 矩阵\n```\n```'), false);
   const target = { id: 'H1', markdown: '## 1.3.1 监督学习\n### 分类\n层次分类是类别有级别的分类。', candidates: ['C_MATRIX', 'C_ADD', 'C_DOT', 'C_DET', 'C_RANK', 'C_EIG', 'C_NORM', 'C_TENSOR'], expected: [] };
   const state = createState();
   const result = applyResponse(state, target, { requestId: 'concept-link-r2-H1', remarks: '', links: [
