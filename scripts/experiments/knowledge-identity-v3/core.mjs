@@ -112,9 +112,9 @@ export function validateResponse(response, input) {
         || entry.conflictsWithItemIds.some(id => !allowedItemIds.has(id)))
         errs.push(prefix + '冲突条目引用无效');
       if (!['candidate','disputed'].includes(entry.reviewStatus)) errs.push(prefix + '审核状态不可为 confirmed');
-      if (entry.reviewStatus === 'candidate' && entry.conflictsWithItemIds.length > 0)
+      if (entry.reviewStatus === 'candidate' && Array.isArray(entry.conflictsWithItemIds) && entry.conflictsWithItemIds.length > 0)
         errs.push(prefix + 'candidate 不得有冲突对象');
-      if (entry.reviewStatus === 'disputed' && entry.conflictsWithItemIds.length === 0)
+      if (entry.reviewStatus === 'disputed' && Array.isArray(entry.conflictsWithItemIds) && entry.conflictsWithItemIds.length === 0)
         errs.push(prefix + 'disputed 应引用具体冲突条目');
       if (md === null) {
         if (entry.quote !== null || entry.reviewStatus !== 'candidate' || entry.conflictsWithItemIds.length)
