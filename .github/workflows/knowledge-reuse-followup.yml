@@ -1,0 +1,94 @@
+name: Knowledge reuse and provenance followup (synthetic DeepSeek)
+
+# 第一次合并工作流至 main 自动运行一次；随后仅手动执行。
+# 不监听 pull_request，不允许任意输入源或私人笔记目录。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-reuse-followup.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowra-knowledge-reuse-followup
+  cancel-in-progress: false
+
+jobs:
+  synthetic:
+    name: Seven public synthetic provenance checks
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Free tests without any API access
+        run: node --test scripts/test/knowledge-reuse-followup.test.js
+
+      - name: Call DeepSeek with seven fixed public cases
+        shell: bash
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo "DEEPSEEK Secret is unavailable; no model calls issued."
+            exit 1
+          fi
+          node scripts/experiments/knowledge-reuse-followup/run.mjs \
+            --max-tokens 1600 \
+            --out "$RUNNER_TEMP/knowledge-reuse-followup"
+
+      - name: Check seven provider responses
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const data=JSON.parse(readFileSync(process.env.RUNNER_TEMP+"/knowledge-reuse-followup/result.json","utf8"));
+            if(data.runs.length!==7||data.runs.some(x=>!x.modelOk)){
+              console.error("Provider calls incomplete; do not treat quality results as a complete comparison.");
+              process.exit(1);
+            }
+            console.log("Seven provider responses finished; proposal quality is reported separately.");
+          '
+
+      - name: Print aggregate synthetic-only results
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/knowledge-reuse-followup/report.md" ]]; then
+            {
+              echo "## 知境：已确认条目复用与来源隔离实验"
+              echo
+              echo "数据：7 个公开合成案例。不会读或写入正式知识库。模型候选即使通过也不是用户确认。"
+              echo
+              sed -n '/^## 汇总$/,/^## 具体模型候选/p' "$RUNNER_TEMP/knowledge-reuse-followup/report.md" | sed '$d'
+              echo
+              echo "完整公开合成案例与模型原因见本次报告 Artifact（7 天）。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "实验报告未生成；无法判断模型效果。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload public synthetic results only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowra-reuse-provenance-synthetic-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/knowledge-reuse-followup/report.md
+            ${{ runner.temp }}/knowledge-reuse-followup/result.json
+          if-no-files-found: ignore
+          retention-days: 7
