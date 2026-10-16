@@ -1,0 +1,87 @@
+name: Knowledge Concept linking round 2 (synthetic DeepSeek)
+
+# 合入 main 时自动运行一次，之后只能手动触发。
+# 不在 PR 事件中运行、不读取任何私人笔记；Secret 只映射为单个环境变量。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-concept-linking-r2.yml
+      - scripts/experiments/concept-linking-r2/**
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: knowra-concept-linking-r2
+  cancel-in-progress: false
+
+jobs:
+  concept-linking-r2:
+    name: Concept linking with hidden candidates and confusable concepts
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Run no-cost regression tests
+        run: node --test scripts/test/concept-linking-r2.test.js
+
+      - name: Run 8 synthetic notes x 3 repeats (24 bounded DeepSeek calls)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo "DEEPSEEK repository secret not configured; no model calls made."
+            exit 1
+          fi
+          node scripts/experiments/concept-linking-r2/run.mjs --out "$RUNNER_TEMP/concept-linking-r2"
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/concept-linking-r2/report.md" ]]; then
+            cat "$RUNNER_TEMP/concept-linking-r2/report.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "实验报告未生成。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Comment report on the results issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          REPORT="$RUNNER_TEMP/concept-linking-r2/report.md"
+          [[ -f "$REPORT" ]] || exit 0
+          {
+            echo "运行：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}（commit ${GITHUB_SHA::7}）"
+            echo
+            head -c 60000 "$REPORT"
+          } > "$RUNNER_TEMP/comment.md"
+          gh issue comment 163 --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/comment.md"
+
+      - name: Preserve results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowra-concept-linking-r2-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/concept-linking-r2/report.md
+            ${{ runner.temp }}/concept-linking-r2/result.json
+          if-no-files-found: ignore
+          retention-days: 14

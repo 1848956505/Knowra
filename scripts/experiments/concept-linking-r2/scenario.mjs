@@ -1,0 +1,114 @@
+// 第二轮 Concept 融合实验的公开合成数据。expected 只用于事后评分，绝不发送给模型。
+//
+// 相比第一轮：
+// - 提示词不再点名任何具体概念；笔记不再用概念名做标题；
+// - 概念目录 29 个，每篇只给“检索”返回的 8 个候选，R07 故意把正确概念藏起来；
+// - 加入同名异义（数学的梯度 vs x.grad）和一篇含 4 条知识的笔记；
+// - 同一设置重复运行 3 次。
+
+export const CATALOG = Object.freeze([
+  ['C_MATRIX', '矩阵', '线性代数中由行和列排成的二维数表，是对象而不是运算'],
+  ['C_MATMUL', '矩阵乘法', '线性代数中两个矩阵之间的乘法运算，不是逐元素相乘'],
+  ['C_ADD', '矩阵加法', '线性代数中同形状矩阵之间的加法运算'],
+  ['C_HADAMARD', '逐元素乘法', '同形状数组在相同位置上相乘的运算，也称 Hadamard 积'],
+  ['C_DOT', '点积', '两个等长向量之间得到一个标量的运算，也称内积'],
+  ['C_TRANSPOSE', '转置', '矩阵的行列互换操作'],
+  ['C_GRADIENT', '梯度', '数学：多元函数对各变量偏导数组成的向量'],
+  ['C_DERIV', '导数', '数学：一元函数的瞬时变化率'],
+  ['C_TENSOR', '张量', '深度学习框架中的多维数组'],
+  ['C_BACKPROP', '反向传播', '神经网络中沿计算图反向计算梯度的算法'],
+  ['C_SGD', '随机梯度下降', '用小批量样本估计梯度来更新参数的优化算法'],
+  ['C_LR', '学习率', '优化算法中控制每一步更新幅度的超参数'],
+  ['C_LOSS', '损失函数', '衡量模型预测与真实值差距的函数'],
+  ['C_SOFTMAX', 'softmax', '把一组实数变换为概率分布的函数'],
+  ['C_CONV', '卷积', '卷积神经网络中用卷积核在输入上滑动计算的运算'],
+  ['C_POOL', '池化', '对局部区域取最大值或平均值以降低尺寸的操作'],
+  ['C_ACT', '激活函数', '神经网络中给神经元输出引入非线性的函数'],
+  ['C_DROPOUT', 'dropout', '训练时随机丢弃部分神经元的正则化方法'],
+  ['C_BN', '批量归一化', '按小批量统计量对中间层输出做标准化的方法'],
+  ['C_OVERFIT', '过拟合', '模型在训练集上表现好而在新数据上表现差的现象'],
+  ['C_REG', '正则化', '通过约束模型复杂度来减轻过拟合的一类方法'],
+  ['C_CE', '交叉熵', '衡量两个概率分布差异的量，常用作分类损失'],
+  ['C_DET', '行列式', '方阵对应的一个标量'],
+  ['C_RANK', '秩', '线性代数：矩阵中线性无关的行或列的最大数目'],
+  ['C_NORM', '范数', '衡量向量或矩阵大小的量'],
+  ['C_EIG', '特征值', '线性代数：满足 Av = λv 的标量 λ'],
+  ['C_ATTN', '注意力机制', '按相关性对输入加权汇总的机制'],
+  ['C_EMB', '嵌入', '把离散符号映射为稠密向量的表示方法'],
+  ['C_RESID', '残差连接', '把输入直接加到某层输出上的结构']
+].map(([id, name, sense]) => Object.freeze({ id, name, sense })));
+
+export const INITIAL_ITEMS = Object.freeze([
+  { id: 'K_PRE_1', conceptId: 'C_MATMUL', title: '矩阵乘法一般不满足交换律', kind: 'fact', statement: '一般情况下 AB 不等于 BA。' },
+  { id: 'K_PRE_2', conceptId: 'C_GRADIENT', title: '梯度的定义', kind: 'definition', statement: '多元函数对各个变量的偏导数组成的向量叫梯度。' },
+  { id: 'K_PRE_3', conceptId: 'C_HADAMARD', title: '逐元素乘法的定义', kind: 'definition', statement: '两个同形状数组在相同位置上的元素相乘。' }
+].map(item => Object.freeze(item)));
+
+/**
+ * candidates 模拟检索返回的前 8 个概念。expected 每项用 span 标识笔记中的一段原文：
+ * accept 为可接受的概念 ID（'create' 表示应新建），forbid 为挂上去就算污染的概念，
+ * reuseItem 表示应复用的已有条目。
+ */
+export const NOTES = Object.freeze([
+  {
+    id: 'R01', title: '形状怎么算',
+    markdown: '## 形状怎么算\nA 是 2×3、B 是 3×4 时，AB 的结果是 2×4；如果把 B 换成 4×3，AB 就算不了。',
+    candidates: ['C_MATMUL', 'C_MATRIX', 'C_HADAMARD', 'C_DOT', 'C_TRANSPOSE', 'C_RANK', 'C_DET', 'C_TENSOR'],
+    expected: [{ span: 'A 是 2×3、B 是 3×4 时，AB 的结果是 2×4；如果把 B 换成 4×3，AB 就算不了。', accept: ['C_MATMUL'], forbid: ['C_MATRIX', 'C_HADAMARD', 'C_DOT', 'C_TENSOR'] }]
+  },
+  {
+    id: 'R02', title: 'PyTorch 里的星号',
+    markdown: '## PyTorch 里的星号\n两个形状都是 3×3 的张量 X、Y，X * Y 得到的是把同一位置的两个数相乘，不会像线代里那样拿行去乘列再求和。',
+    candidates: ['C_MATMUL', 'C_HADAMARD', 'C_DOT', 'C_TENSOR', 'C_MATRIX', 'C_ADD', 'C_TRANSPOSE', 'C_NORM'],
+    expected: [{ span: '两个形状都是 3×3 的张量 X、Y，X * Y 得到的是把同一位置的两个数相乘，不会像线代里那样拿行去乘列再求和。', accept: ['C_HADAMARD'], forbid: ['C_MATMUL', 'C_DOT', 'C_MATRIX'], allowItemReuse: ['K_PRE_3'] }]
+  },
+  {
+    id: 'R03', title: '两个向量乘成一个数',
+    markdown: '## 两个向量乘成一个数\n两个长度相同的向量，先把对应位置的数相乘，再把这些乘积全部加起来，结果是一个数。',
+    candidates: ['C_DOT', 'C_HADAMARD', 'C_MATMUL', 'C_NORM', 'C_MATRIX', 'C_TENSOR', 'C_ADD', 'C_SOFTMAX'],
+    expected: [{ span: '两个长度相同的向量，先把对应位置的数相乘，再把这些乘积全部加起来，结果是一个数。', accept: ['C_DOT'], forbid: ['C_HADAMARD', 'C_MATMUL', 'C_NORM'] }]
+  },
+  {
+    id: 'R04', title: 'grad 属性',
+    markdown: '## grad 属性\n调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。',
+    candidates: ['C_GRADIENT', 'C_BACKPROP', 'C_DERIV', 'C_TENSOR', 'C_SGD', 'C_LR', 'C_LOSS', 'C_MATRIX'],
+    // x.grad 是框架里存放梯度值的属性，与数学上的梯度相关但不是同一概念。
+    expected: [{ span: '调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。', accept: ['create', 'C_BACKPROP'], forbid: ['C_GRADIENT', 'C_DERIV'] }]
+  },
+  {
+    id: 'R05', title: '偏导放在一起',
+    markdown: '## 偏导放在一起\nf(x, y) = x² + y² 在点 (1, 2) 处对 x 的偏导是 2、对 y 的偏导是 4，合起来写成 (2, 4)。沿着这个方向，函数值增加得最快。',
+    candidates: ['C_GRADIENT', 'C_DERIV', 'C_SGD', 'C_BACKPROP', 'C_NORM', 'C_DOT', 'C_LOSS', 'C_TENSOR'],
+    expected: [
+      { span: 'f(x, y) = x² + y² 在点 (1, 2) 处对 x 的偏导是 2、对 y 的偏导是 4，合起来写成 (2, 4)。', accept: ['C_GRADIENT'], forbid: ['C_SGD', 'C_DOT', 'C_NORM'] },
+      { span: '沿着这个方向，函数值增加得最快。', accept: ['C_GRADIENT'], forbid: ['C_SGD', 'C_DERIV'] }
+    ]
+  },
+  {
+    id: 'R06', title: '转置与乘法',
+    markdown: '## 转置与乘法\n1. 矩阵 A 的转置记作 Aᵀ，就是把它的行变成列。\n2. 两个矩阵乘积的转置满足 (AB)ᵀ = BᵀAᵀ，顺序要反过来。\n3. 两个形状相同的矩阵相加，就是对应位置相加。\n4. 在 PyTorch 里用 A.T 取矩阵的转置。',
+    candidates: ['C_TRANSPOSE', 'C_MATMUL', 'C_ADD', 'C_HADAMARD', 'C_MATRIX', 'C_TENSOR', 'C_DET', 'C_RANK'],
+    expected: [
+      { span: '矩阵 A 的转置记作 Aᵀ，就是把它的行变成列。', accept: ['C_TRANSPOSE'], forbid: ['C_MATRIX', 'C_MATMUL'] },
+      { span: '两个矩阵乘积的转置满足 (AB)ᵀ = BᵀAᵀ，顺序要反过来。', accept: ['C_TRANSPOSE', 'C_MATMUL'], forbid: ['C_MATRIX', 'C_HADAMARD'] },
+      { span: '两个形状相同的矩阵相加，就是对应位置相加。', accept: ['C_ADD'], forbid: ['C_HADAMARD', 'C_MATMUL', 'C_TRANSPOSE'] },
+      { span: '在 PyTorch 里用 A.T 取矩阵的转置。', accept: ['C_TRANSPOSE'], forbid: ['C_MATRIX', 'C_TENSOR'] }
+    ]
+  },
+  {
+    id: 'R07', title: '结果矩阵的每个元素',
+    markdown: '## 结果矩阵的每个元素\n结果矩阵第 i 行第 j 列的元素，等于左边矩阵第 i 行和右边矩阵第 j 列做点积。',
+    // 关键：正确的“矩阵乘法”被检索漏掉了。挂到点积、逐元素乘法或矩阵上都是污染；新建可以由用户事后合并。
+    candidates: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE', 'C_TENSOR', 'C_RANK', 'C_DET', 'C_ADD'],
+    hidden: ['C_MATMUL'],
+    expected: [{ span: '结果矩阵第 i 行第 j 列的元素，等于左边矩阵第 i 行和右边矩阵第 j 列做点积。', accept: ['create'], forbid: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE'] }]
+  },
+  {
+    id: 'R08', title: '顺序不能换',
+    markdown: '## 顺序不能换\n矩阵相乘时，把两个因子的先后顺序对调，一般会得到不同的结果。',
+    candidates: ['C_MATMUL', 'C_MATRIX', 'C_HADAMARD', 'C_ADD', 'C_DOT', 'C_TRANSPOSE', 'C_DET', 'C_TENSOR'],
+    expected: [{ span: '矩阵相乘时，把两个因子的先后顺序对调，一般会得到不同的结果。', accept: ['C_MATMUL'], forbid: ['C_MATRIX', 'C_HADAMARD', 'C_DOT'], reuseItem: 'K_PRE_1' }]
+  }
+].map(note => Object.freeze(note)));
+
+export const REPEATS = 3;
