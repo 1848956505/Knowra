@@ -40,3 +40,16 @@ R07 新建的概念如果和被藏起来的“矩阵乘法”同名，报告会�
 本地不调用模型：
 
     node scripts/experiments/concept-linking-r2/run.mjs --dry-run
+
+## 用真实笔记在本机运行
+
+`run-local.mjs` 从空知识库开始，按“章.节”把笔记切成多篇，逐篇处理；每篇的候选概念由简单字符检索从已建概念中选出前 8 个。它只读本地文件、只调用 DeepSeek，不写知境数据库。**不要在 Actions 里使用，也不要提交生成的报告。**
+
+    node scripts/experiments/concept-linking-r2/run-local.mjs --notes 笔记.md --out 输出目录
+
+API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--key-env` 指定。
+
+## 契约补充（2026-10-16）
+
+- 每条链接新增 `possibleDuplicateOf`：新建概念时，模型怀疑它与某个候选是同一概念，就填那个候选的 id，交给用户决定是否合并。
+- 概念说明的检查在“连续 6 字相同”之外，增加条件、计算、结论类措辞的规则（第二轮 R07 的说明换了说法，原规则漏掉）。

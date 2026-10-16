@@ -4,13 +4,13 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
-import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest } from '../experiments/concept-linking-r2/core.mjs';
+import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
 import { main } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
 const item = (quote, kind = 'fact') => ({ title: quote.slice(0, 10), kind, statement: quote, quote });
-const reuse = (conceptId, quote, extra = {}) => ({ conceptAction: 'reuse', conceptId, newConcept: null, itemAction: 'new', existingItemId: null, item: item(quote), ...extra });
-const create = (name, sense, quote) => ({ conceptAction: 'create', conceptId: null, newConcept: { name, sense }, itemAction: 'new', existingItemId: null, item: item(quote) });
+const reuse = (conceptId, quote, extra = {}) => ({ conceptAction: 'reuse', conceptId, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: item(quote), ...extra });
+const create = (name, sense, quote, possibleDuplicateOf = null) => ({ conceptAction: 'create', conceptId: null, newConcept: { name, sense }, possibleDuplicateOf, itemAction: 'new', existingItemId: null, item: item(quote) });
 const response = (id, links) => ({ requestId: `concept-link-r2-${id}`, links, remarks: '' });
 
 /** 理想模型：按预期回答每一条。 */
@@ -101,4 +101,52 @@ test('端到端：假模型跑 3 次，报告不含 key，汇总与逐条结果�
   assert.match(report, /R07（正确概念被藏起来）/);
   assert.equal(report.includes('secret-key-value'), false);
   assert.equal((await readFile(path.join(out, 'result.json'), 'utf8')).includes('secret-key-value'), false);
+});
+
+test('疑似重复只能在新建时指向候选；说明里写了条件或结论会被标出', () => {
+  const state = createState();
+  const target = note('R08');
+  const ok = applyResponse(state, target, response('R08', [create('矩阵相乘', '线性代数中的乘法运算', target.expected[0].span, 'C_MATMUL')]));
+  assert.equal(ok.links[0].accepted, true);
+  assert.equal(ok.links[0].possibleDuplicateOf, 'C_MATMUL');
+  const bad = applyResponse(createState(), target, response('R08', [{ ...reuse('C_MATMUL', target.expected[0].span), possibleDuplicateOf: 'C_DOT' }]));
+  assert.equal(bad.links[0].accepted, false);
+  assert.equal(senseLooksLikeContent('结果矩阵的元素由左矩阵的行与右矩阵的列做点积得到'), true);
+  assert.equal(senseLooksLikeContent('深度学习框架中张量上存放梯度值的属性'), false);
+});
+
+test('没有预设候选时按字符重合检索，空库时候选为空', () => {
+  const state = createState({ empty: true });
+  assert.deepEqual(modelRequest(state, { id: 'X', markdown: '矩阵乘法' }).candidateConcepts, []);
+  const found = retrieveConcepts(createState().concepts, '两个矩阵相乘时要看形状', 3).map(concept => concept.id);
+  assert.ok(found.includes('C_MATMUL') || found.includes('C_MATRIX'));
+});
+
+test('本机真实笔记模式：空库起步、按节切分、第二篇能检索到第一篇新建的概念，key 不进报告', async () => {
+  const { main: runLocal } = await import('../experiments/concept-linking-r2/run-local.mjs');
+  const { writeFile } = await import('node:fs/promises');
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'concept-local-'));
+  const notesFile = path.join(dir, 'notes.md');
+  await writeFile(notesFile, '# 2.1 矩阵乘法\n矩阵乘法要求左矩阵列数等于右矩阵行数。\n# 2.2 再谈矩阵乘法\n矩阵乘法一般不满足交换律。');
+  const requests = [];
+  const fetchImpl = async (_url, init) => {
+    const request = JSON.parse(JSON.parse(init.body).messages[1].content);
+    requests.push(request);
+    const quote = request.note.markdown.split('\n')[1];
+    const existing = request.candidateConcepts[0];
+    const link = existing
+      ? { conceptAction: 'reuse', conceptId: existing.id, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote } }
+      : { conceptAction: 'create', conceptId: null, newConcept: { name: '矩阵乘法', sense: '线性代数中的乘法运算' }, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote } };
+    const content = JSON.stringify({ requestId: request.requestId, links: [link], remarks: '' });
+    return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }], usage: {} }));
+  };
+  const out = path.join(dir, 'out');
+  const { state } = await runLocal(['--notes', notesFile, '--out', out], { env: { DEEPSEEK_API_KEY: 'secret-key-value' }, fetchImpl, log: () => {} });
+  assert.equal(requests[0].candidateConcepts.length, 0);
+  assert.equal(requests[1].candidateConcepts[0].name, '矩阵乘法');
+  assert.equal(state.concepts.length, 1);
+  assert.equal(state.items.length, 2);
+  const report = await readFile(path.join(out, 'report.md'), 'utf8');
+  assert.match(report, /新建概念 1 个/);
+  assert.equal(report.includes('secret-key-value'), false);
 });
