@@ -36,8 +36,9 @@ export async function invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens) {
   if (!response.ok) throw Error(`DeepSeek HTTP ${response.status}`);
   const body = await response.json();
   const choice = body?.choices?.[0];
-  if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string') throw Error('DeepSeek 响应未完整结束');
-  return { parsed: JSON.parse(choice.message.content), usage: body.usage };
+  if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string') throw Error(`DeepSeek 响应未完整结束（finish_reason=${choice?.finish_reason ?? '无'}）`);
+  try { return { parsed: JSON.parse(choice.message.content), usage: body.usage }; }
+  catch { throw Error('模型输出不是合法 JSON'); }
 }
 
 export async function main(argv, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
@@ -54,8 +55,10 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
         const { parsed, usage } = await invokeDeepSeek(fetchImpl, env.DEEPSEEK_API_KEY, request, args.maxTokens);
         const response = applyResponse(state, note, parsed);
         results.push({ noteId: note.id, raw: parsed, response, usage, error: response.accepted ? null : response.error });
-      } catch {
-        results.push({ noteId: note.id, error: '模型调用或 JSON 解析失败（详情隐藏）' });
+      } catch (error) {
+        // 只记录本脚本自己生成的错误类别，不记录供应商响应正文。
+        const known = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/.test(error?.message ?? '');
+        results.push({ noteId: note.id, error: known ? error.message : '模型调用失败（其他原因）' });
       }
     }
     const grade = gradeRun(results);
