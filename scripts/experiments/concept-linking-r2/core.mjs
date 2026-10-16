@@ -22,6 +22,9 @@ export function longestCommon(a, b) {
   return best;
 }
 
+/** 说明里出现条件、计算或结论类措辞时，多半写进了知识内容（第二轮 R07 换了说法，连续字数检测漏掉）。 */
+export const senseLooksLikeContent = sense => /要求|等于|满足|得到|必须|不满足|计算|步骤|公式|=|≠|结果是|会累加/u.test(sense);
+
 const uniqueIn = (full, quote) => typeof quote === 'string' && quote.trim().length > 0
   && full.indexOf(quote) !== -1 && full.indexOf(quote, full.indexOf(quote) + 1) === -1;
 
@@ -34,23 +37,40 @@ export const SYSTEM_PROMPT = [
   '没有合适的候选时就新建概念。新建的概念如果和已有概念重复，用户之后可以合并；挂到含义不同的概念上，则很难被发现。',
   'newConcept.sense 只写“它是什么、属于哪个语境”，用于和同名概念区分；不要写性质、条件、公式、计算方法或用法，那些属于知识条目。',
   '同一篇笔记里多条知识属于同一个新概念时，每条都写 conceptAction=create 并使用完全相同的 newConcept.name。',
+  '新建概念时，如果你怀疑它和某个候选其实是同一个概念（例如同名或近义），在 possibleDuplicateOf 填那个候选的 id，交给用户决定是否合并；否则填 null。复用概念时 possibleDuplicateOf 为 null。',
   'candidateItems 是候选概念下的已有知识条目。新知识与某个已有条目表达的是同一条可修订陈述时，itemAction=reuse 并给出它的 id，不要改写它；否则 itemAction=new。',
   '操作步骤或计算过程作为一条 procedure，不要拆成零散句子。几条独立的性质要分成几条。',
   '必须忠于原文：item.quote 从 note.markdown 逐字复制，且在笔记中只出现一次；不要纠正笔记中的错误，不添加笔记没有的事实。',
   '只返回一个 JSON 对象，不用 Markdown。字段严格为 requestId, links, remarks。',
-  'links 是数组，每项字段严格为 conceptAction, conceptId, newConcept, itemAction, existingItemId, item。',
+  'links 是数组，每项字段严格为 conceptAction, conceptId, newConcept, possibleDuplicateOf, itemAction, existingItemId, item。',
   'conceptAction=reuse 时 conceptId 必须是 candidateConcepts 中的 id，newConcept 为 null；conceptAction=create 时 conceptId 为 null，newConcept 为 {name, sense}。',
   'itemAction=new 时 existingItemId 为 null；itemAction=reuse 时 existingItemId 必须是 candidateItems 中属于所选概念的 id。',
   'item 字段为 title, kind, statement, quote；kind 只能是 definition、fact、procedure、application。',
   'remarks 不超过 300 字，写你不确定的地方；没有可以写空字符串。'
 ].join('\n');
 
-export function createState() {
+export function createState({ empty = false } = {}) {
+  if (empty) return { concepts: [], items: [], nextConcept: 1, nextItem: 1 };
   return { concepts: CATALOG.map(concept => ({ ...concept, origin: 'catalog' })), items: INITIAL_ITEMS.map(item => ({ ...item, sources: [] })), nextConcept: 1, nextItem: 1 };
 }
 
-/** 检索模拟：笔记预设的候选 + 本轮已新建的概念（隐藏项除外）。 */
+const bigrams = text => { const clean = normalize(text); const set = new Set(); for (let i = 0; i < clean.length - 1; i += 1) set.add(clean.slice(i, i + 2)); return set; };
+
+/** 简单检索：按字符二元组与笔记的重合度给概念打分，名称权重高于说明。 */
+export function retrieveConcepts(concepts, markdown, k = 8) {
+  const target = bigrams(markdown);
+  const overlap = text => [...bigrams(text)].filter(gram => target.has(gram)).length;
+  return concepts.map(concept => ({ concept, score: overlap(concept.name) * 3 + overlap(concept.sense) }))
+    .filter(entry => entry.score > 0).sort((a, b) => b.score - a.score).slice(0, k).map(entry => entry.concept);
+}
+
+/** 合成场景用笔记预设的候选 + 本轮已新建的概念（隐藏项除外）；真实笔记没有预设，改用简单检索。 */
 export function candidatesFor(state, note) {
+  if (!note.candidates) {
+    const shown = retrieveConcepts(state.concepts, note.markdown);
+    const ids = new Set(shown.map(concept => concept.id));
+    return { concepts: shown, items: state.items.filter(item => ids.has(item.conceptId)) };
+  }
   const created = state.concepts.filter(concept => concept.origin === 'created' && !(note.hidden ?? []).includes(concept.id));
   const shown = [...note.candidates.map(id => state.concepts.find(concept => concept.id === id)), ...created];
   const ids = new Set(shown.map(concept => concept.id));
@@ -70,7 +90,7 @@ export function modelRequest(state, note) {
 /** 逐条校验并写入内存图：一条不合格只拒绝这一条，其余照常处理。 */
 export function applyResponse(state, note, response) {
   if (!hasKeys(response, ['requestId', 'links', 'remarks']) || response.requestId !== `concept-link-r2-${note.id}`
-    || !Array.isArray(response.links) || response.links.length === 0 || response.links.length > 12) {
+    || !Array.isArray(response.links) || response.links.length === 0 || response.links.length > 20) {
     return { accepted: false, error: '响应结构不符合契约', links: [] };
   }
   const { concepts: shown, items: shownItems } = candidatesFor(state, note);
@@ -78,7 +98,7 @@ export function applyResponse(state, note, response) {
   const createdHere = new Map();
   const links = response.links.map((link, index) => {
     const errors = [];
-    if (!hasKeys(link, ['conceptAction', 'conceptId', 'newConcept', 'itemAction', 'existingItemId', 'item'])) return { index, accepted: false, errors: ['字段不符合契约'] };
+    if (!hasKeys(link, ['conceptAction', 'conceptId', 'newConcept', 'possibleDuplicateOf', 'itemAction', 'existingItemId', 'item'])) return { index, accepted: false, errors: ['字段不符合契约'] };
     const { item } = link;
     if (!hasKeys(item, ['title', 'kind', 'statement', 'quote']) || !validText(item.title, 160) || !validText(item.statement, 1200)
       || !KINDS.has(item.kind) || !uniqueIn(note.markdown, item.quote)) errors.push('条目结构或逐字 quote 不合格');
@@ -92,6 +112,7 @@ export function applyResponse(state, note, response) {
         errors.push('新建概念需要 name 与 sense');
       }
     } else errors.push('conceptAction 无效');
+    if (link.possibleDuplicateOf !== null && (link.conceptAction !== 'create' || !shownIds.has(link.possibleDuplicateOf))) errors.push('possibleDuplicateOf 只能在新建时指向候选概念');
     if (link.itemAction === 'reuse') {
       const prior = shownItems.find(entry => entry.id === link.existingItemId);
       if (!prior || prior.conceptId !== conceptId) errors.push('复用的条目不在候选中或不属于所选概念');
@@ -113,7 +134,7 @@ export function applyResponse(state, note, response) {
       const sense = link.newConcept.sense;
       const statements = [item.statement, item.quote, ...response.links.map(other => other?.item?.statement ?? ''), ...shownItems.map(entry => entry.statement)];
       // 连续 6 个以上的字与某条知识相同，视为说明里写进了条目内容（规则判断，需人工复核）。
-      senseAbsorbs = statements.some(text => longestCommon(normalize(sense), normalize(text)) >= 6);
+      senseAbsorbs = statements.some(text => longestCommon(normalize(sense), normalize(text)) >= 6) || senseLooksLikeContent(sense);
     }
     let itemId = link.existingItemId;
     if (link.itemAction === 'new') {
@@ -124,7 +145,8 @@ export function applyResponse(state, note, response) {
     return {
       index, accepted: true, conceptAction, conceptId, conceptName: state.concepts.find(concept => concept.id === conceptId).name,
       itemAction: link.itemAction, itemId, title: item.title, kind: item.kind, statement: item.statement, quote: item.quote,
-      sense: conceptAction === 'create' ? link.newConcept.sense : null, senseAbsorbs, duplicateOfHidden
+      sense: conceptAction === 'create' ? link.newConcept.sense : null, senseAbsorbs, duplicateOfHidden,
+      possibleDuplicateOf: link.possibleDuplicateOf
     };
   });
   return { accepted: true, links, remarks: typeof response.remarks === 'string' ? response.remarks.slice(0, 300) : '' };
@@ -156,7 +178,7 @@ export function gradeRun(results) {
         const itemOk = expected.reuseItem ? link.itemAction === 'reuse' && link.itemId === expected.reuseItem
           : link.itemAction === 'new' || (expected.allowItemReuse ?? []).includes(link.itemId);
         rows.push({ noteId: note.id, span: expected.span, outcome, itemOk, conceptName: link.conceptName, conceptId: link.conceptId,
-          itemAction: link.itemAction, itemId: link.itemId, senseAbsorbs: link.senseAbsorbs, duplicateOfHidden: link.duplicateOfHidden, detail: link.title });
+          itemAction: link.itemAction, itemId: link.itemId, senseAbsorbs: link.senseAbsorbs, duplicateOfHidden: link.duplicateOfHidden, possibleDuplicateOf: link.possibleDuplicateOf, detail: link.title });
       }
     }
     const extras = links.filter(link => !used.has(link.index));
@@ -203,7 +225,7 @@ export function markdownReport(runs, meta) {
   for (const note of NOTES) {
     for (const expected of note.expected) {
       const cells = runs.map(run => run.grade.rows.filter(row => row.noteId === note.id && row.span === expected.span)
-        .map(row => `${OUTCOME_LABEL[row.outcome]}${row.conceptName ? ` ${row.conceptName}` : ''}${row.itemAction === 'reuse' ? `（复用 ${row.itemId}）` : ''}${row.senseAbsorbs ? '［说明含内容］' : ''}${row.duplicateOfHidden ? `［与 ${row.duplicateOfHidden} 同名］` : ''}`).join('；') || '—');
+        .map(row => `${OUTCOME_LABEL[row.outcome]}${row.conceptName ? ` ${row.conceptName}` : ''}${row.itemAction === 'reuse' ? `（复用 ${row.itemId}）` : ''}${row.senseAbsorbs ? '［说明含内容］' : ''}${row.duplicateOfHidden ? `［与 ${row.duplicateOfHidden} 同名］` : ''}${row.possibleDuplicateOf ? `［模型标注疑似重复 ${row.possibleDuplicateOf}］` : ''}`).join('；') || '—');
       lines.push(`| ${note.id} | ${expected.span.slice(0, 18)}… | ${cells.join(' | ')} |`);
     }
   }
