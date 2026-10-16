@@ -199,3 +199,12 @@ test('同一篇里复用同名新概念的条目不再被标“说明含内容�
   assert.equal(result.links[1].conceptAction, 'create-same-note');
   assert.equal(result.links[1].senseAbsorbs, false);
 });
+
+test('整篇失败时报告给出原因类别，不含供应商正文', async () => {
+  const out = await mkdtemp(path.join(os.tmpdir(), 'concept-r2-fail-'));
+  const fetchImpl = async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{"requestId":' } }] }));
+  await main(['--out', out, '--repeats', '1'], { env: { DEEPSEEK_API_KEY: 'k' }, fetchImpl, log: () => {} });
+  const report = await readFile(path.join(out, 'report.md'), 'utf8');
+  assert.match(report, /## 整篇失败/);
+  assert.match(report, /finish_reason=length/);
+});

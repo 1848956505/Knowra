@@ -246,6 +246,8 @@ export function markdownReport(runs, meta) {
       lines.push(`| ${note.id} | ${expected.span.slice(0, 18)}… | ${cells.join(' | ')} |`);
     }
   }
+  const failures = runs.flatMap((run, i) => run.results.filter(result => result.error).map(result => `- 第 ${i + 1} 次 ${result.noteId}：${result.error}`));
+  if (failures.length) lines.push('', '## 整篇失败', '', ...failures);
   const others = runs.flatMap((run, i) => run.grade.rows.filter(row => ['extra', 'rejected'].includes(row.outcome)).map(row => `- 第 ${i + 1} 次 ${row.noteId} ${OUTCOME_LABEL[row.outcome]}：${row.detail}${row.conceptName ? `（${row.conceptName}）` : ''}`));
   if (others.length) lines.push('', '## 额外与被拒条目', '', ...others);
   const created = runs.flatMap((run, i) => run.created.map(concept => `- 第 ${i + 1} 次：${concept.name}（${concept.id}）——${concept.sense}`));
