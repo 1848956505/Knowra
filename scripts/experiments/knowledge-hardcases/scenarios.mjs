@@ -46,41 +46,41 @@ export const SCENARIOS = Object.freeze([
   {
     id: 'H03', title: '与已确认知识矛盾的笔记',
     source: { kind: 'note', noteId: 'H03', markdown: '矩阵乘法总满足交换律：对任意同阶方阵 A 和 B，都有 AB=BA。' },
-    expected: { conceptIds: ['C_MATMUL'], itemAction: 'new', kindOneOf: ['fact','principle'], status: 'disputed', conflicts: ['K_NONCOMM'], sourceMode: 'note' }
+    expected: { conceptIds: ['C_MATMUL'], allowedExtraConceptIds: ['C_MATRIX'], itemAction: 'new', kindOneOf: ['fact','principle'], status: 'disputed', conflicts: ['K_NONCOMM'], sourceMode: 'note' }
   },
   {
     id: 'H04', title: '已有非交换性事实的另一种表述',
     source: { kind: 'note', noteId: 'H04', markdown: '对一般同阶矩阵，不能保证 AB=BA；矩阵乘法通常不满足交换律。' },
-    expected: { conceptIds: ['C_MATMUL'], itemAction: 'reuse', reuseId: 'K_NONCOMM', kindOneOf: ['fact','principle'], status: 'candidate', conflicts: [], sourceMode: 'note' }
+    expected: { conceptIds: ['C_MATMUL'], allowedExtraConceptIds: ['C_MATRIX'], itemAction: 'reuse', reuseId: 'K_NONCOMM', kindOneOf: ['fact','principle'], status: 'candidate', conflicts: [], sourceMode: 'note' }
   },
   {
     id: 'H05', title: '没有笔记来源的 AI 知识补充',
     source: { kind: 'ai', task: '请提议一条关于矩阵乘积第 i 行第 j 列元素如何计算的通用公式，写明矩阵形状条件。不提供任何笔记来源。' },
-    expected: { conceptIds: ['C_MATMUL'], itemAction: 'new', kindOneOf: ['formula','procedure'], status: 'candidate', conflicts: [], sourceMode: 'ai' }
+    expected: { conceptIds: ['C_MATMUL'], allowedExtraConceptIds: ['C_MATRIX'], itemAction: 'new', kindOneOf: ['formula','procedure'], status: 'candidate', conflicts: [], sourceMode: 'ai' }
   },
   {
     id: 'H06', title: '矩阵的秩（数学语境）',
     source: { kind: 'note', noteId: 'H06', markdown: '在线性代数中，矩阵的秩等于线性无关的行向量或列向量的最大数量。' },
-    expected: { conceptIds: ['C_MATRIX_RANK'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
+    expected: { conceptIds: ['C_MATRIX_RANK'], allowedExtraConceptIds: ['C_MATRIX'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
   },
   {
     id: 'H07', title: '张量的阶数（PyTorch 语境）',
     source: { kind: 'note', noteId: 'H07', markdown: 'PyTorch 中形状为 (2,3,4) 的张量有三个轴，因此它是三阶张量。' },
-    expected: { conceptIds: ['C_TENSOR_RANK'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
+    expected: { conceptIds: ['C_TENSOR_RANK'], allowedExtraConceptIds: ['C_TENSOR'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
   },
   {
     id: 'H08', title: '矩阵加法：概念与定义可以并存',
     source: { kind: 'note', noteId: 'H08', markdown: '矩阵加法是把两个相同形状的矩阵对应位置的元素分别相加。' },
-    expected: { conceptIds: ['C_ADD'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
+    expected: { conceptIds: ['C_ADD'], allowedExtraConceptIds: ['C_MATRIX'], itemAction: 'new', kindOneOf: ['definition','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
   },
   {
     id: 'H09', title: '梯度与 x.grad 的对比',
     source: { kind: 'note', noteId: 'H09', markdown: '数学中的梯度是偏导数组成的向量，而 PyTorch 的 x.grad 是保存梯度计算结果的张量属性。' },
-    expected: { conceptIds: ['C_GRAD','C_XGRAD'], itemAction: 'new', kindOneOf: ['comparison','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
+    expected: { conceptIds: ['C_GRAD','C_XGRAD'], allowedExtraConceptIds: ['C_AUTOGRAD'], itemAction: 'new', kindOneOf: ['comparison','fact'], status: 'candidate', conflicts: [], sourceMode: 'note' }
   },
   {
     id: 'H10', title: '包含错误 API 拼写的用户笔记',
     source: { kind: 'note', noteId: 'H10', markdown: '在 PyTorch 中，运行 x.require_grad_(True) 就能让框架记录梯度。' },
-    expected: { conceptIds: ['C_AUTOGRAD'], itemAction: 'new', kindOneOf: ['application','fact'], status: 'disputed', conflicts: ['K_API_CORRECT'], sourceMode: 'note' }
+    expected: { conceptIds: ['C_AUTOGRAD'], allowedExtraConceptIds: ['C_XGRAD'], itemAction: 'new', kindOneOf: ['application','fact'], status: 'disputed', conflicts: ['K_API_CORRECT'], sourceMode: 'note' }
   }
 ]);
