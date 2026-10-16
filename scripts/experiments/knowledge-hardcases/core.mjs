@@ -88,6 +88,11 @@ export function validateProposal(proposal,state,caseData) {
   if(proposal.itemAction==='new' && proposal.existingItemId!==null)
     errors.push('新条目不得带 existingItemId');
   if(proposal.itemAction==='reuse') {
+    // 冲突/错误认识不能伪装成已有正确条目的支持性来源。
+    // 即使引用准确、Concept ID 相同，也应作为新的 disputed 候选单独保存。
+    if(proposal.item?.reviewStatus==='disputed'
+        ||(Array.isArray(proposal.conflictsWithItemIds)&&proposal.conflictsWithItemIds.length>0))
+      errors.push('冲突或存疑的陈述不能复用已存在的确认条目，必须独立候选化');
     const item=state.items.find(i=>i.id===proposal.existingItemId);
     if(!item)errors.push('复用的 KnowledgeItem ID 不存在');
     else if(!sameSet(item.conceptIds,proposal.conceptIds))
