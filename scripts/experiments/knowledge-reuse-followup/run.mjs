@@ -108,6 +108,8 @@ export function evaluate(testCase, proposal, event, beforeState, afterState) {
 
 export function buildReport(rows,runs) {
   const v=key=>rows.filter(x=>x[key]).length;
+  const reused=rows.filter(x=>CASES.find(c=>c.id===x.caseId)?.expected.itemAction==='reuse');
+  const correctionCases=rows.filter(x=>CASES.find(c=>c.id===x.caseId)?.expected.forbiddenStatement);
   const usage=runs.reduce((s,r)=>({input:s.input+(r.usage?.prompt_tokens??0),
     output:s.output+(r.usage?.completion_tokens??0)}),{input:0,output:0});
   return [
@@ -125,8 +127,8 @@ export function buildReport(rows,runs) {
     '- 新候选审核状态：'+v('reviewOk')+'/'+rows.length,
     '- 冲突对象：'+v('conflictsOk')+'/'+rows.length,
     '- 来源模式与 quote：'+v('provenanceOk')+'/'+rows.length,
-    '- 旧确认条目原陈述、概念及状态不被改写：'+v('oldItemUnchanged')+'/'+rows.length,
-    '- 错误笔记的原话未被悄悄校正：'+v('noOutsideCorrection')+'/'+rows.length,
+    '- 复用场景旧确认条目原陈述、概念及状态不被改写：'+reused.filter(x=>x.oldItemUnchanged).length+'/'+reused.length,
+    '- 特定 API 错误笔记的原话未被悄悄校正：'+correctionCases.filter(x=>x.noOutsideCorrection).length+'/'+correctionCases.length,
     '- Tokens（输入/输出）：'+usage.input+'/'+usage.output,
     '',
     '| 案例 | 关联 Concept | Item 动作 | 状态 | 来源 | 旧条目不被覆盖 | 总体 |',
