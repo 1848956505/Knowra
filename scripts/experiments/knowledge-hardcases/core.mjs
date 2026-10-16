@@ -136,7 +136,11 @@ export function evaluate(events,state) {
     const e=events.find(e=>e.caseId===c.id);
     const t=c.expected;
     const pass=!!e?.accepted;
-    const conceptsOk=pass&&sameSet(e.conceptIds,t.conceptIds);
+    // 不因合理的辅助概念关联过度惩罚；但不允许漏掉必需身份，也不允许随意挂无关节点。
+    const allowedConcepts=[...t.conceptIds,...(t.allowedExtraConceptIds??[])];
+    const conceptsOk=pass&&t.conceptIds.every(id=>e.conceptIds.includes(id))
+      &&e.conceptIds.every(id=>allowedConcepts.includes(id));
+    const conceptExactOk=pass&&sameSet(e.conceptIds,t.conceptIds);
     const actionOk=pass&&e.itemAction===t.itemAction
       &&(t.itemAction!=='reuse'||e.itemId===t.reuseId);
     const conflictOk=pass&&sameSet(e.conflictsWithItemIds,t.conflicts);
@@ -148,7 +152,7 @@ export function evaluate(events,state) {
     return {
       caseId:c.id,title:c.title,accepted:pass,
       conceptIds:e?.conceptIds??[],
-      conceptOk:conceptsOk,actionOk,conflictOk,statusOk,provenanceOk,kindOk,
+      conceptOk:conceptsOk,conceptExactOk,actionOk,conflictOk,statusOk,provenanceOk,kindOk,
       itemId:e?.itemId??null,itemAction:e?.itemAction??null,
       actualStatus:e?.reviewStatus??null,expectedStatus:t.status,
       actualConflicts:e?.conflictsWithItemIds??[],
@@ -162,6 +166,7 @@ export function evaluate(events,state) {
     scores: {
       valid:sum('accepted'),
       concepts:sum('conceptOk'),
+      conceptsExact:sum('conceptExactOk'),
       action:sum('actionOk'),
       conflicts:sum('conflictOk'),
       reviewStatus:sum('statusOk'),
@@ -203,7 +208,8 @@ export function reportMarkdown(score,runs) {
     '## 汇总',
     '',
     '- 模型：deepseek-chat；temperature=0；完成的 API 响应：'+runs.filter(r=>r.modelOk).length+'/'+runs.length,
-    '- Concept ID 集合：'+x.concepts+'/'+score.total,
+    '- 必需 Concept ID 均出现、无无关额外节点：'+x.concepts+'/'+score.total,
+    '- 与人工最小 Concept 集合完全一致（更严格参考项）：'+x.conceptsExact+'/'+score.total,
     '- 新建/复用知识条目：'+x.action+'/'+score.total,
     '- 已有知识冲突处理：'+x.conflicts+'/'+score.total,
     '- 待审核/存疑状态：'+x.reviewStatus+'/'+score.total,
