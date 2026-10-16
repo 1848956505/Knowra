@@ -4,13 +4,13 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
-import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
+import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
 import { main } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
 const item = (quote, kind = 'fact') => ({ title: quote.slice(0, 10), kind, statement: quote, quote });
-const reuse = (conceptId, quote, extra = {}) => ({ conceptAction: 'reuse', conceptId, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: item(quote), ...extra });
-const create = (name, sense, quote, possibleDuplicateOf = null) => ({ conceptAction: 'create', conceptId: null, newConcept: { name, sense }, possibleDuplicateOf, itemAction: 'new', existingItemId: null, item: item(quote) });
+const reuse = (conceptId, quote, extra = {}) => ({ conceptAction: 'reuse', conceptId, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: item(quote), sourceIssue: null, ...extra });
+const create = (name, sense, quote, possibleDuplicateOf = null) => ({ conceptAction: 'create', conceptId: null, newConcept: { name, sense }, possibleDuplicateOf, itemAction: 'new', existingItemId: null, item: item(quote), sourceIssue: null });
 const response = (id, links) => ({ requestId: `concept-link-r2-${id}`, links, remarks: '' });
 
 /** 理想模型：按预期回答每一条。 */
@@ -135,8 +135,8 @@ test('本机真实笔记模式：空库起步、按节切分、第二篇能检�
     const quote = request.note.markdown.split('\n')[1];
     const existing = request.candidateConcepts[0];
     const link = existing
-      ? { conceptAction: 'reuse', conceptId: existing.id, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote } }
-      : { conceptAction: 'create', conceptId: null, newConcept: { name: '矩阵乘法', sense: '线性代数中的乘法运算' }, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote } };
+      ? { conceptAction: 'reuse', conceptId: existing.id, newConcept: null, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote }, sourceIssue: null }
+      : { conceptAction: 'create', conceptId: null, newConcept: { name: '矩阵乘法', sense: '线性代数中的乘法运算' }, possibleDuplicateOf: null, itemAction: 'new', existingItemId: null, item: { title: 't', kind: 'fact', statement: quote, quote }, sourceIssue: null };
     const content = JSON.stringify({ requestId: request.requestId, links: [link], remarks: '' });
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }], usage: {} }));
   };
@@ -149,4 +149,53 @@ test('本机真实笔记模式：空库起步、按节切分、第二篇能检�
   const report = await readFile(path.join(out, 'report.md'), 'utf8');
   assert.match(report, /新建概念 1 个/);
   assert.equal(report.includes('secret-key-value'), false);
+});
+
+test('只引用标题的条目被拒；sourceIssue 必须为空或简短说明', () => {
+  assert.equal(quoteHasSubstance('## 1.3.1 监督学习'), false);
+  assert.equal(quoteHasSubstance('```\nX.sum()\n```'), true);
+  assert.equal(quoteHasSubstance('1、张量：多维数组'), true);
+  const target = { id: 'H1', markdown: '## 1.3.1 监督学习\n### 分类\n层次分类是类别有级别的分类。', candidates: ['C_MATRIX', 'C_ADD', 'C_DOT', 'C_DET', 'C_RANK', 'C_EIG', 'C_NORM', 'C_TENSOR'], expected: [] };
+  const state = createState();
+  const result = applyResponse(state, target, { requestId: 'concept-link-r2-H1', remarks: '', links: [
+    create('监督学习', '机器学习的一类任务', '## 1.3.1 监督学习'),
+    { ...create('层次分类', '分类任务的一种', '层次分类是类别有级别的分类。'), sourceIssue: 'x'.repeat(201) },
+    { ...create('层次分类', '分类任务的一种', '层次分类是类别有级别的分类。'), sourceIssue: '原文没有说明级别如何划分' }
+  ] });
+  assert.deepEqual(result.links.map(link => link.accepted), [false, false, true]);
+  assert.match(result.links[0].errors.join(), /只有标题/);
+  assert.equal(result.links[2].sourceIssue, '原文没有说明级别如何划分');
+});
+
+test('R09 评分区分是否保留原话、是否标注存疑', () => {
+  const state = createState();
+  const target = note('R09');
+  const kept = applyResponse(state, target, response('R09', [{ ...reuse('C_SOFTMAX', target.expected[0].span), sourceIssue: 'softmax 输出之和应为 1' }]));
+  assert.deepEqual(gradeRun([{ noteId: 'R09', response: kept }]).fidelity, ['保留原话，标注存疑']);
+  const fixedLink = reuse('C_SOFTMAX', target.expected[0].span);
+  fixedLink.item.statement = 'softmax 的输出各项之和等于 1。';
+  const fixed = applyResponse(createState(), target, response('R09', [fixedLink]));
+  assert.deepEqual(gradeRun([{ noteId: 'R09', response: fixed }]).fidelity, ['改写了原话，未标注']);
+});
+
+test('检索按名称覆盖率打分：短名“梯度”不再被长名字挤出候选', () => {
+  const concepts = [
+    { id: 'A', name: '张量与NumPy数组的转换', sense: 'PyTorch 张量与 NumPy 数组之间的转换' },
+    { id: 'B', name: '矩阵与向量/矩阵的积', sense: 'PyTorch 中矩阵与向量相乘' },
+    { id: 'C', name: '梯度', sense: '多元函数偏导数组成的向量' },
+    { id: 'D', name: '沿轴降维求和', sense: 'PyTorch 张量沿轴求和' }
+  ];
+  const text = '如何对某个变量进行求导（求梯度）：告诉pytorch，我们要对x求梯度，需要一个地方存储梯度；x.grad 是张量的属性';
+  assert.equal(retrieveConcepts(concepts, text, 4)[0].id, 'C');
+});
+
+test('同一篇里复用同名新概念的条目不再被标“说明含内容”', () => {
+  const state = createState();
+  const target = note('R06');
+  const result = applyResponse(state, target, response('R06', [
+    create('矩阵转置', '线性代数中的一种操作', target.expected[0].span),
+    create('矩阵转置', '线性代数中的一种操作', target.expected[3].span)
+  ]));
+  assert.equal(result.links[1].conceptAction, 'create-same-note');
+  assert.equal(result.links[1].senseAbsorbs, false);
 });
