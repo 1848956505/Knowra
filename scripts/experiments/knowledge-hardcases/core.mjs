@@ -77,13 +77,13 @@ export function validateProposal(proposal,state,caseData) {
         ||proposal.item?.reviewStatus!=='candidate')
       errors.push('AI 补充无笔记来源：quote 必须 null、sourceMode=ai 且 reviewStatus=candidate');
   } else errors.push('不支持未知来源模式');
-  if(!Array.isArray(proposal.conflictsWithItemIds)
-      ||new Set(proposal.conflictsWithItemIds).size!==proposal.conflictsWithItemIds.length
-      ||proposal.conflictsWithItemIds.some(id=>!state.items.some(i=>i.id===id)))
-    errors.push('冲突引用必须是已有 KnowledgeItem ID，不能重复');
-  if(proposal.item?.reviewStatus==='disputed' && proposal.conflictsWithItemIds.length===0)
+  const conflictIds=Array.isArray(proposal.conflictsWithItemIds)?proposal.conflictsWithItemIds:null;
+  if(!conflictIds||new Set(conflictIds).size!==conflictIds.length
+      ||conflictIds.some(id=>!state.items.some(i=>i.id===id)))
+    errors.push('冲突引用必须是已有 KnowledgeItem ID 数组，不能重复');
+  if(conflictIds && proposal.item?.reviewStatus==='disputed' && conflictIds.length===0)
     errors.push('disputed 必须明确指向可核查的冲突条目');
-  if(proposal.item?.reviewStatus==='candidate' && proposal.conflictsWithItemIds.length>0)
+  if(conflictIds && proposal.item?.reviewStatus==='candidate' && conflictIds.length>0)
     errors.push('存在冲突时不得直接声明普通 candidate');
   if(proposal.itemAction==='new' && proposal.existingItemId!==null)
     errors.push('新条目不得带 existingItemId');
