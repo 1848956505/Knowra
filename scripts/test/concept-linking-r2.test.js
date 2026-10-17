@@ -372,8 +372,14 @@ test('拆分建议：每组至少 2 条、条目属于该概念且不重叠，�
   assert.match(describeSplit(graded.splitParts), /^广播（/);
   assert.equal(suggest([{ name: '广播', sense: 's', itemIds: [ids[3]] }]).accepted, false);
   assert.equal(suggest([{ name: '全部', sense: 's', itemIds: ids }]).accepted, false);
-  assert.equal(suggest([{ name: 'a', sense: 's', itemIds: [ids[0], ids[1]] }, { name: 'b', sense: 's', itemIds: [ids[1], ids[2]] }]).accepted, false);
+  // 与前一组重叠的组被单独丢弃，合格的组保留。
+  const partial = suggest([{ name: 'a', sense: 's', itemIds: [ids[0], ids[1]] }, { name: 'b', sense: 's', itemIds: [ids[1], ids[2]] }]);
+  assert.equal(partial.accepted, true);
+  assert.deepEqual([partial.split.length, partial.splitDropped], [1, 1]);
   assert.equal(suggest([{ name: 'a', sense: 's', itemIds: ['K_PRE_1', ids[0]] }]).accepted, false);
+  const failed = suggest([]);
+  assert.equal(failed.accepted, false);
+  assert.match(failed.raw, /"action":"split"/);
 });
 
 test('不该拆分的概念收到拆分建议记为有害', () => {
@@ -383,4 +389,18 @@ test('不该拆分的概念收到拆分建议记为有害', () => {
   const result = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: grad.id, action: 'split', targetId: null, newName: null, split: [{ name: '清零', sense: 's', itemIds: grad.items.slice(0, 2).map(item => item.id) }], reason: '' }] });
   // x.grad 只有 2 条条目，拆出 2 条会让原概念为空，校验直接拒绝。
   assert.equal(result.suggestions[0].accepted, false);
+});
+
+test('拆分最多保留 6 组，多出的组丢弃而不是整条被拒', () => {
+  const state = createState({ empty: true });
+  const markdown = Array.from({ length: 16 }, (_, i) => `第 ${i + 1} 条：张量操作 ${i + 1}。`).join('\n');
+  const big = { id: 'BIG', markdown };
+  applyResponse(state, big, { requestId: 'concept-link-r2-BIG', links: markdown.split('\n').map(line => create('张量', '多维数组', line)), remarks: '' });
+  const [request] = reviewRequests(state);
+  const concept = request.newConcepts[0];
+  const ids = concept.items.map(item => item.id);
+  const groups = Array.from({ length: 7 }, (_, g) => ({ name: `组${g}`, sense: 's', itemIds: ids.slice(g * 2, g * 2 + 2) }));
+  const [entry] = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: concept.id, action: 'split', targetId: null, newName: null, split: groups, reason: '' }] }).suggestions;
+  assert.equal(entry.accepted, true);
+  assert.deepEqual([entry.split.length, entry.splitDropped], [6, 1]);
 });

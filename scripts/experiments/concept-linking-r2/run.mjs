@@ -87,7 +87,10 @@ export async function runReview(state, { fetchImpl, apiKey, maxTokens, dryRun = 
       if (!result.accepted) errors.push(`${request.requestId}：${result.error}`);
       suggestions.push(...result.suggestions);
       const rejected = result.suggestions.filter(entry => !entry.accepted);
-      if (rejected.length) errors.push(`${request.requestId}：${rejected.length} 条建议被校验拒绝（${rejected.flatMap(entry => entry.errors).join('；')}）`);
+      for (const entry of rejected) {
+        const name = request.newConcepts.find(concept => concept.id === entry.conceptId)?.name ?? entry.conceptId;
+        errors.push(`${request.requestId}：「${name}」的建议被校验拒绝（${entry.errors.join('；')}）｜模型原文：${entry.raw}`);
+      }
     } catch (error) { errors.push(`${request.requestId}：${describeError(error)}`); }
   }
   return { requests, suggestions, errors, graded: gradeReview(state, suggestions) };
