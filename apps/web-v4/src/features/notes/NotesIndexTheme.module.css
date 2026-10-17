@@ -1,9 +1,10 @@
 /* 定稿的完整装饰与胶囊色板，由应用外壳及浮层共同继承。 */
 .theme {
---ni-chrome:#f0f1f3;
-  --ni-page:#fbfcfd;
-  --ni-ink:#17181b; --ni-ink-2:#686d76; --ni-ink-3:#8a8f99; --ni-ink-4:#b4b9c6;
-  --ni-body:#2e323a; --ni-ink-3-text:#6d727d;
+/* 三层明度：外栏最深，侧栏居中，页面最亮。 */
+--ni-chrome:#e1e5eb;
+  --ni-page:#fdfdfe;
+  --ni-ink:#17181b; --ni-ink-2:#4f5560; --ni-ink-3:#8a8f99; --ni-ink-4:#b4b9c6;
+  --ni-body:#2e323a; --ni-ink-3-text:#5a606b;
   --ni-line:rgba(24,30,48,.075); --ni-line-2:rgba(24,30,48,.12);
   --ni-hover:rgba(24,30,48,.045); --ni-press:rgba(24,30,48,.085);
   --ni-selected:rgba(24,30,48,.075);
@@ -24,7 +25,7 @@
   --ink-rgb:24 30 48; --ink-bg-rgb:251 252 253;
 
   --ni-surf:#fff; --ni-surf-2:rgba(255,255,255,.55);
-  --ni-ctx-bg:rgba(247,249,250,.92); --ni-ctx-bg-solid:rgba(246,247,250,.97); --ni-ctx-border:rgba(54,60,74,.13); --ni-ctx-hl:#ffffffc7;
+  --ni-ctx-bg:rgba(238,241,245,.9); --ni-ctx-bg-solid:rgba(238,241,245,.97); --ni-ctx-border:rgba(54,66,90,.17); --ni-ctx-hl:#ffffffc7;
   --ni-pop-bg:rgba(252,252,254,.97); --ni-gh-bg:#fafbfcf2; --ni-toast-bg:#262b3a;
   --ni-nv-sel:linear-gradient(#ffffffb0,#ffffff65); --ni-nv-sel-line:#dfe2e9; --ni-nv-sel-ink:#283344;
   --ni-rail-sel:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,255,255,.86));
