@@ -38,8 +38,8 @@ export function ConceptGraphView({ data: sample = CONCEPT_GRAPH_SAMPLE }: { data
   const focusConceptId = focus.kind === 'concept' ? focus.id : focus.kind === 'item' ? focus.conceptId : null;
   const full = loaded ?? sample;
   // 检索边很多，默认只在选中它的一端时显示。
-  const data = useMemo(() => ({ ...full, relations: full.relations.filter(relation => layers[relationLayer(relation.type)]
-    || (relationLayer(relation.type) === 'retrieval' && focusConceptId !== null && (relation.from === focusConceptId || relation.to === focusConceptId))) }), [full, layers, focusConceptId]);
+  const data = useMemo(() => ({ ...full, relations: full.relations.filter(relation => !loaded || layers[relationLayer(relation.type)]
+    || (relationLayer(relation.type) === 'retrieval' && focusConceptId !== null && (relation.from === focusConceptId || relation.to === focusConceptId))) }), [full, loaded, layers, focusConceptId]);
   const importFile = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -201,7 +201,7 @@ function ResearchIntro({ data }: { data: ConceptGraphData }) {
   const largest = [...data.concepts].map(concept => ({ concept, count: itemsOf(data, concept.id).length })).sort((a, b) => b.count - a.count)[0];
   return <div className={styles.intro}>
     <h2>怎么看这张图</h2>
-    <p>圆点是实验新建的概念，大小表示挂了多少条目；点击圆点，条目以方块展开，带“!”的方块是 AI 认为原文可能有误的地方，意见单独显示，陈述仍是笔记原话。</p>
+    <p>圆点是实验新建的概念，大小表示挂了多少条目；点击圆点，条目以方块展开，带“!”的方块是 AI 认为原文可能有误的地方，意见与对应原文单独显示；条目陈述是模型复述，原文请看来源。</p>
     <p>实线是模型提议的概念关系，橙色虚线是整理建议和疑似重复，灰色点线是“检索给了这个候选，但模型新建了概念”。所有连线都是候选，没有写入知识库。</p>
     <p className={styles.muted}>这份结果：{suggested} 个概念有整理建议，{disputed} 条条目带存疑意见{largest ? `；条目最多的是“${largest.concept.name}”（${largest.count} 条）` : ''}。</p>
   </div>;
@@ -240,15 +240,27 @@ function ConceptDetail({ data, conceptId, onSelectItem, onSelectConcept }: { dat
 
 function ItemDetail({ data, item, onSelectConcept }: { data: ConceptGraphData; item: GraphItem; onSelectConcept(id: string): void }) {
   const relation = data.relations.find(entry => entry.basisItemId === item.id);
+  const sources = item.sources ?? (item.source ? [item.source] : []);
   return <div className={styles.detail}>
     <p className={styles.eyebrow}>{KIND_LABELS[item.kind]}{relation ? ' · 关系说明' : ''}</p>
     <h2>{item.title}</h2>
+    {item.sources ? <p className={styles.eyebrow}>条目陈述（模型复述）</p> : null}
     <p className={styles.statement}>{item.statement}</p>
     <dl className={styles.facts}>
       <dt>审阅</dt><dd className={item.verification === 'disputed' ? styles.warning : undefined}>{VERIFICATION_LABELS[item.verification]}</dd>
       <dt>掌握</dt><dd><span className={`${styles.swatch} ${styles.swatchSquare} ${LEVEL_CLASS[item.mastery]}`} />{MASTERY_LABELS[item.mastery]}</dd>
-      <dt>来源</dt><dd>{item.source ? <>{item.source.note}{item.sourceCount && item.sourceCount > 1 ? ` 等 ${item.sourceCount} 处` : ''}<blockquote>{item.source.quote}</blockquote></> : <span className={styles.muted}>没有笔记来源</span>}</dd>
+      <dt>来源</dt><dd>{sources.length ? sources.map((source, index) => <div key={index}>
+        <span>{source.note || '笔记未标明'}</span><blockquote>{source.quote || '原文未提供'}</blockquote>
+      </div>) : <span className={styles.muted}>没有笔记来源</span>}</dd>
     </dl>
+    {item.sourceIssues?.length ? <section aria-label="AI 存疑意见">
+      <h3>AI 存疑意见（不是笔记原话）</h3>
+      {item.sourceIssues.map((source, index) => <div key={index} className={styles.warningNote}>
+        <p>对应笔记：{source.note || '笔记未标明'}</p>
+        <blockquote>{source.quote || '对应原文未提供'}</blockquote>
+        <p>{source.issue}</p>
+      </div>)}
+    </section> : null}
     {item.verificationNote ? <p className={item.verification === 'disputed' ? styles.warningNote : styles.note}>{item.verificationNote}</p> : null}
     <h3>涉及概念</h3>
     <ul className={styles.chips}>{item.conceptIds.map(id => {

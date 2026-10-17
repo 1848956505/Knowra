@@ -24,6 +24,15 @@ export interface GraphConcept {
   suggestion?: { action: SuggestionAction; summary: string; reason: string };
 }
 
+export interface GraphSource {
+  note: string;
+  quote: string;
+}
+
+export interface GraphSourceIssue extends GraphSource {
+  issue: string;
+}
+
 export interface GraphItem {
   id: string;
   title: string;
@@ -33,7 +42,10 @@ export interface GraphItem {
   verification: VerificationStatus;
   verificationNote?: string;
   mastery: MasteryLevel;
-  source: { note: string; quote: string } | null;
+  source: GraphSource | null;
+  /** 研究视图：保留全部原文出处与每条 AI 意见对应的原文，不将意见挂到首个来源。 */
+  sources?: GraphSource[];
+  sourceIssues?: GraphSourceIssue[];
   /** 研究视图：同一条目被几篇笔记引用。 */
   sourceCount?: number;
 }

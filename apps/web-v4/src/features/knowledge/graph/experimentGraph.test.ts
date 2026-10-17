@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { REUSED_ITEM_RESULT } from './experimentGraph.fixture';
 import { ExperimentResultError, GRAPH_HEIGHT, GRAPH_WIDTH, graphFromExperimentResult } from './experimentGraph';
 
 // 合成的最小 result.json：结构与 concept-linking-r2 的 run-local 输出一致，内容是虚构的。
@@ -47,9 +48,24 @@ describe('graphFromExperimentResult', () => {
     expect(graph.items.every(item => item.mastery === 'notAssessed')).toBe(true);
     const disputed = graph.items.find(item => item.id === 'K3')!;
     expect(disputed.statement).toBe('dir(torch.ones)');
-    expect(disputed.verificationNote).toContain('AI 存疑意见（不是笔记原话）');
+    expect(disputed.sourceIssues).toEqual([{ note: 'L02', quote: '', issue: '可能应为 dir(torch)' }]);
     expect(disputed.kind).toBe('application');
     expect(graph.items.find(item => item.id === 'K2')).toMatchObject({ kind: 'process', sourceCount: 2, source: { note: 'L02', quote: '累积' } });
+  });
+
+  it('保留复用条目的全部来源与每条意见的笔记和原文，不覆盖早期意见', () => {
+    const item = graphFromExperimentResult(REUSED_ITEM_RESULT).items[0];
+    expect(item.statement).toBe('模型复述的梯度定义');
+    expect(item.verification).toBe('disputed');
+    expect(item.sources).toEqual([
+      { note: 'L1', quote: 'L1 的正确原文' }, { note: 'L2', quote: 'L2 的偏导树原文' }, { note: 'L3', quote: 'L3 的 gard 原文' }
+    ]);
+    expect(item.sourceIssues).toEqual([
+      { note: 'L2', quote: 'L2 的偏导树原文', issue: '偏导树可能是笔误' },
+      { note: 'L3', quote: 'L3 的 gard 原文', issue: 'gard 可能是笔误' }
+    ]);
+    expect(item.source).toEqual(item.sources?.[0]);
+    expect(item.sourceCount).toBe(3);
   });
 
   it('检索到但未复用：只为新建概念画，复用了的候选不算', () => {

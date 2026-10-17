@@ -1,7 +1,7 @@
 // 研究视图：把 concept-linking-r2 实验在本机生成的 result.json 转成概念图数据。
 // 只在页面内存中使用，不写知识库；所有条目和关系都是模型提议，一律按候选展示。
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force';
-import type { ConceptGraphData, GraphConcept, GraphItem, GraphRelation, ItemKind, SemanticRelationType, SuggestionAction } from './conceptGraphData';
+import type { ConceptGraphData, GraphConcept, GraphItem, GraphRelation, GraphSourceIssue, ItemKind, SemanticRelationType, SuggestionAction } from './conceptGraphData';
 
 export const GRAPH_WIDTH = 1040;
 export const GRAPH_HEIGHT = 760;
@@ -31,18 +31,25 @@ export function graphFromExperimentResult(raw: unknown, fileName = 'result.json'
   const links = results.flatMap(result => list(isRecord(result.response) ? result.response.links : []).filter(link => link.accepted === true));
 
   // sourceIssue 记在挂靠记录上；它是 AI 的存疑意见，单独展示，不混进陈述。
-  const issues = new Map<string, string>();
-  for (const link of links) if (text(link.sourceIssue) && text(link.itemId)) issues.set(text(link.itemId), text(link.sourceIssue));
+  const issues = new Map<string, GraphSourceIssue[]>();
+  for (const result of results) {
+    for (const link of list(isRecord(result.response) ? result.response.links : [])) {
+      if (link.accepted !== true || !text(link.sourceIssue) || !text(link.itemId)) continue;
+      const itemId = text(link.itemId);
+      const issue = { note: text(result.noteId), quote: text(link.quote), issue: text(link.sourceIssue) };
+      issues.set(itemId, [...(issues.get(itemId) ?? []), issue]);
+    }
+  }
 
   const items: GraphItem[] = list(raw.state.items).filter(row => conceptIds.has(text(row.conceptId))).map(row => {
-    const sources = list(row.sources);
-    const issue = issues.get(text(row.id));
+    const sources = list(row.sources).map(source => ({ note: text(source.noteId), quote: text(source.quote) }));
+    const sourceIssues = issues.get(text(row.id)) ?? [];
     return {
       id: text(row.id), title: text(row.title), kind: KIND[text(row.kind)] ?? 'fact', statement: text(row.statement),
       conceptIds: [text(row.conceptId)], mastery: 'notAssessed',
-      verification: issue ? 'disputed' : 'candidate',
-      verificationNote: issue ? `AI 存疑意见（不是笔记原话）：${issue}` : undefined,
-      source: sources[0] ? { note: text(sources[0].noteId), quote: text(sources[0].quote) } : null,
+      verification: sourceIssues.length ? 'disputed' : 'candidate',
+      sourceIssues, sources,
+      source: sources[0] ?? null,
       sourceCount: sources.length
     };
   });
