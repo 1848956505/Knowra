@@ -70,7 +70,7 @@ export function KnowledgeIndexTools(props: KnowledgeIndexToolsProps) {
       </PopoverDialog>
     </Popover>
   </PopoverTrigger>;
-  const create = <GhostIconButton variant="glass" className={styles.createGlow} aria-label="新建知识候选" title="新建知识候选"
+  const create = <GhostIconButton variant="crystal" aria-label="新建知识候选" title="新建知识候选"
     disabled={!props.canWrite || props.busy} onPress={props.onCreate}><PlusIcon size={16} /></GhostIconButton>;
 
   if (compact) {

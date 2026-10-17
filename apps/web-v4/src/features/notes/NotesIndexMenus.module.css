@@ -38,7 +38,7 @@
 
 /* 筛选条件胶囊：维度 | 关系 | 值 | × */
 .chips { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 40px; padding: 0 20px 8px; }
-.chip { display: inline-flex; align-items: stretch; height: 26px; border-radius: var(--ni-control-radius, 7px); background: var(--ni-surf, var(--surface-raised)); box-shadow: 0 0 0 1px var(--ni-line-2, var(--border-subtle)); font-size: 12px; overflow: hidden; }
+.chip { display: inline-flex; align-items: stretch; height: 26px; border-radius: var(--radius-pill); background: var(--ni-surf, var(--surface-raised)); box-shadow: 0 0 0 1px var(--ni-line-2, var(--border-subtle)); font-size: 12px; overflow: hidden; }
 .chip > * { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; color: var(--ni-ink-3, var(--text-muted)); }
 .chip > * + * { box-shadow: inset 1px 0 0 var(--ni-line, var(--border-subtle)); }
 .chipLabel svg { width: 12px; height: 12px; }

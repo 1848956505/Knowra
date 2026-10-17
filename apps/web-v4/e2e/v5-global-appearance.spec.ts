@@ -27,7 +27,7 @@ test('全局定稿外观跨页面和浮层生效，明暗切换在刷新后保�
     await expect(page.getByRole('button', { name: '切换浅色模式' })).toBeVisible();
     await expect(page.locator('#feature-stage')).toHaveCSS('background-color', 'rgb(24, 25, 29)');
     const radius = await shell.evaluate(element => getComputedStyle(element).getPropertyValue('--radius-control').trim());
-    expect(radius).toBe('999px');
+    expect(radius).toBe('7px');
   }
   await page.reload();
   await expect(shell).toHaveAttribute('data-ni-mode', 'dark');

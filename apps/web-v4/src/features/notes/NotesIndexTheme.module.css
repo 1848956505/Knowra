@@ -69,6 +69,17 @@
 }
 
 .theme[data-ni-mode="dark"] {
+  --surface-action-crystal: linear-gradient(145deg, rgb(65 71 81 / 48%), rgb(36 39 46 / 40%));
+  --border-action-crystal: rgb(113 119 129 / 60%);
+  --icon-action-crystal: #ffa56d;
+  --shadow-action-crystal: inset 0 1px 1px #42464e, inset 0 -1px 0 #858f9f12, 0 0 0 1px #858f9f20, 0 4px 10px -4px rgb(0 0 0 / 53%);
+  --shadow-action-crystal-hover: inset 0 1px 1px #42464e, 0 0 0 1px #858f9f35, 0 6px 15px -5px rgb(0 0 0 / 53%);
+  --shadow-action-crystal-pressed: inset 0 2px 4px rgb(0 0 0 / 53%), 0 0 0 1px #858f9f20;
+  --surface-action-satin: linear-gradient(145deg, #b8743d, #a3592d 55%, #8c4321);
+  --border-action-satin: #bb672f;
+  --shadow-action-satin: inset 0 1px 0 #ffbf8650, 0 3px 7px #0005;
+  --shadow-action-satin-hover: inset 0 1px 0 #ffbf8670, 0 0 0 2px #d48b4930, 0 4px 10px #0007;
+  --shadow-action-satin-pressed: inset 0 2px 4px #4e271b80;
 color-scheme:dark;
   --ink-rgb:236 236 238; --ink-bg-rgb:24 25 29;
   --ni-chrome:#0b0c0f; --ni-page:#18191d;
@@ -216,14 +227,9 @@ color-scheme:dark;
   --shadow-input-focus: var(--focus-ring);
   --ink-danger: var(--ni-danger);
   --ink-danger-soft: var(--ni-danger-soft);
-  --radius-control: var(--ni-control-radius);
-  --radius-tab: var(--ni-control-radius);
-  --ni-control-radius: 999px;
-  --ni-icon-radius: 50%;
   font-family: var(--font-ui);
   color: var(--ni-ink);
 }
-.theme[data-ni-shape="rounded"] { --ni-control-radius: 7px; --ni-icon-radius: 7px; }
 .controls {
   --index-size-28: 20px;
   --index-size-9: 7px;
@@ -247,8 +253,6 @@ color-scheme:dark;
   --ink-violet: var(--ni-ink-2); --ink-violet-soft: var(--ni-fill-2);
 }
 
-/* 特定控件的形状令牌与局部语义圆角一致；图标按钮保留圆形比例。 */
-.theme { --segmented-radius:var(--ni-control-radius); --search-radius:var(--ni-control-radius); --icon-button-radius:var(--ni-icon-radius); }
 .theme { --surface-chrome-glow:var(--ni-grain),radial-gradient(460px 320px at 6% 4%,var(--ni-sheen),transparent 70%),radial-gradient(640px 560px at -4% 104%,var(--ni-ambient),transparent 66%); }
 .controls { -webkit-app-region:no-drag; app-region:no-drag; }
 @media (max-width:767px) { .controls { gap:2px; max-width:50vw; overflow-x:auto; scrollbar-width:none; } }

@@ -4,11 +4,12 @@ export interface NotesIndexAppearance {
   mode: 'light' | 'dark';
   theme: 'orange';
   shape: 'pill';
+  overlayMaterial: 'glass' | 'acrylic';
 }
 
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';
 export const DEFAULT_NOTES_INDEX_APPEARANCE: Readonly<NotesIndexAppearance> = {
-  mode: 'light', theme: 'orange', shape: 'pill'
+  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass'
 };
 const listeners = new Set<() => void>();
 let snapshot = readAppearance();
@@ -18,9 +19,10 @@ export function parseNotesIndexAppearance(value: unknown): NotesIndexAppearance 
   const candidate = value && typeof value === 'object' ? value as Partial<NotesIndexAppearance> : {};
   return {
     mode: candidate.mode === 'dark' ? 'dark' : 'light',
-    // 原型对比选项已定稿；兼容旧存储的明暗模式，统一胶囊和橙色，装饰恒为完整。
+    // 保留旧外观存储格式及明暗偏好；pill 仅作为兼容值，实际形状由组件用途决定。
     theme: 'orange',
-    shape: 'pill'
+    shape: 'pill',
+    overlayMaterial: candidate.overlayMaterial === 'acrylic' ? 'acrylic' : 'glass'
   };
 }
 

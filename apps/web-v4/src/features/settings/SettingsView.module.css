@@ -15,6 +15,9 @@
 .settingCopy p { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--font-size-meta); line-height: 1.7; }
 .settingControl { flex: 0 0 auto; display: flex; align-items: center; gap: var(--space-3); }
 .settingControl > span { color: var(--text-secondary); font: 500 var(--font-size-meta)/1.5 var(--font-ui); }
+.materialRow { flex-wrap: wrap; }
+.materialRow > .settingCopy { flex: 1 1 260px; }
+.materialControl { flex: 0 1 auto; min-width: 0; max-width: 100%; flex-wrap: wrap; gap: var(--space-2); }
 .settingCheckbox { min-width: var(--touch-target); min-height: var(--touch-target); align-items: center; justify-content: center; }
 .modelContent { padding: var(--space-5); }
 .modelFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }

@@ -18,6 +18,7 @@ import { AiFeatureSettings } from './AiFeatureSettings';
 import { ExternalClientSettings } from './ExternalClientSettings';
 import { isDesktopRuntime } from './externalClients';
 import { BuildInformation } from './BuildInformation';
+import { OverlayMaterialSettings } from './OverlayMaterialSettings';
 import styles from './SettingsView.module.css';
 
 interface SettingsViewProps {
@@ -27,12 +28,13 @@ interface SettingsViewProps {
   onSidebarOpenChange(open: boolean): void;
 }
 
-type SettingsCategory = 'all' | 'workspace' | 'reading' | 'accessibility' | 'model' | 'about';
+type SettingsCategory = 'all' | 'workspace' | 'appearance' | 'reading' | 'accessibility' | 'model' | 'about';
 
 /** “外部 AI 客户端”只在 Mac 应用的本地运行端出现，计数随之增加。 */
 const buildCategories = (extra: number): { id: SettingsCategory; label: string; count: number }[] => [
-  { id: 'all', label: '全部设置', count: 8 + extra },
+  { id: 'all', label: '全部设置', count: 9 + extra },
   { id: 'workspace', label: '工作区', count: 1 },
+  { id: 'appearance', label: '外观', count: 1 },
   { id: 'reading', label: '阅读与编辑', count: 1 },
   { id: 'accessibility', label: '辅助体验', count: 1 },
   { id: 'model', label: '模型接入', count: 4 + extra },
@@ -94,6 +96,8 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
             </div>
           </div>
         </section> : null}
+
+        {category === 'all' || category === 'appearance' ? <OverlayMaterialSettings /> : null}
 
         {category === 'all' || category === 'reading' ? <section className={styles.group} aria-labelledby="settings-reading-heading">
           <h3 id="settings-reading-heading">阅读与编辑</h3>

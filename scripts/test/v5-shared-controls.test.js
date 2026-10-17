@@ -38,12 +38,11 @@ describe('V5 shared control styles', () => {
     }
   });
 
-  it('keeps notes button shapes scoped through the shared semantic radius', () => {
+  it('keeps pill actions separate from rectangular content across themes', () => {
     const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
-    assert.ok(declarations(theme, '.theme').includes('--radius-control: var(--ni-control-radius)'));
-    assert.ok(declarations(theme, '.theme').includes('--ni-control-radius: 999px'));
-    assert.match(declarations(theme, '.theme[data-ni-shape="rounded"]'), /--ni-control-radius:\s*7px/);
-    assert.doesNotMatch(css.button, /--(?:ni-|button-radius)/);
+    assert.doesNotMatch(theme, /--radius-(?:control|tab|popover|panel|pill)\s*:/, '主题不得覆盖共享形状令牌');
+    assert.ok(declarations(css.button, '.square').includes('border-radius: var(--radius-control)'));
+    assert.ok(declarations(css.button, '.pill').includes('border-radius: var(--radius-pill)'));
   });
 
   it('keeps notes ancestors reachable when the compact breadcrumb is hidden', () => {
@@ -80,11 +79,11 @@ describe('V5 shared control styles', () => {
   });
 
   it('uses semantic radii and soft elevation for controls and overlays', () => {
-    assert.ok(declarations(css.button, '.btn').includes('border-radius: var(--radius-control)'));
+    assert.ok(declarations(css.button, '.btn').includes('border-radius: var(--radius-pill)'));
     assert.ok(declarations(css.button, '.btn').includes('box-shadow: var(--shadow-control)'));
     for (const selector of ['.popover', '.menu']) {
       assert.ok(declarations(css.overlay, selector).includes('border-radius: var(--radius-popover)'));
-      assert.ok(declarations(css.overlay, selector).includes('box-shadow: var(--shadow-popover)'));
+      assert.ok(declarations(css.overlay, selector).includes('box-shadow: var(--shadow-overlay)'));
     }
     assert.ok(declarations(css.overlay, '.dialog').includes('border-radius: var(--radius-panel)'));
     assert.doesNotMatch(declarations(css.overlay, '.menuPopover'), /(?:background|border|box-shadow)\s*:/);

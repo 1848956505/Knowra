@@ -31,7 +31,7 @@ export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selecti
     </Menu></MenuPopover>
   </MenuTrigger>;
   const create = <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate} onImport={onImport}>
-    <GhostIconButton variant="glass" className={styles.createGlow} aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></GhostIconButton>
+    <GhostIconButton variant="crystal" aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></GhostIconButton>
   </CreateEntryMenu>;
   return <header className={styles.header}>
     <div className={styles.heading}><NoteIcon size={17} /><strong>{path.at(-1)?.label ?? '笔记索引'}</strong><span title="当前已加载范围内的项目数，包含笔记与文件夹" aria-label={`已加载 ${count} 项`}>{count}</span></div>

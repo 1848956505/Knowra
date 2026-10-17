@@ -190,9 +190,11 @@
   min-width: 200px;
   max-width: 320px;
   outline: 0;
-  background: var(--surface-page);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-popover);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-overlay);
+  box-shadow: var(--shadow-overlay);
+  -webkit-backdrop-filter: var(--overlay-backdrop);
+  backdrop-filter: var(--overlay-backdrop);
   padding: 6px;
 }
 
@@ -251,9 +253,11 @@
   outline: 0;
   min-width: 200px;
   max-width: 320px;
-  background: var(--surface-page);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-popover);
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-overlay);
+  box-shadow: var(--shadow-overlay);
+  -webkit-backdrop-filter: var(--overlay-backdrop);
+  backdrop-filter: var(--overlay-backdrop);
   padding: 6px;
   overflow: auto;
 }
@@ -261,7 +265,7 @@
 .menu:focus-visible {
   /* 菜单容器本身获得焦点时不画粗环；各菜单项有自己的焦点态。 */
   outline: 0;
-  box-shadow: var(--shadow-popover);
+  box-shadow: var(--shadow-overlay);
 }
 
 .menuHead {
@@ -432,3 +436,14 @@
 
 /* 不引入布局盒，桌面检查器仍是原来的 grid item。 */
 .inlinePanel { display: contents; }
+
+@media (forced-colors: active) {
+  .popover, .menu {
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .menu:focus-visible { box-shadow: none; }
+}

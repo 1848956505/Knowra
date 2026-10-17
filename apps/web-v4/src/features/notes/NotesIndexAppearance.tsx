@@ -8,7 +8,8 @@ export function notesIndexAppearanceProps(appearance: NotesIndexAppearance) {
     className: styles.theme,
     'data-ni-mode': appearance.mode,
     'data-ni-theme': appearance.theme,
-    'data-ni-shape': appearance.shape
+    'data-ni-shape': appearance.shape,
+    'data-overlay-material': appearance.overlayMaterial
   };
 }
 

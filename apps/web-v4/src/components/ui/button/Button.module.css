@@ -16,7 +16,7 @@
   color: var(--text-primary);
   background: var(--surface-page);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   box-shadow: var(--shadow-control);
   transition:
     box-shadow var(--motion-fast) var(--motion-ease),
@@ -57,12 +57,13 @@
 
 .compact { --button-min-height: 29px; padding-inline: 10px; }
 .toolbar { --button-min-height: 28px; min-height: 28px; padding-inline: 9px; }
-.footer { --button-min-height: 22px; min-height: 22px; padding-inline: 6px; gap: 3px; border-radius: 8px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.footer { --button-min-height: 22px; min-height: 22px; padding-inline: 6px; gap: 3px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .footer.iconOnly { min-width: 22px; width: 22px; padding: 0; }
 /* 底栏里不可点的按钮（如首页的“上一页”）只变浅，不加底色和描边。 */
 .btn.footer[data-disabled], .btn.footer[disabled] { background: transparent; border-color: transparent; box-shadow: none; opacity: .35; }
 .footer[aria-current='page'] { background: var(--surface-raised, var(--surface-page)); border-color: transparent; color: var(--text-primary); font-weight: 550; box-shadow: 0 0 0 1px var(--border-subtle), 0 1px 2px rgb(24 30 48 / 6%); }
-.pill { border-radius: 999px; }
+.square { border-radius: var(--radius-control); }
+.pill { border-radius: var(--radius-pill); }
 .mini { --button-min-height: 27px; padding-inline: 6px; font-size: 11px; box-shadow: none; }
 .toolbar.iconOnly { min-width: 28px; width: 28px; }
 .iconOnly { min-width: var(--index-size-30); min-height: var(--button-min-height); padding: 0; justify-content: center; }

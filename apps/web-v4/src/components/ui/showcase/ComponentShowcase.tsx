@@ -226,6 +226,14 @@ function ButtonSection() {
         </div>
 
         <div className={styles.example}>
+          <span className={styles.exampleLabel}>形状：小型操作用胶囊，内容容器用小圆角矩形</span>
+          <div className={styles.row}>
+            <Button>默认胶囊</Button>
+            <Button shape="square">小圆角矩形</Button>
+          </div>
+        </div>
+
+        <div className={styles.example}>
           <span className={styles.exampleLabel}>Disabled / Pending</span>
           <div className={styles.row}>
             <Button isDisabled>默认</Button>
@@ -291,6 +299,26 @@ function IconSection() {
           <p style={{ fontSize: 11, color: 'var(--ink-secondary)', margin: 0 }}>
             hover / focus / active 用 data-* 属性强制展示（视觉演示用，非交互）。
           </p>
+        </div>
+
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>通透玻璃：默认 / 悬停 / 按下 / 禁用</span>
+          <div className={styles.row}>
+            <GhostIconButton variant="crystal" aria-label="玻璃新建"><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="crystal" aria-label="玻璃新建悬停" data-force-hover><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="crystal" aria-label="玻璃新建按下" data-force-active><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="crystal" aria-label="玻璃新建禁用" disabled><PlusIcon size={16} /></GhostIconButton>
+          </div>
+        </div>
+
+        <div className={styles.example}>
+          <span className={styles.exampleLabel}>柔橙实心：默认 / 悬停 / 按下 / 禁用</span>
+          <div className={styles.row}>
+            <GhostIconButton variant="satin" aria-label="柔橙新建"><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="satin" aria-label="柔橙新建悬停" data-force-hover><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="satin" aria-label="柔橙新建按下" data-force-active><PlusIcon size={16} /></GhostIconButton>
+            <GhostIconButton variant="satin" aria-label="柔橙新建禁用" disabled><PlusIcon size={16} /></GhostIconButton>
+          </div>
         </div>
 
         <div className={styles.example}>

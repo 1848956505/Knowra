@@ -1,4 +1,4 @@
-// V5 纯图标按钮：默认透明方块；glass 变体提供圆形透明高光。
+// V5 纯图标按钮：默认透明圆形；glass 为透明高光，crystal 为通透玻璃，satin 为柔橙实心。
 // 通过背景与光影反馈状态，不移动控件；保留键盘焦点与触屏点击区域。
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
@@ -24,7 +24,7 @@ export interface GhostIconButtonProps
    * @default 30
    */
   size?: 24 | 28 | 30 | 40;
-  variant?: 'ghost' | 'glass';
+  variant?: 'ghost' | 'glass' | 'crystal' | 'satin';
   /** 兼容原生按钮调用方式；内部映射为 React Aria 的 isDisabled。 */
   disabled?: boolean;
   className?: string;
@@ -57,7 +57,7 @@ export const GhostIconButton = forwardRef<HTMLButtonElement, GhostIconButtonProp
       <RAButton
         ref={buttonRef}
         type={type ?? 'button'}
-        className={cx(styles.ghost, styles[`size${size}`], variant === 'glass' && styles.glass, className)}
+        className={cx(styles.ghost, styles[`size${size}`], variant !== 'ghost' && styles[variant], className)}
         isDisabled={disabled}
         aria-label={ariaLabel}
         {...rest}

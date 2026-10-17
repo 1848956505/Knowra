@@ -57,10 +57,10 @@ describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
     expect(button.className).toMatch(/size30/);
   });
 
-  it('forwards disabled state and does not fire onClick when disabled', () => {
+  it.each(['ghost', 'glass', 'crystal', 'satin'] as const)('%s forwards disabled state and does not fire onClick when disabled', (variant) => {
     const onClick = vi.fn();
     render(
-      <GhostIconButton aria-label="禁用" disabled onClick={onClick}>
+      <GhostIconButton variant={variant} aria-label="禁用" disabled onClick={onClick}>
         ×
       </GhostIconButton>
     );

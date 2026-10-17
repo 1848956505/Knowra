@@ -7,7 +7,7 @@
   flex: 0 0 auto;
   padding: 0;
   border: 0;
-  border-radius: var(--icon-button-radius, var(--radius-control));
+  border-radius: var(--icon-button-radius, var(--radius-pill));
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -58,6 +58,50 @@
   color: var(--accent);
   box-shadow: inset 0 1px 3px var(--border-subtle);
 }
+
+/* 通透玻璃：保留背景透色，用薄亮边与内侧高光建立轮廓。 */
+.crystal {
+  border: 1px solid var(--border-action-crystal);
+  border-radius: var(--radius-pill);
+  background: var(--surface-action-crystal);
+  color: var(--icon-action-crystal);
+  box-shadow: var(--shadow-action-crystal);
+  -webkit-backdrop-filter: blur(9px) saturate(135%);
+  backdrop-filter: blur(9px) saturate(135%);
+}
+.crystal:hover:not(:disabled), .crystal[data-force-hover]:not(:disabled),
+.crystal[aria-expanded='true']:not(:disabled), .crystal[aria-pressed='true']:not(:disabled) {
+  background: var(--surface-action-crystal);
+  color: var(--icon-action-crystal);
+  box-shadow: var(--shadow-action-crystal-hover);
+}
+.crystal:active:not(:disabled), .crystal[data-force-active]:not(:disabled) {
+  background: var(--surface-action-crystal);
+  color: var(--icon-action-crystal);
+  box-shadow: var(--shadow-action-crystal-pressed);
+}
+.crystal:disabled { border-color: var(--border-subtle); background: var(--surface-hover); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* 柔橙缎面：顶边高光、短投影与内凹按压；独立于业务页面的光晕样式。 */
+.satin {
+  border: 1px solid var(--border-action-satin);
+  border-radius: var(--radius-pill);
+  background: var(--surface-action-satin);
+  color: var(--text-on-action-satin);
+  box-shadow: var(--shadow-action-satin);
+}
+.satin:hover:not(:disabled), .satin[data-force-hover]:not(:disabled),
+.satin[aria-expanded='true']:not(:disabled), .satin[aria-pressed='true']:not(:disabled) {
+  background: var(--surface-action-satin);
+  color: var(--text-on-action-satin);
+  box-shadow: var(--shadow-action-satin-hover);
+}
+.satin:active:not(:disabled), .satin[data-force-active]:not(:disabled) {
+  background: var(--surface-action-satin);
+  color: var(--text-on-action-satin);
+  box-shadow: var(--shadow-action-satin-pressed);
+}
+.satin:disabled { border-color: var(--border-subtle); background: var(--surface-hover); box-shadow: none; }
 
 .ghost:focus-visible,
 .ghost[data-force-focus] {
