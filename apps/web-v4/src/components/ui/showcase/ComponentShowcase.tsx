@@ -30,7 +30,7 @@ import {
   Panel,
   Popover,
   PopoverTrigger,
-  SearchField,
+  SearchBox,
   Select,
   StatusTone,
   Tabs,
@@ -305,7 +305,7 @@ function InputSection() {
   const [query, setQuery] = useState('');
   return (
     <section className={styles.section} aria-labelledby="section-inputs">
-      <h2 id="section-inputs" className={styles.sectionTitle}>Input / SearchField / Checkbox / Select</h2>
+      <h2 id="section-inputs" className={styles.sectionTitle}>Input / SearchBox / Checkbox / Select</h2>
       <div className={styles.grid}>
         <div className={styles.example}>
           <span className={styles.exampleLabel}>TextField 默认 / 必填 / 错误</span>
@@ -316,13 +316,14 @@ function InputSection() {
           </div>
         </div>
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>SearchField</span>
-          <SearchField
+          <span className={styles.exampleLabel}>SearchBox</span>
+          <SearchBox
             label="搜索"
+            size="field"
             placeholder="按标题、标签或正文"
             value={query}
-            onChange={setQuery}
-            onClear={() => setQuery('')}
+            onChange={event => setQuery(event.target.value)}
+            onClear={query ? () => setQuery('') : undefined}
             icon={
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                 <circle cx="6" cy="6" r="4" />

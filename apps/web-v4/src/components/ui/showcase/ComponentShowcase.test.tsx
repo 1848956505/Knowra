@@ -9,7 +9,7 @@ describe('V4-04 ComponentShowcase', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Knowra V4 组件展台/ })).toBeInTheDocument();
     expect(screen.getByText(/Canonical Tokens/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Button" })).toBeInTheDocument();
-    expect(screen.getByText(/Input \/ SearchField \/ Checkbox \/ Select/)).toBeInTheDocument();
+    expect(screen.getByText(/Input \/ SearchBox \/ Checkbox \/ Select/)).toBeInTheDocument();
     expect(screen.getByText(/Dialog \/ Menu \/ Popover \/ Tooltip \/ Tabs/)).toBeInTheDocument();
     expect(screen.getByText(/Tree \/ GridList \/ TagGroup/)).toBeInTheDocument();
     expect(screen.getByText(/Badge \/ EmptyState \/ LoadingState \/ Panel/)).toBeInTheDocument();
