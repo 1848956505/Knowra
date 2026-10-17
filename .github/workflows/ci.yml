@@ -2,10 +2,22 @@ name: CI
 
 on:
   pull_request:
+    # 只改实验脚本、实验工作流和讨论记录时不跑全量 CI；实验工作流会先跑自己的无费用测试。
+    # 实验自己的测试由实验工作流运行；只要同时改了其他文件，CI 照常运行。
+    paths-ignore:
+      - "scripts/experiments/**"
+      - "scripts/test/concept-linking-r2.test.js"
+      - ".github/workflows/knowledge-*.yml"
+      - "docs/知识库与试题模块/讨论记录/**"
   push:
     branches:
       - main
       - "codex/**"
+    paths-ignore:
+      - "scripts/experiments/**"
+      - "scripts/test/concept-linking-r2.test.js"
+      - ".github/workflows/knowledge-*.yml"
+      - "docs/知识库与试题模块/讨论记录/**"
 
 permissions:
   contents: read
