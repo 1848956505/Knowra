@@ -3,8 +3,12 @@
 
 export type MasteryLevel = 'notAssessed' | 'weak' | 'basic' | 'mastered';
 export type VerificationStatus = 'confirmed' | 'candidate' | 'disputed';
-export type ItemKind = 'definition' | 'fact' | 'process';
-export type RelationType = 'isA' | 'partOf' | 'prerequisiteOf' | 'appliesTo' | 'contrastsWith' | 'relatedTo';
+export type ItemKind = 'definition' | 'fact' | 'process' | 'application';
+export type SemanticRelationType = 'isA' | 'partOf' | 'prerequisiteOf' | 'appliesTo' | 'contrastsWith' | 'relatedTo';
+/** 研究视图专用：不是语义关系，而是实验过程留下的信号（检索、疑似重复、整理建议）。 */
+export type ResearchRelationType = 'retrievedNotReused' | 'possibleDuplicate' | 'suggestDemote' | 'suggestMerge';
+export type RelationType = SemanticRelationType | ResearchRelationType;
+export type SuggestionAction = 'keep' | 'demote' | 'merge' | 'rename' | 'split';
 
 export interface GraphConcept {
   id: string;
@@ -14,6 +18,10 @@ export interface GraphConcept {
   aliases: string[];
   x: number;
   y: number;
+  /** 研究视图：概念来自哪篇笔记。 */
+  noteId?: string;
+  /** 研究视图：挂靠之后的整理建议，只展示，不执行。 */
+  suggestion?: { action: SuggestionAction; summary: string; reason: string };
 }
 
 export interface GraphItem {
@@ -26,6 +34,8 @@ export interface GraphItem {
   verificationNote?: string;
   mastery: MasteryLevel;
   source: { note: string; quote: string } | null;
+  /** 研究视图：同一条目被几篇笔记引用。 */
+  sourceCount?: number;
 }
 
 export interface GraphRelation {
@@ -37,9 +47,15 @@ export interface GraphRelation {
   label?: string;
   /** 需要说明的关系由唯一的知识条目承载，连线只负责画线（方案 B）。 */
   basisItemId?: string;
+  /** 模型提议的关系一律是候选；手填示例不设置。 */
+  verification?: VerificationStatus;
+  /** 研究视图：提议或建议的理由。 */
+  reason?: string;
 }
 
 export interface ConceptGraphData {
+  /** 有值时是研究视图：说明数据从哪来、不会写入什么。 */
+  notice?: string;
   concepts: GraphConcept[];
   items: GraphItem[];
   relations: GraphRelation[];

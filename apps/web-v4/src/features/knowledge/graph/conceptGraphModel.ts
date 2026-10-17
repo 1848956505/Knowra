@@ -2,10 +2,19 @@ import type { ConceptGraphData, GraphConcept, GraphItem, GraphRelation, ItemKind
 
 export const MASTERY_LABELS: Record<MasteryLevel, string> = { notAssessed: '未评估', weak: '薄弱', basic: '基本掌握', mastered: '已掌握' };
 export const VERIFICATION_LABELS: Record<VerificationStatus, string> = { confirmed: '已确认', candidate: '候选', disputed: '待核查' };
-export const KIND_LABELS: Record<ItemKind, string> = { definition: '定义', fact: '性质 / 事实', process: '方法 / 步骤' };
+export const KIND_LABELS: Record<ItemKind, string> = { definition: '定义', fact: '性质 / 事实', process: '方法 / 步骤', application: '用法' };
 export const RELATION_LABELS: Record<RelationType, string> = {
-  isA: '是一种', partOf: '组成部分', prerequisiteOf: '前置', appliesTo: '应用', contrastsWith: '易混', relatedTo: '相关'
+  isA: '是一种', partOf: '组成部分', prerequisiteOf: '前置', appliesTo: '应用', contrastsWith: '易混', relatedTo: '相关',
+  retrievedNotReused: '检索到未复用', possibleDuplicate: '疑似重复', suggestDemote: '建议降级到', suggestMerge: '建议合并到'
 };
+
+export type RelationLayer = 'relation' | 'retrieval' | 'suggestion';
+export const RELATION_LAYER_LABELS: Record<RelationLayer, string> = { relation: '概念关系', retrieval: '检索到但未复用', suggestion: '整理建议与疑似重复' };
+export function relationLayer(type: RelationType): RelationLayer {
+  if (type === 'retrievedNotReused') return 'retrieval';
+  if (type === 'possibleDuplicate' || type === 'suggestDemote' || type === 'suggestMerge') return 'suggestion';
+  return 'relation';
+}
 
 const SCORE: Record<Exclude<MasteryLevel, 'notAssessed'>, number> = { weak: 1, basic: 2, mastered: 3 };
 

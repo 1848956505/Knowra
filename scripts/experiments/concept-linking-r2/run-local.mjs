@@ -12,6 +12,8 @@ import { splitBySection } from '../knowledge-extraction-ab/lib.mjs';
 import { resolveApiKey } from '../knowledge-extraction-ab/run.mjs';
 import { applyResponse, candidatesFor, createState, describeSplit, modelRequest } from './core.mjs';
 import { invokeWithRetry, runReview } from './run.mjs';
+import { relationsReport, runRelations } from './relations.mjs';
+import { RELATION_MAX_TOKENS } from './run-relations.mjs';
 
 const KIND = { definition: '定义', fact: '性质/事实', procedure: '方法/步骤', application: '用法' };
 const cell = value => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
@@ -31,7 +33,7 @@ export function parseArgs(argv) {
   return args;
 }
 
-export function renderLocalReport(state, results, review = null) {
+export function renderLocalReport(state, results, review = null, relations = null) {
   const conceptName = id => state.concepts.find(concept => concept.id === id)?.name ?? id;
   const accepted = results.flatMap(result => result.response?.accepted ? result.response.links.filter(link => link.accepted) : []);
   const rejected = results.flatMap(result => result.response?.accepted ? result.response.links.filter(link => !link.accepted) : []);
@@ -66,6 +68,7 @@ export function renderLocalReport(state, results, review = null) {
       lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''}${entry.newName ? ` ${cell(entry.newName)}` : ''}${entry.splitParts ? ` ${cell(describeSplit(entry.splitParts))}` : ''} | ${cell(entry.reason)} |`);
     }
   }
+  if (relations) lines.push('', relationsReport(state, relations));
   lines.push('', '## 逐篇明细', '');
   for (const result of results) {
     lines.push(`### ${result.noteId}`, '');
@@ -114,11 +117,13 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
   }
   log('整理建议…');
   const review = await runReview(state, { fetchImpl, apiKey: key.value, maxTokens: args.maxTokens });
+  log('关系提议…');
+  const relations = await runRelations(state, { fetchImpl, apiKey: key.value, maxTokens: RELATION_MAX_TOKENS });
   await mkdir(args.out, { recursive: true });
-  await writeFile(path.join(args.out, 'report.md'), renderLocalReport(state, results, review));
-  await writeFile(path.join(args.out, 'result.json'), JSON.stringify({ state, results, review: { suggestions: review.suggestions, errors: review.errors } }, null, 2));
+  await writeFile(path.join(args.out, 'report.md'), renderLocalReport(state, results, review, relations));
+  await writeFile(path.join(args.out, 'result.json'), JSON.stringify({ state, results, review: { suggestions: review.suggestions, errors: review.errors }, relations: { proposals: relations.proposals, errors: relations.errors } }, null, 2));
   log(`报告：${path.join(args.out, 'report.md')}`);
-  return { state, results, review };
+  return { state, results, review, relations };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
