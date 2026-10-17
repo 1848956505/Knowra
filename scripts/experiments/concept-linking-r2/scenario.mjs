@@ -127,10 +127,10 @@ export const NOTES = Object.freeze([
   },
   {
     id: 'R10', title: '查函数怎么用',
-    // 只有一两行用法、描述的是“怎么查某个库”：应作为条目挂到它描述的对象上，不该单独成概念，也不该挂到整门语言上。
+    // 只有一两行用法：应作为条目挂靠，不该单独成概念。dir/help 本身是 Python 内置函数，挂 Python 或 PyTorch 都可接受（第一次运行后修正）。
     markdown: '## 查函数怎么用\n在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。',
     candidates: ['C_PYTORCH', 'C_PYTHON', 'C_TENSOR', 'C_MATRIX', 'C_ACT', 'C_LOSS', 'C_EMB', 'C_NORM'],
-    expected: [{ span: '在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。', accept: ['C_PYTORCH'], forbid: ['C_PYTHON'], createIsTypeError: true }]
+    expected: [{ span: '在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。', accept: ['C_PYTORCH', 'C_PYTHON'], forbid: ['C_TENSOR', 'C_MATRIX'], createIsTypeError: true }]
   },
   {
     id: 'R11', title: '两者是什么关系',
