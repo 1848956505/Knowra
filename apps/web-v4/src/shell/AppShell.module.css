@@ -1,12 +1,24 @@
 /* V5：全局外壳、磨砂上下文侧栏、不透明内容面板，独立滚动。 */
 .shell {
   --shell-content-row: 2;
+  position: relative;
+  isolation: isolate;
   width: 100%; height: 100dvh; min-height: 0;
   display: grid;
   grid-template-columns: var(--rail-size) minmax(0, 1fr);
   grid-template-rows: var(--topbar-size) minmax(0, 1fr);
   background: var(--surface-chrome-glow), var(--surface-chrome);
   padding-bottom: var(--shell-gap);
+}
+/* 材质只铺在外壳底色上，整体透明度与原型一致，不覆盖内容和按钮。 */
+.shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--surface-chrome-material, none);
+  opacity: var(--chrome-material-opacity, 1);
 }
 .shellWithSidebar { grid-template-columns: var(--rail-size) calc(var(--sidebar-size) + var(--shell-gap)) minmax(0, 1fr); }
 .desktopShell { --shell-content-row: 2; }

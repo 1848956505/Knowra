@@ -1,6 +1,6 @@
 /* 定稿的完整装饰与胶囊色板，由应用外壳及浮层共同继承。 */
 .theme {
---ni-chrome:#e1e4ea;
+--ni-chrome:#f0f1f3;
   --ni-page:#fbfcfd;
   --ni-ink:#17181b; --ni-ink-2:#686d76; --ni-ink-3:#8a8f99; --ni-ink-4:#b4b9c6;
   --ni-body:#2e323a; --ni-ink-3-text:#6d727d;
@@ -51,7 +51,7 @@
 }
 
 .theme {
---ni-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .12 0 0 0 0 .18 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")
+--ni-grain:var(--chrome-grain)
 }
 
 .theme[data-ni-theme="mono"] {
@@ -254,5 +254,11 @@ color-scheme:dark;
 }
 
 .theme { --surface-chrome-glow:var(--ni-grain),radial-gradient(460px 320px at 6% 4%,var(--ni-sheen),transparent 70%),radial-gradient(640px 560px at -4% 104%,var(--ni-ambient),transparent 66%); }
+/* 浅色外栏沿用已选原型；深色保留原有纹理与光感。 */
+.theme:not([data-ni-mode="dark"]) {
+  --surface-chrome-glow: var(--chrome-cloud-glow);
+  --surface-chrome-material: var(--chrome-acrylic-material);
+}
+.theme[data-ni-mode="dark"] { --surface-chrome-material: none; }
 .controls { -webkit-app-region:no-drag; app-region:no-drag; }
 @media (max-width:767px) { .controls { gap:2px; max-width:50vw; overflow-x:auto; scrollbar-width:none; } }
