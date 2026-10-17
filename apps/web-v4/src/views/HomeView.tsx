@@ -197,7 +197,6 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
       className={cx(styles.workbench, entry.available ? styles.workbenchActive : styles.workbenchLocked)}
       onPress={entry.available ? onActivate : undefined}
       aria-label={entry.available ? entry.label : `${entry.label}（尚未上线）`}
-      aria-isDisabled={locked}
       isDisabled={locked}
     >
       <span className={styles.workbenchIcon} aria-hidden="true"><Icon size={20} /></span>
