@@ -27,7 +27,10 @@ test('打包应用知识草稿退出后恢复原候选 id；旧 CAS 冲突不会
   let page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   await page.goto(`${new URL(page.url()).origin}/#/knowledge`);
-  await page.getByRole('button', { name: '新建知识候选', exact: true }).click();
+  // 等待空库加载完成；此时工具栏和空态都有同名入口，按语义范围定位。
+  await expect(page.getByRole('region', { name: '知识列表内容', exact: true }).getByText('还没有知识', { exact: true })).toBeVisible();
+  await page.getByRole('toolbar', { name: '知识库工具栏', exact: true })
+    .getByRole('button', { name: '新建知识候选', exact: true }).click();
   await page.getByRole('textbox', { name: '标题', exact: true }).fill('打包知识草稿');
   await page.getByRole('textbox', { name: '核心陈述', exact: true }).fill('退出前未提交的候选陈述');
   await expect.poll(() => fs.existsSync(recoveryPath) && Object.values(readDrafts()).some(draft => draft.value?.canonicalStatement === '退出前未提交的候选陈述')).toBeTruthy();
