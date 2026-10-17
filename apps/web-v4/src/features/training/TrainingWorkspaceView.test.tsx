@@ -29,6 +29,29 @@ function setup(overrides: Partial<AppStore> = {}) {
 beforeEach(() => { mocked.navigate.mockReset(); });
 
 describe('训练工作台详情流程', () => {
+  it('搜索使用共享清除按钮，清空后恢复题目列表且不留下重复入口', async () => {
+    setup();
+    const user = userEvent.setup();
+    render(<TrainingWorkspaceView />);
+    await screen.findByRole('heading', { name: question.stem });
+    const search = screen.getByRole('searchbox', { name: '搜索题目' });
+    expect(screen.queryByRole('button', { name: '清除搜索' })).not.toBeInTheDocument();
+    await user.type(search, '不匹配的搜索');
+    expect(screen.queryByRole('heading', { name: question.stem })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '清除搜索' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: '清除搜索' }));
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    await user.type(search, '再搜索');
+    await user.tab();
+    expect(screen.getByRole('button', { name: '清除搜索' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(search).toHaveValue('');
+    expect(search).toHaveFocus();
+    expect(await screen.findByRole('heading', { name: question.stem })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '清除搜索' })).not.toBeInTheDocument();
+  });
+
   const purgePreview = { asset: { type: 'question' as const, id: 'q1' }, decision: 'can-purge-no-history' as const, expectedUpdatedAt: question.updatedAt, expectedDatasetEpoch: 'original-epoch', confirmationToken: 'original-token', references: [], exclusiveRecords: {}, coverage: { runningTasks: 'verified' } };
   function localStatusStore(readStatus = vi.fn().mockResolvedValue({ pending: { type: 'question', id: 'q1' }, result: null })) {
     const store = createAppStore({ api: { getAuthoritativePurgeStatus: readStatus } as unknown as WorkspaceApi, cacheKey: 'training-purge-status-test', mockSnapshot: createEmptyWorkspaceSnapshot(), persistenceMode: 'desktop-local' });

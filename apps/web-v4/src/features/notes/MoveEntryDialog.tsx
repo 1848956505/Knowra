@@ -26,7 +26,7 @@ export function MoveEntryDialog({ target, currentParentId, folders, onClose, onM
       {error ? <p role="alert">{error}</p> : null}
     </DialogBody>
     <DialogFooter><DialogClose variant="ghost">取消</DialogClose>
-      <Button variant="accent" isPending={pending} isDisabled={destination === (currentParentId ?? '')} onPress={() => {
+      <Button variant="primary" isPending={pending} isDisabled={destination === (currentParentId ?? '')} onPress={() => {
         setPending(true); setError('');
         void onMove(destination || null).then(onClose).catch(cause => setError(cause instanceof Error ? cause.message : '移动失败')).finally(() => setPending(false));
       }}>移动</Button>

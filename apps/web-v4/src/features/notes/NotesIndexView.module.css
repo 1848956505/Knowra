@@ -7,9 +7,6 @@
 .breadcrumb { min-width:0; flex:1; margin-left:2px; font-size:11px; color:var(--ni-ink-3); opacity:.85; overflow:hidden; }
 .breadcrumb > span { display:flex; white-space:nowrap; }
 .headerActions { flex:none; display:flex; align-items:center; gap:4px; margin-left:auto; }
-.createGlow { --glow:var(--ni-accent,var(--accent)); color:var(--glow); box-shadow:0 0 18px 2px color-mix(in srgb,var(--glow) 16%,transparent),0 0 42px 6px color-mix(in srgb,var(--glow) 9%,transparent),0 1px 2px rgba(24,30,48,.06); transition:box-shadow .45s ease; }
-.createGlow:hover:not(:disabled), .createGlow[aria-expanded='true']:not(:disabled) { box-shadow:0 0 22px 3px color-mix(in srgb,var(--glow) 24%,transparent),0 0 52px 10px color-mix(in srgb,var(--glow) 13%,transparent),0 1px 2px rgba(24,30,48,.06); }
-.createGlow:disabled { box-shadow:none; }
 .searchSlot { width:205px; min-width:100px; }
 .separator { height:14px; width:1px; flex:none; margin:0 3px; background:var(--ni-line-2); }
 .indexWrap { flex:1; min-height:0; min-width:0; display:flex; position:relative; }
@@ -29,7 +26,7 @@
 .empty p { margin:0; }
 .empty > svg { margin-bottom:6px; }
 .emptyArt { width:66px; height:66px; display:grid; place-items:center; border:1px solid var(--ni-line); border-radius:16px; background:var(--ni-surf); color:var(--ni-accent); margin-bottom:10px; }
-.bulkBar { position:absolute; z-index:5; left:50%; bottom:42px; transform:translateX(-50%); display:flex; align-items:center; gap:8px; max-width:calc(100% - 24px); padding:6px 12px; border-radius:var(--ni-control-radius); background:var(--ni-surf); box-shadow:0 0 0 1px var(--ni-line-2),0 8px 32px #0002; font-size:12px; white-space:nowrap; }
+.bulkBar { position:absolute; z-index:5; left:50%; bottom:42px; transform:translateX(-50%); display:flex; align-items:center; gap:8px; max-width:calc(100% - 24px); padding:6px 12px; border-radius:var(--radius-panel); background:var(--ni-surf); box-shadow:0 0 0 1px var(--ni-line-2),0 8px 32px #0002; font-size:12px; white-space:nowrap; }
 .bulkBar strong { font-size:12px; font-weight:500; }
 .loadState, .loadError, .capabilityNotice { flex:none; margin:0; padding:6px 20px; font-size:12px; line-height:1.6; color:var(--ni-ink-2); border-bottom:1px solid var(--ni-line); }
 .loadError { display:flex; align-items:center; gap:12px; justify-content:space-between; color:var(--ink-danger); background:var(--ink-danger-soft); }

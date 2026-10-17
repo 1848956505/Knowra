@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import type { Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
-import { Button, GhostIconButton, SearchBox, Select, TextField } from '../../components/ui';
+import { Button, IconButton, SearchBox, Select, TextField, PressableButton } from '../../components/ui';
 import { DeleteIcon, EditIcon, PlusIcon, SearchIcon } from '../../components/icons/knowra';
 import { TagChip } from './TagChip';
 import { COLORS } from './useTagPickerController';
@@ -37,7 +37,7 @@ export function ManageTagsView({ canWrite, query, groups, usageCounts, notice, e
     <div className={styles.manageTools}>
       <SearchBox label="搜索标签库" size="field" icon={<SearchIcon size={16} />} name="tag-manager-search" autoComplete="off" placeholder="按名称查找…"
         value={query} onChange={(event) => onQueryChange(event.target.value)} onClear={query ? () => onQueryChange('') : undefined} />
-      {canWrite ? <Button variant="accent" icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}
+      {canWrite ? <Button variant="primary" icon={<PlusIcon size={16} />} onPress={onCreate}>新建标签</Button> : null}
     </div>
     {groups.map(({ group, tags }) => <section className={styles.group} key={group.id} aria-labelledby={`picker-manage-${group.id}`}>
       <div className={styles.groupHeader}><strong id={`picker-manage-${group.id}`}>{group.name}</strong><span>{group.selectionMode === 'single' ? '单选' : '多选'}{group.isSystem ? ' · 内置' : ''}</span></div>
@@ -45,8 +45,8 @@ export function ManageTagsView({ canWrite, query, groups, usageCounts, notice, e
         <TagChip tag={tag} className={styles.manageTag} />
         <span className={styles.usage}>{usageCounts[tag.id] ?? 0} 篇笔记</span>
         <div className={styles.rowActions}>
-          {canWrite ? <GhostIconButton size={28} aria-label={`编辑标签 ${tag.name}`} onPress={() => onEdit(tag)}><EditIcon size={16} /></GhostIconButton> : null}
-          {canWrite && !tag.isSystem ? <GhostIconButton size={28} aria-label={`删除标签 ${tag.name}`} className={styles.dangerAction} onPress={() => onDelete(tag)}><DeleteIcon size={16} /></GhostIconButton> : null}
+          {canWrite ? <IconButton size={28} aria-label={`编辑标签 ${tag.name}`} onPress={() => onEdit(tag)}><EditIcon size={16} /></IconButton> : null}
+          {canWrite && !tag.isSystem ? <IconButton size={28} aria-label={`删除标签 ${tag.name}`} className={styles.dangerAction} onPress={() => onDelete(tag)}><DeleteIcon size={16} /></IconButton> : null}
           {tag.isSystem ? <span className={styles.systemNote}>内置标签不可删除</span> : null}
         </div>
       </article>)}</div>
@@ -72,7 +72,7 @@ export function TagForm({ editingTag, groups, name, groupId, color, error, onNam
   return <form id="tag-form" className={styles.form} onSubmit={submit}>
     <TextField label="标签名称" description="1–30 个字符，工作区内不能重名。" name="tag-name" autoComplete="off" value={name} onChange={onNameChange} maxLength={30} isRequired />
     <Select label="所属分组" name="tag-group" selectedKey={groupId} onSelectionChange={(key) => onGroupChange(String(key))} isDisabled={Boolean(editingTag?.isSystem)} options={groups.map((group) => ({ id: group.id, label: `${group.name}${group.isSystem ? ' · 内置' : ''}` }))} />
-    <fieldset className={styles.colorField}><legend>颜色</legend><div className={styles.palette}>{COLORS.map((item) => <button key={item} type="button" className={styles.swatch} data-color={item} aria-label={`${colorLabel(item)}色`} aria-pressed={color === item} onClick={() => onColorChange(item)}><span aria-hidden="true" /></button>)}</div></fieldset>
+    <fieldset className={styles.colorField}><legend>颜色</legend><div className={styles.palette}>{COLORS.map((item) => <PressableButton key={item} type="button" className={styles.swatch} data-color={item} aria-label={`${colorLabel(item)}色`} aria-pressed={color === item} onPress={() => onColorChange(item)}><span aria-hidden="true" /></PressableButton>)}</div></fieldset>
     {editingTag?.isSystem ? <p className={styles.helper}>内置标签可改名、改色，但不能更换分组或删除。</p> : null}
     <Feedback error={error} />
   </form>;

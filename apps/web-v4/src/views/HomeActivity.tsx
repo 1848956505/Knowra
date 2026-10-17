@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Note, Tag } from '@study-accelerator/web-core';
+import { PressableButton } from '../components/ui/button/PressableButton';
 import { Button } from '../components/ui/button/Button';
 import { MathText } from '../components/math/MathText';
 import { ArrowUpRightIcon } from '../components/icons/knowra';
@@ -24,13 +25,13 @@ export function FeaturedNote({ note, tags, onOpen }: { note: Note; tags: Tag[]; 
           继续上次编辑 · <time dateTime={note.updatedAt ?? note.createdAt ?? ''}>{formatRecentTime(note.updatedAt ?? note.createdAt)}</time>
         </p>
         <h3 className={styles.featuredTitle}>
-          <button type="button" className={styles.featuredLink} onClick={open} disabled={!open}><MathText text={title} inlineOnly /></button>
+          <PressableButton type="button" className={styles.featuredLink} onPress={open} isDisabled={!open}><MathText text={title} inlineOnly /></PressableButton>
         </h3>
         {preview ? <p className={styles.featuredSummary}><MathText text={preview} inlineOnly /></p> : <p className={styles.featuredSummaryEmpty}>这篇笔记还没有内容。</p>}
         <div className={styles.featuredMeta}>
           <span className={styles.statusPill} data-status={normalizeNoteStatus(note.status)}>{statusLabel(note)}</span>
           {noteTags.slice(0, 3).map(tag => <TagChip key={tag.id} tag={tag} />)}
-          <Button className={styles.continueButton} variant="accent" size="compact" onClick={open} isDisabled={!open} aria-label={`继续编辑 ${title}`}>
+          <Button className={styles.continueButton} variant="primary" size="compact" onClick={open} isDisabled={!open} aria-label={`继续编辑 ${title}`}>
             继续编辑<ArrowUpRightIcon size={14} />
           </Button>
         </div>

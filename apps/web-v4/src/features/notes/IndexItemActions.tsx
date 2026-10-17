@@ -1,6 +1,6 @@
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
-import { GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
+import { IconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
 import { DeleteIcon, MoreHorizontalIcon, RefreshIcon } from '../../components/icons/knowra';
 import { FolderContextMenu, NoteContextMenu, type SidebarTreeAction } from './SidebarFolderTree';
 import type { IndexItem } from './notesIndexPresentation';
@@ -20,9 +20,9 @@ export function IndexItemActions({ item, canWrite, onAction }: {
 }) {
   const name = item.kind === 'folder' ? item.folder.name : item.note.title || '未命名笔记';
   const trigger = (
-    <GhostIconButton data-index-item-menu-trigger="true" size={30} aria-label={`${name}的${item.kind === 'folder' ? '文件夹' : '笔记'}操作`}>
+    <IconButton data-index-item-menu-trigger="true" size={30} aria-label={`${name}的${item.kind === 'folder' ? '文件夹' : '笔记'}操作`}>
       <MoreHorizontalIcon size={16} />
-    </GhostIconButton>
+    </IconButton>
   );
   return item.kind === 'folder'
     ? <FolderContextMenu folder={item.folder} canWrite={canWrite} onAction={onAction} contextMenu={false}>{trigger}</FolderContextMenu>
@@ -43,9 +43,9 @@ export function RecycleNoteActions({ note, pending, onRestore, onRequestPermanen
       onRestore={onRestore}
       onRequestPermanentDelete={onRequestPermanentDelete}
     >
-      <GhostIconButton data-index-item-menu-trigger="true" size={30} aria-label={`${title}的回收站操作`} disabled={pending}>
+      <IconButton data-index-item-menu-trigger="true" size={30} aria-label={`${title}的回收站操作`} disabled={pending}>
         <MoreHorizontalIcon size={16} />
-      </GhostIconButton>
+      </IconButton>
     </RecycleNoteMenu>
   );
 }

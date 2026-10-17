@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type DragEvent,
 import { useAppStore } from '../../store/AppStoreProvider';
 import { canMoveEntry, type DraggableEntry } from './entryMove';
 import styles from './EntryDragDrop.module.css';
-import { GhostIconButton } from '../../components/ui';
+import { IconButton } from '../../components/ui';
 import { CloseIcon } from '../../components/icons/knowra';
 
 const ENTRY_DRAG_TYPE = 'application/x-knowra-entry';
@@ -75,7 +75,7 @@ export function EntryDragDropProvider({ children }: PropsWithChildren) {
     {children}
     {moveError ? <div className={styles.moveError} role="alert">
       <span>移动失败：{moveError}</span>
-      <GhostIconButton aria-label="关闭移动错误提示" onClick={() => setMoveError('')}><CloseIcon size={16} /></GhostIconButton>
+      <IconButton aria-label="关闭移动错误提示" onClick={() => setMoveError('')}><CloseIcon size={16} /></IconButton>
     </div> : null}
   </EntryDragDropContext.Provider>;
 }

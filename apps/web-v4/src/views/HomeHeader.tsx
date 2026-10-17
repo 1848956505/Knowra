@@ -35,7 +35,7 @@ export function HomeHeader({ id, today, title, subtitle, onOpenCreate, onOpenSch
           <CalendarIcon size={16} />
           <span>日程</span>
         </Button>
-        <Button variant="accent" className={styles.createButton} onClick={onOpenCreate} isDisabled={!onOpenCreate} aria-label="新建笔记（Ctrl+N）">
+        <Button variant="primary" className={styles.createButton} onClick={onOpenCreate} isDisabled={!onOpenCreate} aria-label="新建笔记（Ctrl+N）">
           <PlusIcon size={16} />
           <span>新建笔记</span>
           <kbd>Ctrl+N</kbd>

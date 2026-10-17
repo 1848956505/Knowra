@@ -10,7 +10,7 @@ import type { WorkDomain } from '../store/types';
 import styles from './AppShell.module.css';
 import { ShellToolbar } from './ShellToolbar';
 import { ResponsivePanel } from '../components/ui/overlay/ResponsivePanel';
-import { GhostIconButton } from '../components/ui/button';
+import { IconButton } from '../components/ui/button';
 import { CloseIcon } from '../components/icons/knowra';
 
 export interface AppShellProps {
@@ -140,7 +140,7 @@ export function AppShell({
       {contextSidebar && !focusMode ? (
         <aside className={styles.contextSidebar} hidden={!sidebarVisible} aria-label="笔记上下文导航" data-compact={compact || undefined} data-open={sidebarVisible || undefined}>
           <ResponsivePanel title="笔记导航" modal={compact} isOpen={sidebarVisible} onClose={() => setSidebarOverlayOpen(false)} className={styles.sidebarDialog}>
-            {compact && sidebarVisible ? <div className={styles.sidebarClose}><GhostIconButton aria-label="关闭笔记导航" onPress={() => setSidebarOverlayOpen(false)}><CloseIcon size={18} /></GhostIconButton></div> : null}
+            {compact && sidebarVisible ? <div className={styles.sidebarClose}><IconButton aria-label="关闭笔记导航" onPress={() => setSidebarOverlayOpen(false)}><CloseIcon size={18} /></IconButton></div> : null}
             {contextSidebar}
           </ResponsivePanel>
         </aside>

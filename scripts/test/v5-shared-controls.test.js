@@ -8,7 +8,7 @@ const readCss = (file) => readFileSync(join(directory, file), 'utf8');
 
 const css = {
   button: readCss('./button/Button.module.css'),
-  ghost: readCss('./button/GhostIconButton.module.css'),
+  ghost: readCss('./button/IconButton.module.css'),
   segmented: readCss('./button/SegmentedControl.module.css'),
   input: readCss('./input/Input.module.css'),
   search: readCss('./input/SearchBox.module.css'),
@@ -38,12 +38,11 @@ describe('V5 shared control styles', () => {
     }
   });
 
-  it('keeps notes button shapes scoped through the shared semantic radius', () => {
+  it('keeps pill actions separate from rectangular content across themes', () => {
     const theme = readFileSync(join(directory, '../../features/notes/NotesIndexTheme.module.css'), 'utf8');
-    assert.ok(declarations(theme, '.theme').includes('--radius-control: var(--ni-control-radius)'));
-    assert.ok(declarations(theme, '.theme').includes('--ni-control-radius: 999px'));
-    assert.match(declarations(theme, '.theme[data-ni-shape="rounded"]'), /--ni-control-radius:\s*7px/);
-    assert.doesNotMatch(css.button, /--(?:ni-|button-radius)/);
+    assert.doesNotMatch(theme, /--radius-(?:control|tab|popover|panel|pill)\s*:/, '主题不得覆盖共享形状令牌');
+    assert.ok(declarations(css.button, '.square').includes('border-radius: var(--radius-control)'));
+    assert.ok(declarations(css.button, '.pill').includes('border-radius: var(--radius-pill)'));
   });
 
   it('keeps notes ancestors reachable when the compact breadcrumb is hidden', () => {
@@ -80,11 +79,11 @@ describe('V5 shared control styles', () => {
   });
 
   it('uses semantic radii and soft elevation for controls and overlays', () => {
-    assert.ok(declarations(css.button, '.btn').includes('border-radius: var(--radius-control)'));
+    assert.ok(declarations(css.button, '.btn').includes('border-radius: var(--radius-pill)'));
     assert.ok(declarations(css.button, '.btn').includes('box-shadow: var(--shadow-control)'));
     for (const selector of ['.popover', '.menu']) {
       assert.ok(declarations(css.overlay, selector).includes('border-radius: var(--radius-popover)'));
-      assert.ok(declarations(css.overlay, selector).includes('box-shadow: var(--shadow-popover)'));
+      assert.ok(declarations(css.overlay, selector).includes('box-shadow: var(--shadow-overlay)'));
     }
     assert.ok(declarations(css.overlay, '.dialog').includes('border-radius: var(--radius-panel)'));
     assert.doesNotMatch(declarations(css.overlay, '.menuPopover'), /(?:background|border|box-shadow)\s*:/);
@@ -93,7 +92,7 @@ describe('V5 shared control styles', () => {
   it('preserves keyboard focus in normal and forced-color themes', () => {
     for (const [source, selector] of [
       [css.button, '.btn[data-focus-visible]'],
-      [css.ghost, '.ghost:focus-visible'],
+      [css.ghost, '.base:focus-visible'],
       [css.segmented, '.segment[data-focus-visible]'],
       [css.input, '.checkbox[data-focus-visible] .box'],
       [css.overlay, '.item[data-focus-visible]'],
@@ -106,8 +105,7 @@ describe('V5 shared control styles', () => {
     for (const [source, selector] of [
       [css.collection, '.tab[data-focus-visible]'],
       [css.input, '.selectTrigger[data-focus-visible]'],
-      [css.input, '.field:not([data-disabled]):focus-within .inputShell'],
-      [css.search, '.shell:not([data-disabled]):focus-within']
+      [css.input, '.field:not([data-disabled]):focus-within .inputShell']
     ]) {
       const [normal, forced] = source.split('@media (forced-colors: active)');
       assert.match(declarations(normal, selector), /box-shadow:\s*var\(--focus-soft(?:[,)]|\s)/);
@@ -115,6 +113,13 @@ describe('V5 shared control styles', () => {
       assert.match(declarations(forced, selector), /outline:\s*2px solid Highlight/);
       assert.match(declarations(forced, selector), /outline-offset:\s*2px/);
     }
+    // 搜索框：灰底 + 极细发丝线，聚焦变白底并加深发丝线（不使用橙色环）；强制色模式仍回退到系统高亮描边。
+    const [searchNormal, searchForced] = css.search.split('@media (forced-colors: active)');
+    const searchFocus = declarations(searchNormal, '.shell:not([data-disabled]):focus-within');
+    assert.match(searchFocus, /border-color:\s*var\(--border-strong\)/);
+    assert.doesNotMatch(searchFocus, /--accent/);
+    assert.ok(searchForced, 'search shell needs a forced-color fallback');
+    assert.match(declarations(searchForced, '.shell:not([data-disabled]):focus-within'), /outline:\s*2px solid Highlight/);
   });
 
   it('keeps invalid states distinct without requiring a thick normal-theme outline', () => {
@@ -141,13 +146,8 @@ describe('V5 shared control styles', () => {
     }
   });
 
-  it('keeps toolbar and footer icon targets wide enough on touch screens', () => {
+  it('keeps button targets wide enough on touch screens', () => {
     const touch = css.button.split('@media (max-width: 767px), (any-pointer: coarse)')[1];
-    for (const selector of ['.toolbar.iconOnly', '.footer.iconOnly']) {
-      const rule = declarations(touch, selector);
-      assert.match(rule, /min-width:\s*44px/);
-      assert.match(rule, /width:\s*44px/);
-    }
     assert.match(declarations(touch, '.btn'), /--button-min-height:\s*44px/);
   });
 

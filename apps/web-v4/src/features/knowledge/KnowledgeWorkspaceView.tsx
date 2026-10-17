@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { AuthoritativePurgeResult, AuthoritativePurgeStatus, PurgeConfirmationInput, Annotation, CreateKnowledgeCandidateInput, CreateKnowledgeEvidenceInput, KnowledgeEvidence, KnowledgeEvidenceMutationResult, KnowledgeItem, KnowledgePurgePreview, KnowledgePurgeResult, KnowledgeReviewStatus, Note, UpdateKnowledgeItemInput } from '@study-accelerator/web-core';
 import { isPurgeResultPending, PURGE_PENDING_MESSAGE, purgeConfirmation, purgeResultMessage } from '../../store/assetPurge';
 import { LOCAL_ASSET_PURGE_REASON } from '../../store/workspaceCapabilities';
-import { Button, Dialog, DialogBody, DialogFooter, EmptyArt, GhostIconButton, Menu, MenuItem, PointMenu } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogFooter, EmptyArt, IconButton, Menu, MenuItem, PointMenu } from '../../components/ui';
 import { ScopedAppearanceProvider } from '../../components/ui/overlay';
 import { CreateKnowledgeCandidateDialog } from './CreateKnowledgeCandidateDialog';
 import { KnowledgeDetail } from './KnowledgeDetail';
@@ -330,7 +330,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
               <EmptyArt variant={items.length === 0 ? 'knowledge' : 'search'} />
               <strong>{items.length === 0 ? '还没有知识' : '没有符合条件的知识。'}</strong>
               <p>{items.length === 0 ? '可从笔记标注创建候选，或手动新建。' : '试试换个关键词，或者清除筛选条件。'}</p>
-              {items.length === 0 ? (canWrite ? <Button variant="accent" isDisabled={pending} onPress={() => { setRecoveryDraft(undefined); setCreateOpen(true); }}><PlusIcon size={16} />新建知识候选</Button> : null)
+              {items.length === 0 ? (canWrite ? <Button variant="primary" isDisabled={pending} onPress={() => { setRecoveryDraft(undefined); setCreateOpen(true); }}><PlusIcon size={16} />新建知识候选</Button> : null)
                 : <Button variant="ghost" onPress={() => { setQuery(''); setStatus('all'); }}>清除搜索与筛选</Button>}</div> : null}
             <KnowledgeIndexSections sections={sections} view={display.view} showHeadings={display.group !== 'none'} collapsed={collapsed}
               onToggle={id => setCollapsed(current => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; })}
@@ -340,7 +340,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
         </section>
         {selectedItemId ? <aside className={indexStyles.inspector} aria-label="知识检查器">
           <header className={indexStyles.inspectorHeader}><h2>详情</h2>
-            {props.onCloseItem ? <GhostIconButton aria-label="关闭详情" onPress={props.onCloseItem}><CloseIcon size={18} /></GhostIconButton> : null}</header>
+            {props.onCloseItem ? <IconButton aria-label="关闭详情" onPress={props.onCloseItem}><CloseIcon size={18} /></IconButton> : null}</header>
           <section className={`${indexStyles.inspectorBody} ${styles.detailPanel}`} tabIndex={0} aria-label="知识详情面板" aria-busy={detailLoading || pending}>
             {notice ? <p role="status" className={styles.notice}>{notice}</p> : null}
             {purgeAwaitingId && !purgePreview ? <Button isDisabled={pending} onPress={() => void checkPurgeResult()}>核对清理结果</Button> : null}

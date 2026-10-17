@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Dialog, DialogBody, TextField } from '../../components/ui';
+import { Button, Dialog, DialogBody, TextField, PressableButton } from '../../components/ui';
 import { useAppStore, useAppStoreApi } from '../../store/AppStoreProvider';
 import styles from './LocalSyncControl.module.css';
 import { BackupRestoreDialog } from './BackupRestoreDialog';
@@ -130,11 +130,11 @@ export function LocalSyncControl({ compact = false }: { compact?: boolean }) {
   const presentation = describeLocalSyncStatus(status, !status?.serverUrl || error?.code?.startsWith('LOCAL_RUNTIME_') ? error : null);
   const displayedError = error ?? status?.error;
   return <>
-    <button type="button" className={`${styles.trigger} ${compact ? styles.compact : ''}`} data-tone={presentation.tone} aria-label={compact ? `${presentation.main}${presentation.tone !== 'success' ? ` ${presentation.detail}` : ''}` : undefined} title={compact ? `${presentation.main} · ${presentation.detail}` : undefined} onClick={() => { setServerUrl(status?.serverUrl ?? serverUrl); setOpen(true); }}>
+    <PressableButton type="button" className={`${styles.trigger} ${compact ? styles.compact : ''}`} data-tone={presentation.tone} aria-label={compact ? `${presentation.main}${presentation.tone !== 'success' ? ` ${presentation.detail}` : ''}` : undefined} title={compact ? `${presentation.main} · ${presentation.detail}` : undefined} onPress={() => { setServerUrl(status?.serverUrl ?? serverUrl); setOpen(true); }}>
       <span className={styles.marker} aria-hidden="true" />
       <span className={styles.main}>{presentation.main}</span>
       {presentation.tone !== 'success' ? <span className={styles.detail}>{presentation.detail}</span> : null}
-    </button>
+    </PressableButton>
     <Dialog title="云端同步" isOpen={open} onOpenChange={setOpen} size="md" isPending={busy}>
       <DialogBody>
         <div className={styles.body}>

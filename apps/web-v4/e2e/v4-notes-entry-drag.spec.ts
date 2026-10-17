@@ -146,7 +146,8 @@ test('V5 笔记选中使用中性底色，索引保留独立滚动和图标焦�
   await expect(note).toHaveCSS('color', 'rgb(23, 24, 27)');
   await expect(note).toHaveCSS('background-color', 'rgba(24, 30, 48, 0.075)');
   await expect(note).toHaveCSS('border-left-width', '0px');
-  await expect(note.locator('svg path').last()).toHaveCSS('stroke', 'rgb(104, 109, 118)');
+  // 侧栏的文字与文档图标统一使用深色墨色，保留选中背景和键盘焦点验收。
+  await expect(note.locator('svg path').last()).toHaveCSS('stroke', 'rgb(23, 24, 27)');
 });
 
 test('V5 窄屏目录展开按钮和笔记触点至少44px', async ({ page }) => {

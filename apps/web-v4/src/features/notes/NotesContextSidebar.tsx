@@ -18,13 +18,10 @@ import {
   StarIcon
 } from '../../components/icons/knowra';
 import {
-  GhostIconButton, SideNavItem,
+  IconButton, SideNavItem,
   Menu,
-  MenuHeader,
   MenuItem,
   MenuPopover,
-  MenuSection,
-  MenuSeparator,
   MenuTrigger,
   PointMenu
 } from '../../components/ui';
@@ -125,13 +122,12 @@ export function NotesContextSidebar({
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
         <MenuTrigger>
-          <GhostIconButton aria-label="笔记更多操作" title="更多操作">
+          <IconButton aria-label="笔记更多操作" title="更多操作">
             <MoreHorizontalIcon size={16} />
-          </GhostIconButton>
+          </IconButton>
           <MenuPopover>
             <Menu
               ariaLabel="笔记目录操作"
-              variant="rich"
               onAction={(key) => {
                 if (key === 'new-folder') treeOperations.openCreate('folder', selectedFolderId);
                 if (key === 'refresh') void retryWorkspace();
@@ -139,26 +135,20 @@ export function NotesContextSidebar({
                 if (key === 'folder-trash') setFolderTrashOpen(true);
               }}
             >
-              <MenuSection>
-                <MenuHeader>目录</MenuHeader>
-                <MenuItem id="new-folder" icon={<FolderIcon size={16} />} description="在当前位置创建" isDisabled={!canWrite}>新建文件夹</MenuItem>
-                <MenuItem id="refresh" icon={<RefreshIcon size={16} />} description="重新读取最新内容">刷新目录</MenuItem>
-              </MenuSection>
-              <MenuSeparator />
-              <MenuSection>
-                <MenuHeader>回收站</MenuHeader>
-                <MenuItem id="folder-trash" icon={<FolderIcon size={16} />} description="查看并恢复已删除的文件夹">文件夹回收站</MenuItem>
-                <MenuItem id="empty-trash" icon={<DeleteIcon size={16} />} isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}
-                  description={supportsPermanentDelete && trashCount > 0 ? `永久删除 ${trashCount} 篇笔记` : undefined}>{supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}</MenuItem>
-              </MenuSection>
+              <MenuItem id="new-folder" icon={<FolderIcon size={14} />} isDisabled={!canWrite}>新建文件夹</MenuItem>
+              <MenuItem id="refresh" icon={<RefreshIcon size={14} />}>刷新目录</MenuItem>
+              <MenuItem id="folder-trash" icon={<FolderIcon size={14} />}>文件夹回收站</MenuItem>
+              <MenuItem id="empty-trash" icon={<DeleteIcon size={14} />} isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}>
+                {supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}
+              </MenuItem>
             </Menu>
           </MenuPopover>
         </MenuTrigger>
-        <GhostIconButton aria-label="搜索笔记" title="搜索笔记" onPress={onOpenSearch} disabled={!onOpenSearch}>
+        <IconButton aria-label="搜索笔记" title="搜索笔记" onPress={onOpenSearch} disabled={!onOpenSearch}>
           <SearchIcon size={16} />
-        </GhostIconButton>
+        </IconButton>
         <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, selectedFolderId)}>
-          <GhostIconButton variant="glass" aria-label="新建" title="新建" disabled={!canWrite}><EditIcon size={16} /></GhostIconButton>
+          <IconButton tone="floating" aria-label="新建" title="新建" disabled={!canWrite}><EditIcon size={16} /></IconButton>
         </CreateEntryMenu>
       </header>
 
@@ -190,7 +180,7 @@ export function NotesContextSidebar({
           id="folders"
           title="文件夹"
           action={(
-            <GhostIconButton
+            <IconButton
               size={24}
               aria-label="新建文件夹"
               title="新建文件夹"
@@ -198,7 +188,7 @@ export function NotesContextSidebar({
               onClick={() => treeOperations.openCreate('folder', selectedFolderId)}
             >
               <PlusIcon size={16} />
-            </GhostIconButton>
+            </IconButton>
           )}
         >
           <div className={styles.entryDragArea}
@@ -233,7 +223,7 @@ export function NotesContextSidebar({
           />
         </SidebarSection>
 
-        <SidebarSection id="tags" title={`标签 ${serverData.tags.length}`} collapsible expanded={tagsExpanded} onExpandedChange={setTagsExpanded} action={<div className={styles.tagHeaderActions}><GhostIconButton size={24} aria-label="新建标签" title="新建标签" disabled={!canWrite} onClick={() => setCreateTagOpen(true)}><PlusIcon size={16} /></GhostIconButton><MenuTrigger><GhostIconButton size={24} aria-label="标签更多操作" title="更多"><MoreVerticalIcon size={16} /></GhostIconButton><MenuPopover><Menu ariaLabel="标签操作" onAction={(key) => { if (key === 'manage') navigate('/materials/tags'); if (key === 'expand') setTagsExpanded(true); if (key === 'collapse') setTagsExpanded(false); }}><MenuItem id="manage">管理标签</MenuItem><MenuItem id="expand">展开全部</MenuItem><MenuItem id="collapse">收起全部</MenuItem></Menu></MenuPopover></MenuTrigger></div>}>
+        <SidebarSection id="tags" title={`标签 ${serverData.tags.length}`} collapsible expanded={tagsExpanded} onExpandedChange={setTagsExpanded} action={<div className={styles.tagHeaderActions}><IconButton size={24} aria-label="新建标签" title="新建标签" disabled={!canWrite} onClick={() => setCreateTagOpen(true)}><PlusIcon size={16} /></IconButton><MenuTrigger><IconButton size={24} aria-label="标签更多操作" title="更多"><MoreVerticalIcon size={16} /></IconButton><MenuPopover><Menu ariaLabel="标签操作" onAction={(key) => { if (key === 'manage') navigate('/materials/tags'); if (key === 'expand') setTagsExpanded(true); if (key === 'collapse') setTagsExpanded(false); }}><MenuItem id="manage">管理标签</MenuItem><MenuItem id="expand">展开全部</MenuItem><MenuItem id="collapse">收起全部</MenuItem></Menu></MenuPopover></MenuTrigger></div>}>
           <div className={styles.tags} aria-label="标签筛选">
             {visibleTags.map((tag) => tag ? (
               <TagChip

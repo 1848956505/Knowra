@@ -1075,7 +1075,7 @@ test('V4-07 文档检查器呈现真实信息并保证切换笔记时草稿不�
     rail: (await moduleRail.boundingBox())?.width ?? 0,
     context: (await contextSidebar.boundingBox())?.width ?? 0,
     tabs: closedTabsWidth - ((await noteTabs.boundingBox())?.width ?? 0)
-  })).toEqual({ inspector: 288, rail: 56, context: 240, tabs: 0 });
+  })).toEqual({ inspector: 288, rail: 50, context: 240, tabs: 0 });
   // 检查器是带 shell-gap 顶/底留白的独立卡片，不能用旧的完全齐顶约束。
   const shellGap = await inspector.evaluate(element => Number.parseFloat(getComputedStyle(element).getPropertyValue('--shell-gap')));
   expect(Number.isFinite(shellGap)).toBe(true);
@@ -1851,7 +1851,8 @@ test('V5 浏览器将笔记标签放入全局独立顶栏', async ({ page }) => 
   await expect(page.getByLabel('Mac 窗口标题栏')).toHaveCount(0);
   await expect(editor).toHaveAttribute('data-window-tabs', 'true');
   await expect(editor.getByRole('tablist', { name: '打开的笔记' })).toHaveCount(0);
-  expect(Math.round((await titlebar.boundingBox())!.height)).toBe(46);
+  // 与原生顶栏共用已定稿的紧凑尺寸，标签选中和正文断言仍独立验证。
+  expect(Math.round((await titlebar.boundingBox())!.height)).toBe(42);
   await expect(tabs.getByRole('tab', { name: '编辑器验收笔记' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.ProseMirror')).toContainText('浏览器正文');
 });

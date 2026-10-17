@@ -71,7 +71,7 @@ export function CreateEntryDialog({
         </DialogBody>
         <DialogFooter>
           <DialogClose variant="ghost">取消</DialogClose>
-          <Button type="submit" variant="accent" isPending={pending}>创建</Button>
+          <Button type="submit" variant="primary" isPending={pending}>创建</Button>
         </DialogFooter>
       </form>
     </Dialog>

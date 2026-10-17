@@ -1,7 +1,8 @@
-import { createRef } from 'react';
+import { createRef, useState } from 'react';
+import { vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Checkbox, SearchBox, SearchField, Select, TextAreaField, TextField } from './index';
+import { Checkbox, SearchBox, Select, TextAreaField, TextField } from './index';
 
 describe('V4-04 TextField', () => {
   it('associates label and input', () => {
@@ -61,67 +62,42 @@ describe('共享多行字段', () => {
   });
 });
 
-describe('V4-04 SearchField', () => {
-  it('uses the visible label exactly once in the searchbox accessible name', () => {
-    render(<SearchField label="搜索" placeholder="按标题、标签或正文" />);
+describe('V4-04 SearchBox', () => {
+  it('uses the label as the searchbox accessible name', () => {
+    render(<SearchBox label="搜索" size="field" placeholder="按标题、标签或正文" />);
     const input = screen.getByRole('searchbox', { name: '搜索' });
     expect(input).toHaveAccessibleName('搜索');
     expect(screen.getByLabelText('搜索')).toBe(input);
   });
 
-  it('preserves an explicitly supplied aria-label and React Aria label composition', () => {
-    render(<SearchField label="搜索" aria-label="当前空间" />);
-    const input = screen.getByRole('searchbox', { name: '当前空间 搜索' });
-    expect(input).toHaveAttribute('aria-label', '当前空间');
-    expect(input).toHaveAccessibleName('当前空间 搜索');
-  });
-
-  it('keeps the explicit accessible name when no visible label text is supplied', () => {
-    render(<SearchField label="" aria-label="搜索资料" />);
-    expect(screen.getByRole('searchbox', { name: '搜索资料' })).toHaveAccessibleName('搜索资料');
-  });
-
-  it('updates the value through controlled onChange', async () => {
+  it('forwards native change events and keeps typed value', async () => {
     const user = userEvent.setup();
-    function Demo() {
-      return (
-        <SearchField
-          label="搜索"
-          placeholder="关键词"
-          onChange={() => undefined}
-        />
-      );
-    }
-    render(<Demo />);
+    const onChange = vi.fn();
+    render(<SearchBox label="搜索" size="field" placeholder="关键词" onChange={onChange} />);
     const input = screen.getByLabelText('搜索') as HTMLInputElement;
     await user.type(input, 'hello');
     expect(input.value).toBe('hello');
+    expect(onChange).toHaveBeenCalledTimes(5);
   });
 
-  it('keeps the clear button absent when value is empty and shows it on input', async () => {
+  it('shows the clear button only when the caller supplies onClear, and clears through it', async () => {
     const user = userEvent.setup();
     function Demo() {
-      return (
-        <SearchField label="搜索" onChange={() => undefined} onClear={() => undefined} />
-      );
+      const [value, setValue] = useState('');
+      return <SearchBox label="搜索" size="field" value={value} onChange={event => setValue(event.target.value)} onClear={value ? () => setValue('') : undefined} />;
     }
     render(<Demo />);
     const input = screen.getByLabelText('搜索') as HTMLInputElement;
-    // V4-04 验收 P1-1：空值时清除按钮不应出现在 DOM 中
     expect(screen.queryByTestId('search-clear')).toBeNull();
     await user.type(input, '印格');
     expect(input.value).toBe('印格');
-    expect(screen.getByTestId('search-clear')).toBeInTheDocument();
-    // 点击清除：按钮消失，value 清空
-    // （焦点回收的端到端契约由 Playwright SearchField 清除按钮契约覆盖；
-    //  jsdom 下 requestAnimationFrame 时序不稳定，单元测试只断言可观察的 DOM 变化。）
     await user.click(screen.getByTestId('search-clear'));
     expect(input.value).toBe('');
     expect(screen.queryByTestId('search-clear')).toBeNull();
   });
 
   it('uses the search shell as the only shadow owner', () => {
-    render(<SearchField label="搜索" />);
+    render(<SearchBox label="搜索" size="field" />);
     const input = screen.getByLabelText('搜索');
     const shell = input.closest('[data-input-shadow-owner="true"]');
     expect(shell).toBeTruthy();
@@ -133,7 +109,7 @@ describe('V4-04 SearchField', () => {
 describe('共享搜索框', () => {
   it('lets page search and form search use the same visual shell while preserving native input focus', async () => {
     const ref = createRef<HTMLInputElement>();
-    render(<><SearchBox ref={ref} label="搜索笔记索引" shortcut="⌘ K" /><SearchField label="搜索标签" /></>);
+    render(<><SearchBox ref={ref} label="搜索笔记索引" shortcut="⌘ K" /><SearchBox label="搜索标签" size="field" /></>);
 
     const pageInput = screen.getByRole('searchbox', { name: '搜索笔记索引' });
     const fieldInput = screen.getByRole('searchbox', { name: /搜索标签/ });
@@ -148,6 +124,17 @@ describe('共享搜索框', () => {
     await user.click(pageShell as HTMLElement);
     expect(pageInput).toHaveFocus();
   });
+});
+
+it('仅在共享清除按钮存在时标记隐藏原生清除入口', () => {
+  const { rerender } = render(<SearchBox label="搜索" />);
+  const shell = screen.getByRole('searchbox').parentElement;
+  expect(shell).not.toHaveAttribute('data-custom-clear');
+  rerender(<SearchBox label="搜索" onClear={() => undefined} />);
+  expect(shell).toHaveAttribute('data-custom-clear', 'true');
+  expect(screen.getAllByRole('button', { name: '清除搜索' })).toHaveLength(1);
+  rerender(<SearchBox label="搜索" />);
+  expect(shell).not.toHaveAttribute('data-custom-clear');
 });
 
 describe('V4-04 Checkbox', () => {
