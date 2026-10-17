@@ -229,10 +229,9 @@ test('JSON 无效时报告附出错位置附近的片段', async () => {
   assert.match(report, /模型输出不是合法 JSON（.*附近内容/);
 });
 
-test('挂靠提示词 = 对照版 + 命名规则；三条标准只出现在整理建议提示词里', () => {
-  assert.equal(SYSTEM_PROMPT.split('\n').length, BASELINE_PROMPT_20261016.split('\n').length + 1);
-  assert.match(SYSTEM_PROMPT, /不要照抄笔记的小标题/);
-  assert.doesNotMatch(SYSTEM_PROMPT, /三条标准|最相关/);
+test('挂靠提示词就是对照版；三条标准只出现在整理建议提示词里', () => {
+  assert.equal(SYSTEM_PROMPT, BASELINE_PROMPT_20261016);
+  assert.doesNotMatch(SYSTEM_PROMPT, /三条标准|最相关|小标题/);
   assert.match(REVIEW_PROMPT, /三条标准/);
   for (const prompt of [SYSTEM_PROMPT, REVIEW_PROMPT]) for (const name of ['查阅文档', '原地运算', 'keepdims', '深度学习', '梯度']) assert.doesNotMatch(prompt, new RegExp(name));
 });
