@@ -65,7 +65,7 @@ export function renderLocalReport(state, results, review = null, relations = nul
     lines.push('| 新概念 | 条目数 | 建议 | 理由 |', '| --- | --- | --- | --- |');
     for (const entry of review.graded) {
       const count = state.items.filter(item => item.conceptId === entry.conceptId).length;
-      lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''}${entry.newName ? ` ${cell(entry.newName)}` : ''}${entry.splitParts ? ` ${cell(describeSplit(entry.splitParts))}` : ''} | ${cell(entry.reason)} |`);
+      lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''}${entry.newName ? ` ${cell(entry.newName)}` : ''}${entry.splitParts ? ` ${cell(describeSplit(entry.splitParts, entry.splitDropped))}` : ''} | ${cell(entry.reason)} |`);
     }
   }
   if (relations) lines.push('', relationsReport(state, relations));

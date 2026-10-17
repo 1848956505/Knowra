@@ -73,7 +73,7 @@ export const REVIEW_PROMPT = [
   'action=demote：不值得单独成为概念，建议把它的条目改挂到 targetId 指向的概念下；目标必须是这些条目真正描述的那个概念。',
   'action=merge：它与 targetId 指向的概念其实是同一个概念，或者同一主题被拆成了几个概念，建议合并。',
   'action=rename：值得保留，但名称不是该领域的常用叫法，例如照抄了笔记小标题、把两样东西并列（“A 与 B”“X/Y 的积”）或写成了一句描述；在 newName 给出规范名称。',
-  'action=split：它的条目里混有一组或几组条目，讲的是另一个本身就满足三条标准的概念（例如一种机制、运算或方法，而不只是一两句用法）。在 split 中列出每组的 name、sense 和 itemIds，建议把这些条目移出去组成新概念；没列出的条目仍留在原概念下。每组至少 2 条条目，只为一两句用法拆分不算理由。',
+  'action=split：它的条目里混有一组或几组条目，讲的是另一个本身就满足三条标准的概念（例如一种机制、运算或方法，而不只是一两句用法）。在 split 中列出每组的 name、sense 和 itemIds，建议把这些条目移出去组成新概念；没列出的条目仍留在原概念下。每组至少 2 条条目、最多 6 组，组与组之间不能重复，原概念自己的定义等条目要留下；只为一两句用法拆分不算理由。',
   '含义或语境不同的概念，即使名称相同、话题相关或一个用到另一个，也不要建议 demote 或 merge；拿不准时选 keep。错误的合并比多一个概念代价更大。',
   'demote 和 merge 的 targetId 只能是该概念 candidates 中的 id；keep、rename、split 时 targetId 为 null。只有 rename 时 newName 为不超过 40 字的新名称，其余为 null。只有 split 时 split 为数组（每项字段严格为 name, sense, itemIds，itemIds 取自该概念 items 的 id），其余为 null。',
   '只返回一个 JSON 对象，不用 Markdown。字段严格为 requestId, suggestions；suggestions 每项字段严格为 conceptId, action, targetId, newName, split, reason，reason 不超过 100 字。每个新概念恰好一条。'
@@ -212,16 +212,29 @@ export function reviewRequests(state, batchSize = 8) {
 
 const REVIEW_ACTIONS = new Set(['keep', 'demote', 'merge', 'rename', 'split']);
 
-/** 拆分建议：1 至 4 组，每组至少 2 条、互不重叠，条目都属于该概念，且原概念至少留下 1 条。 */
-function splitErrors(concept, split) {
-  if (!Array.isArray(split) || split.length < 1 || split.length > 4) return '拆分需要 1 至 4 组';
+/**
+ * 拆分建议逐组校验：每组需要 name、sense 和至少 2 条属于该概念、且未被前面各组占用的条目。
+ * 不合格的组单独丢弃（记录数量），不连累整条建议；至少剩 1 组、原概念至少留 1 条才算有效。
+ * 真实笔记里“张量”有 16 条，模型曾因分组过多整条被拒，因此上限放宽到 6 组。
+ */
+export const MAX_SPLIT_PARTS = 6;
+export function sanitizeSplit(concept, split) {
+  if (!Array.isArray(split) || split.length === 0) return { parts: [], dropped: 0, error: '拆分需要至少 1 组' };
   const own = new Set(concept.items.map(item => item.id));
   const used = new Set();
+  const parts = [];
+  let dropped = 0;
   for (const part of split) {
-    if (!hasKeys(part, ['name', 'sense', 'itemIds']) || !validText(part.name, 40) || !validText(part.sense, 240) || !Array.isArray(part.itemIds) || part.itemIds.length < 2) return '每组需要 name、sense 和至少 2 条 itemIds';
-    for (const id of part.itemIds) { if (!own.has(id) || used.has(id)) return '拆分的条目不属于该概念或重复'; used.add(id); }
+    const ids = Array.isArray(part?.itemIds) ? part.itemIds : [];
+    const valid = parts.length < MAX_SPLIT_PARTS && hasKeys(part, ['name', 'sense', 'itemIds']) && validText(part.name, 40) && validText(part.sense, 240)
+      && ids.length >= 2 && new Set(ids).size === ids.length && ids.every(id => own.has(id) && !used.has(id));
+    if (!valid) { dropped += 1; continue; }
+    ids.forEach(id => used.add(id));
+    parts.push({ name: part.name, sense: part.sense, itemIds: ids });
   }
-  return used.size < own.size ? null : '拆分后原概念至少要留下 1 条';
+  if (parts.length === 0) return { parts, dropped, error: '没有一组合格（每组需要 name、sense 和至少 2 条该概念自己的条目，且组间不重叠）' };
+  if (used.size >= own.size) return { parts, dropped, error: '拆分后原概念至少要留下 1 条' };
+  return { parts, dropped, error: null };
 }
 
 /** 校验整理建议：只接受针对本批新概念、目标在候选或其他新概念中的建议。建议不会写回状态。 */
@@ -237,10 +250,15 @@ export function applyReview(state, request, response) {
     else if (!REVIEW_ACTIONS.has(entry.action)) errors.push('action 无效');
     else if (['keep', 'rename', 'split'].includes(entry.action) ? entry.targetId !== null : !concept.candidates.some(candidate => candidate.id === entry.targetId)) errors.push('targetId 不在候选中');
     else if (entry.action === 'rename' ? !validText(entry.newName, 40) : entry.newName !== null) errors.push('newName 只能在 rename 时给出');
-    else if (entry.action === 'split' ? splitErrors(concept, entry.split) : entry.split !== null) errors.push(entry.action === 'split' ? splitErrors(concept, entry.split) : 'split 只能在 split 时给出');
+    else if (entry.action !== 'split' && entry.split !== null) errors.push('split 只能在 split 时给出');
+    const cleaned = !errors.length && entry.action === 'split' ? sanitizeSplit(concept, entry.split) : null;
+    if (cleaned?.error) errors.push(cleaned.error);
     if (typeof entry?.reason !== 'string' || entry.reason.length > 200) errors.push('reason 无效');
     if (concept) seen.add(entry.conceptId);
-    return errors.length ? { conceptId: entry?.conceptId ?? null, accepted: false, errors } : { conceptId: entry.conceptId, accepted: true, action: entry.action, targetId: entry.targetId, newName: entry.newName, split: entry.split, reason: entry.reason };
+    // 被拒的建议保留模型原文（截断），便于判断是模型的问题还是校验过严。
+    if (errors.length) return { conceptId: entry?.conceptId ?? null, accepted: false, errors, raw: JSON.stringify(entry).slice(0, 1500) };
+    return { conceptId: entry.conceptId, accepted: true, action: entry.action, targetId: entry.targetId, newName: entry.newName,
+      split: cleaned ? cleaned.parts : null, splitDropped: cleaned?.dropped ?? 0, reason: entry.reason };
   });
   return { accepted: true, suggestions };
 }
@@ -262,12 +280,13 @@ export function gradeReview(state, suggestions) {
     const token = suggestionToken(state, entry);
     const grade = !expect ? 'unscored' : expect.forbid?.includes(token) ? 'harmful' : expect.ideal.includes(token) ? 'ideal' : 'acceptable';
     const splitParts = entry.split ? entry.split.map(part => ({ name: part.name, titles: part.itemIds.map(id => state.items.find(item => item.id === id)?.title ?? id) })) : null;
+    // splitDropped > 0 时，报告里提示有几组因不合格被丢弃。
     return { ...entry, splitParts, noteId: concept?.noteId ?? null, name: concept?.name ?? entry.conceptId, targetName: state.concepts.find(item => item.id === entry.targetId)?.name ?? null, token, grade };
   });
 }
 
 /** 拆分建议的可读描述：新概念名（移过去的条目标题）。 */
-export const describeSplit = parts => parts.map(part => `${part.name}（${part.titles.join('、')}）`).join('；');
+export const describeSplit = (parts, dropped = 0) => parts.map(part => `${part.name}（${part.titles.join('、')}）`).join('；') + (dropped ? `；另有 ${dropped} 组不合格已丢弃` : '');
 
 const overlap = (quote, span) => !quote ? 0 : (span.includes(quote) || quote.includes(span)) ? Infinity : longestCommon(quote, span);
 
@@ -396,7 +415,7 @@ export function markdownReport(runs, meta) {
       for (const error of run.review?.errors ?? []) lines.push(`| ${i + 1} | — | 调用失败 | — | ${error} |`);
       for (const entry of run.review?.graded ?? []) {
         const action = { keep: '保留', demote: '降级到', merge: '合并到', rename: '改名为', split: '拆出' }[entry.action];
-        lines.push(`| ${i + 1} | ${entry.name}（${entry.noteId}） | ${action}${entry.targetName ? ` ${entry.targetName}` : ''}${entry.newName ? ` ${entry.newName}` : ''}${entry.splitParts ? ` ${describeSplit(entry.splitParts)}` : ''} | ${GRADE[entry.grade]} | ${String(entry.reason).replace(/\|/g, '/')} |`);
+        lines.push(`| ${i + 1} | ${entry.name}（${entry.noteId}） | ${action}${entry.targetName ? ` ${entry.targetName}` : ''}${entry.newName ? ` ${entry.newName}` : ''}${entry.splitParts ? ` ${describeSplit(entry.splitParts, entry.splitDropped)}` : ''} | ${GRADE[entry.grade]} | ${String(entry.reason).replace(/\|/g, '/')} |`);
       }
     });
   }
