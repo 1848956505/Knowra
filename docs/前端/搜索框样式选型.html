@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>搜索框样式选型</title>
+<style>
+:root {
+  --bg: #f1f3f7; --card: #fff; --text: #17181b; --muted: #6b7080; --line: #e3e5ec;
+  --ink: 24 30 48; --page: #fbfcfd; --hover: rgb(24 30 48 / 4.5%);
+  --accent: #e5743a; --accent-ink: #b8501d; --placeholder: #9a9fae;
+  --stage: linear-gradient(135deg, #fde6d3 0%, #f7d3c2 40%, #dfe6f7 100%);
+}
+:root[data-theme="dark"] {
+  --bg: #101114; --card: #202226; --text: #eceef2; --muted: #9a9fae; --line: #30333a;
+  --ink: 255 255 255; --page: #18191d; --hover: rgb(255 255 255 / 5.5%);
+  --accent-ink: #ff9a5c; --placeholder: #6b7080;
+  --stage: linear-gradient(135deg, #3a2418 0%, #2a2230 45%, #1d2a3f 100%);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 24px 80px; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+header p { margin: 0; color: var(--muted); max-width: 720px; }
+.toggle { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 20px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.opt h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.opt h3 b { min-width: 28px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--text); color: var(--card); display: grid; place-items: center; font-size: 13px; }
+.opt .desc { margin: 0; color: var(--muted); font-size: 12.5px; }
+.panel { border-radius: 12px; padding: 16px; background: var(--page); display: grid; gap: 12px; }
+.panel.stage { background: var(--stage); }
+.cap { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.lbl { font-size: 11px; color: var(--muted); width: 100%; margin-bottom: -6px; }
+
+/* ===== 搜索框骨架（与 SearchBox 同结构） ===== */
+.sb { display: flex; align-items: center; gap: 8px; color: var(--muted); min-width: 0; transition: box-shadow .18s, background .18s, border-color .18s; border: 1px solid transparent; }
+.sb svg { width: 15px; height: 15px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.sb input { flex: 1; min-width: 0; width: 100%; height: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: 400 12px/1.4 inherit; font-family: inherit; padding: 0; }
+.sb input::placeholder { color: var(--placeholder); }
+.sb kbd { flex: 0 0 auto; padding: 2px 5px; border-radius: 5px; font: 400 10px/1 ui-monospace, Menlo, monospace; color: var(--muted); background: rgb(var(--ink) / .06); }
+.sb .x { flex: 0 0 auto; width: 20px; height: 20px; border: 0; border-radius: 50%; background: rgb(var(--ink) / .08); color: var(--muted); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.sb .x svg { width: 10px; height: 10px; stroke-width: 2; }
+.sb.dis { opacity: .6; pointer-events: none; }
+.s-tool { height: 28px; padding: 0 10px; border-radius: 999px; width: 100%; max-width: 260px; }
+.s-field { height: 36px; padding: 0 12px; border-radius: 10px; width: 100%; }
+.s-field input { font-size: 13px; }
+.s-cmd { height: 48px; padding: 0 16px; border-radius: 14px; width: 100%; gap: 10px; }
+.s-cmd input { font-size: 14px; }
+.s-cmd svg { width: 18px; height: 18px; }
+
+/* 0 当前：灰底 + 发丝边；聚焦白底 + 橙边 */
+.o0 .sb { background: var(--hover); border-color: rgb(var(--ink) / 7.5%); }
+.o0 .sb:hover:not(.dis), .o0 .sb.is-hover { border-color: rgb(var(--ink) / 12%); }
+.o0 .sb:focus-within, .o0 .sb.is-focus { background: var(--page); border-color: color-mix(in srgb, var(--accent) 34%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); }
+
+/* 1 无边软影：纯白 + 柔影，无描边；聚焦为橙色柔光环 */
+.o1 .sb { background: var(--card); box-shadow: 0 1px 2px rgb(var(--ink) / 7%), 0 4px 12px -4px rgb(var(--ink) / 14%); }
+:root[data-theme="dark"] .o1 .sb { background: #25272c; box-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 12px -4px rgb(0 0 0 / 50%); }
+:root .o1 .sb:hover:not(.dis), :root .o1 .sb.is-hover { box-shadow: 0 1px 2px rgb(var(--ink) / 9%), 0 6px 16px -4px rgb(var(--ink) / 20%); }
+:root .o1 .sb:focus-within, :root .o1 .sb.is-focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent), 0 6px 16px -6px color-mix(in srgb, var(--accent) 40%, transparent); color: var(--text); }
+
+/* 2 乳白玻璃：半透明 + 模糊 + 白色亮边；聚焦变得更不透明并出现橙色细边 */
+.o2 .sb { background: rgb(255 255 255 / 58%); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 75%), inset 0 1px 0 rgb(255 255 255 / 95%), 0 2px 10px -4px rgb(var(--ink) / 16%); }
+:root[data-theme="dark"] .o2 .sb { background: rgb(255 255 255 / 8%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 14%), inset 0 1px 0 rgb(255 255 255 / 12%), 0 2px 10px -4px rgb(0 0 0 / 50%); }
+:root .o2 .sb:hover:not(.dis), :root .o2 .sb.is-hover { background: rgb(255 255 255 / 74%); }
+:root[data-theme="dark"] .o2 .sb:hover:not(.dis), :root[data-theme="dark"] .o2 .sb.is-hover { background: rgb(255 255 255 / 12%); }
+:root .o2 .sb:focus-within, :root .o2 .sb.is-focus { background: rgb(255 255 255 / 86%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, rgb(255 255 255 / 60%)), 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent), 0 4px 14px -6px color-mix(in srgb, var(--accent) 40%, transparent); color: var(--text); }
+:root[data-theme="dark"] .o2 .sb:focus-within, :root[data-theme="dark"] .o2 .sb.is-focus { background: rgb(255 255 255 / 14%); }
+
+/* 3 灰底无边：浅灰填充，无描边；聚焦为白底 + 橙色环 */
+.o3 .sb { background: rgb(var(--ink) / 5.5%); }
+.o3 .sb:hover:not(.dis), .o3 .sb.is-hover { background: rgb(var(--ink) / 8%); }
+.o3 .sb:focus-within, .o3 .sb.is-focus { background: var(--card); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent), 0 2px 8px -3px rgb(var(--ink) / 16%); color: var(--text); }
+:root[data-theme="dark"] .o3 .sb:focus-within, :root[data-theme="dark"] .o3 .sb.is-focus { background: #25272c; }
+
+/* 4 凹陷：像刻进页面的凹槽（内阴影 + 底部亮线）；聚焦内部出现橙色内环 */
+.o4 .sb { background: rgb(var(--ink) / 4%); box-shadow: inset 0 1px 3px rgb(var(--ink) / 14%), 0 1px 0 rgb(255 255 255 / 80%); }
+:root[data-theme="dark"] .o4 .sb { background: rgb(0 0 0 / 30%); box-shadow: inset 0 1px 3px rgb(0 0 0 / 50%), 0 1px 0 rgb(255 255 255 / 6%); }
+:root .o4 .sb:hover:not(.dis), :root .o4 .sb.is-hover { background: rgb(var(--ink) / 6%); }
+:root .o4 .sb:focus-within, :root .o4 .sb.is-focus { background: var(--card); box-shadow: inset 0 1px 3px rgb(var(--ink) / 10%), inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 65%, transparent), 0 1px 0 rgb(255 255 255 / 80%); color: var(--text); }
+:root[data-theme="dark"] .o4 .sb:focus-within, :root[data-theme="dark"] .o4 .sb.is-focus { background: #25272c; }
+
+/* 5 暖调：白底 + 极淡暖橙发丝边与暖影；聚焦暖橙环 + 暖色光晕 */
+.o5 .sb { background: var(--card); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent), 0 2px 8px -3px color-mix(in srgb, var(--accent) 24%, transparent); }
+:root[data-theme="dark"] .o5 .sb { background: #25272c; }
+.o5 .sb:hover:not(.dis), .o5 .sb.is-hover { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent), 0 3px 10px -3px color-mix(in srgb, var(--accent) 32%, transparent); }
+.o5 .sb:focus-within, .o5 .sb.is-focus { box-shadow: 0 0 0 1.5px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent), 0 6px 16px -6px color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent-ink); }
+
+.notes { margin-top: 28px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; color: var(--muted); font-size: 13px; }
+.notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>搜索框样式选型</h1>
+      <p>展示三种尺寸（工具栏 28px 胶囊、表单 36px、命令面板 48px），以及默认 / 悬停 / 聚焦 / 有内容 / 带快捷键 / 禁用状态。输入框都是真的：可以直接点击、输入、悬停看效果。形状（圆角）本页保持各尺寸现状，选定样式后也可以一并调整。右上角切换深色。</p>
+    </div>
+    <button class="toggle" id="theme">切换深色</button>
+  </header>
+  <div class="grid" id="grid"></div>
+  <div class="notes">
+    <b>怎么选：</b>告诉我编号，或组合（如「3 的灰底 + 5 的暖色聚焦」）。选定后我只改 <code>SearchBox.module.css</code>，所有搜索框一起变化；也可以做成设置项，和按钮、对话框样式一样可切换。
+  </div>
+</div>
+<script>
+  const S = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+  const X = '<svg viewBox="0 0 14 14"><path d="M3 3l8 8M11 3L3 11"/></svg>';
+  const box = (size, { ph = '搜索笔记', val = '', kbd = '', cls = '', clear = false } = {}) =>
+    `<label class="sb ${size} ${cls}">${S}<input placeholder="${ph}" value="${val}" ${cls.includes('dis') ? 'disabled' : ''}>${kbd ? `<kbd>${kbd}</kbd>` : ''}${clear ? `<button class="x" type="button" aria-label="清除">${X}</button>` : ''}</label>`;
+  const options = [
+    ['o0', '当前（对照）', '灰色填充 + 发丝边；聚焦变白底并出现淡橙边。'],
+    ['o1', '无边软影', '纯白、无描边，靠两层柔影托起；聚焦为橙色柔光环。与「无边软影」默认按钮同族。'],
+    ['o2', '乳白玻璃', '半透明白 + 模糊 + 白色亮边，透出背景；聚焦更不透明并出现橙色细边。与「乳白玻璃」按钮同族。'],
+    ['o3', '灰底无边', '浅灰填充、无描边，最扁平；聚焦变白底 + 橙色环。'],
+    ['o4', '凹陷', '像刻进页面的凹槽（内阴影 + 底部亮线）；聚焦时内部出现橙色内环，输入感最强。'],
+    ['o5', '暖调', '白底 + 极淡暖橙发丝边与暖影；聚焦为暖橙环 + 暖色光晕，文字微带橙色，与橙色主题统一。']
+  ];
+  document.getElementById('grid').innerHTML = options.map(([cls, name, desc], i) => `
+    <section class="opt ${cls}">
+      <h3><b>${i === 0 ? '—' : i}</b>${name}</h3>
+      <p class="desc">${desc}</p>
+      <div>
+        <p class="cap">应用页面底色（可点击输入）</p>
+        <div class="panel">
+          <span class="lbl">工具栏 28px</span>
+          ${box('s-tool', { kbd: '⌘K' })}
+          <span class="lbl">表单 36px</span>
+          ${box('s-field', { ph: '搜索标签库' })}
+          <span class="lbl">命令面板 48px</span>
+          ${box('s-cmd', { ph: '搜索关键字', kbd: 'Esc' })}
+        </div>
+      </div>
+      <div>
+        <p class="cap">各状态（表单 36px）</p>
+        <div class="panel">
+          <span class="lbl">默认</span>${box('s-field')}
+          <span class="lbl">悬停</span>${box('s-field', { cls: 'is-hover' })}
+          <span class="lbl">聚焦</span>${box('s-field', { cls: 'is-focus', val: '' })}
+          <span class="lbl">有内容 + 清除</span>${box('s-field', { val: '线性代数', clear: true, cls: 'is-focus' })}
+          <span class="lbl">禁用</span>${box('s-field', { cls: 'dis' })}
+        </div>
+      </div>
+      <div>
+        <p class="cap">彩色衬底（看透明与阴影）</p>
+        <div class="panel stage">${box('s-tool', { kbd: '⌘K' })}${box('s-field', { ph: '搜索标签库' })}${box('s-field', { cls: 'is-focus', val: '线性代数', clear: true })}</div>
+      </div>
+    </section>`).join('');
+  const root = document.documentElement, btn = document.getElementById('theme');
+  btn.addEventListener('click', () => {
+    const dark = root.dataset.theme !== 'dark';
+    root.dataset.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '切换浅色' : '切换深色';
+  });
+</script>
+</body>
+</html>

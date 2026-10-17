@@ -105,8 +105,7 @@ describe('V5 shared control styles', () => {
     for (const [source, selector] of [
       [css.collection, '.tab[data-focus-visible]'],
       [css.input, '.selectTrigger[data-focus-visible]'],
-      [css.input, '.field:not([data-disabled]):focus-within .inputShell'],
-      [css.search, '.shell:not([data-disabled]):focus-within']
+      [css.input, '.field:not([data-disabled]):focus-within .inputShell']
     ]) {
       const [normal, forced] = source.split('@media (forced-colors: active)');
       assert.match(declarations(normal, selector), /box-shadow:\s*var\(--focus-soft(?:[,)]|\s)/);
@@ -114,6 +113,13 @@ describe('V5 shared control styles', () => {
       assert.match(declarations(forced, selector), /outline:\s*2px solid Highlight/);
       assert.match(declarations(forced, selector), /outline-offset:\s*2px/);
     }
+    // 搜索框：灰底 + 极细发丝线，聚焦变白底并加深发丝线（不使用橙色环）；强制色模式仍回退到系统高亮描边。
+    const [searchNormal, searchForced] = css.search.split('@media (forced-colors: active)');
+    const searchFocus = declarations(searchNormal, '.shell:not([data-disabled]):focus-within');
+    assert.match(searchFocus, /border-color:\s*var\(--border-strong\)/);
+    assert.doesNotMatch(searchFocus, /--accent/);
+    assert.ok(searchForced, 'search shell needs a forced-color fallback');
+    assert.match(declarations(searchForced, '.shell:not([data-disabled]):focus-within'), /outline:\s*2px solid Highlight/);
   });
 
   it('keeps invalid states distinct without requiring a thick normal-theme outline', () => {
