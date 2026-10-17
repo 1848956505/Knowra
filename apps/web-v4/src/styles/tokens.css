@@ -2,18 +2,18 @@
  * 亮橙用于装饰；小字与实色按钮使用深橙以满足对比度。
  * --ink-* 是逐步迁移期间的兼容别名，不引入另一套主题。 */
 :root {
-  --surface-chrome: #e1e5eb;
+  --surface-chrome: #f0f1f3;
   /* 外栏定稿：云白 × 磨砂亚克力，50% 强度，顶部柔光开启。 */
   --chrome-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .12 0 0 0 0 .18 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --chrome-cloud-glow: radial-gradient(ellipse 500px 340px at 0% 0%, #ffffff38, transparent 70%);
-  --chrome-acrylic-material: var(--chrome-grain), radial-gradient(ellipse at 6% 12%, #ffffff80, transparent 62%), radial-gradient(ellipse at 85% 95%, #5f7da622, transparent 65%);
+  --chrome-acrylic-material: var(--chrome-grain), radial-gradient(ellipse at 6% 12%, #ffffff80, transparent 62%), radial-gradient(ellipse at 85% 95%, #73849a22, transparent 65%);
   --chrome-material-strength: .5;
   --surface-chrome-glow: var(--chrome-cloud-glow);
   --surface-chrome-material: var(--chrome-acrylic-material);
   --chrome-material-opacity: calc(var(--chrome-material-strength) * 1.5);
-  --surface-page: #fdfdfe;
-  --surface-sidebar-solid: #eef1f5;
-  --surface-sidebar: rgb(238 241 245 / 90%);
+  --surface-page: #fbfcfd;
+  --surface-sidebar-solid: #f7f9fa;
+  --surface-sidebar: rgb(247 249 250 / 92%);
   --surface-raised: #fff;
   --surface-sunken: #eaedf0;
   --surface-hover: rgb(24 30 48 / 5.5%);
@@ -37,8 +37,8 @@
   --highlight-nav-selected: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 85%, transparent);
   --surface-selected: rgb(24 30 48 / 7.5%);
   --text-primary: #17181b;
-  --text-secondary: #4f5560;
-  --text-muted: #5a606b;
+  --text-secondary: #686d76;
+  --text-muted: #6c727c;
   --text-placeholder: #6c727c;
   --text-on-chrome: #60656e;
   /* 图标栏未选中图标：比文字更浅一档，贴近原型的轻盈感（在 #E1E4EA 上对比度约 3.1） */

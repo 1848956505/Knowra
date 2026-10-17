@@ -36,7 +36,7 @@
 .stage[data-skip-focused]:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
 .shellWithSidebar .stage { grid-column: 3; }
 .workspaceStage { align-items: stretch; padding: 0; overflow: hidden; }
-.contextSidebar { --text-secondary: color-mix(in srgb, var(--text-primary) 82%, var(--surface-page)); --text-muted: color-mix(in srgb, var(--text-primary) 70%, var(--surface-page)); grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; margin-right: var(--shell-gap); overflow: hidden; overscroll-behavior: contain; border-radius: var(--radius-panel); background: var(--surface-sidebar-solid); box-shadow: var(--shadow-sidebar); }
+.contextSidebar { grid-column: 2; grid-row: var(--shell-content-row); min-width: 0; min-height: 0; margin-right: var(--shell-gap); overflow: hidden; overscroll-behavior: contain; border-radius: var(--radius-panel); background: var(--surface-sidebar-solid); box-shadow: var(--shadow-sidebar); }
 .contextSidebar:not([data-open]) { display: none; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .contextSidebar { background: var(--surface-sidebar); backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation)); -webkit-backdrop-filter: blur(var(--sidebar-blur)) saturate(var(--sidebar-saturation)); }
