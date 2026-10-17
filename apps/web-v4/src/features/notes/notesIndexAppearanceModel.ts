@@ -10,16 +10,16 @@ export interface NotesIndexAppearance {
   dialogStyle: DialogStyle;
 }
 
-/** 主按钮（Button primary）外观：纸感、白玻璃、暖橙→珊瑚渐变、流光。 */
-export const BUTTON_STYLES = ['paper', 'frost', 'gradient', 'flow'] as const;
+/** 主按钮（Button primary）外观：纸感、白玻璃。 */
+export const BUTTON_STYLES = ['paper', 'frost'] as const;
 export type ButtonStyle = typeof BUTTON_STYLES[number];
 
 /** 默认按钮（Button default）外观：无边软影、乳白玻璃。 */
 export const DEFAULT_BUTTON_STYLES = ['soft', 'glass'] as const;
 export type DefaultButtonStyle = typeof DEFAULT_BUTTON_STYLES[number];
 
-/** 对话框面板外观：浮起卡片、乳白玻璃、内嵌托盘。 */
-export const DIALOG_STYLES = ['float', 'glass', 'tray'] as const;
+/** 对话框面板外观：浮起卡片、内嵌托盘。 */
+export const DIALOG_STYLES = ['float', 'tray'] as const;
 export type DialogStyle = typeof DIALOG_STYLES[number];
 
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';

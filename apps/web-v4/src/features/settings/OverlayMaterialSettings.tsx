@@ -8,9 +8,9 @@ import { BUTTON_STYLES, DEFAULT_BUTTON_STYLES, DIALOG_STYLES, setNotesIndexAppea
 import { useCompactLayout } from '../../shell/useCompactLayout';
 import styles from './SettingsView.module.css';
 
-const BUTTON_STYLE_LABELS: Record<ButtonStyle, string> = { paper: '纸感', frost: '白玻璃', gradient: '暖橙渐变', flow: '流光' };
+const BUTTON_STYLE_LABELS: Record<ButtonStyle, string> = { paper: '纸感', frost: '白玻璃' };
 const DEFAULT_BUTTON_STYLE_LABELS: Record<DefaultButtonStyle, string> = { soft: '无边软影', glass: '乳白玻璃' };
-const DIALOG_STYLE_LABELS: Record<DialogStyle, string> = { float: '浮起卡片', glass: '乳白玻璃', tray: '内嵌托盘' };
+const DIALOG_STYLE_LABELS: Record<DialogStyle, string> = { float: '浮起卡片', tray: '内嵌托盘' };
 
 export function OverlayMaterialSettings() {
   const { overlayMaterial, buttonStyle, defaultButtonStyle, dialogStyle } = useNotesIndexAppearance();
@@ -53,7 +53,7 @@ export function OverlayMaterialSettings() {
       <div className={`${styles.settingRow} ${styles.materialRow}`}>
         <div className={styles.settingCopy}>
           <h4>按钮样式</h4>
-          <p>影响各处的主要操作按钮（如「创建」「保存」）。纸感简洁，白玻璃轻盈，暖橙渐变与流光更醒目，切换后即时保存。</p>
+          <p>影响各处的主要操作按钮（如「创建」「保存」）。纸感简洁，白玻璃轻盈通透，切换后即时保存。</p>
         </div>
         <div className={`${styles.settingControl} ${styles.materialControl}`}>
           <SegmentedControl aria-label="按钮样式">
@@ -77,7 +77,7 @@ export function OverlayMaterialSettings() {
       <div className={`${styles.settingRow} ${styles.materialRow}`}>
         <div className={styles.settingCopy}>
           <h4>对话框样式</h4>
-          <p>影响「新建」「重命名」等对话框的外形。浮起卡片圆润柔和，乳白玻璃半透明通透，内嵌托盘把按钮放在卡片外的托盘上，切换后即时保存。</p>
+          <p>影响「新建」「重命名」等对话框的外形。浮起卡片圆润柔和，内嵌托盘把按钮放在卡片外的托盘上，切换后即时保存。</p>
         </div>
         <div className={`${styles.settingControl} ${styles.materialControl}`}>
           <SegmentedControl aria-label="对话框样式">

@@ -18,12 +18,14 @@ describe('全局定稿外观', () => {
     expect(parseNotesIndexAppearance({ overlayMaterial: 'acrylic' }).overlayMaterial).toBe('acrylic');
     expect(parseNotesIndexAppearance(null).buttonStyle).toBe('paper');
     expect(parseNotesIndexAppearance({ buttonStyle: 'unknown' }).buttonStyle).toBe('paper');
-    expect(parseNotesIndexAppearance({ buttonStyle: 'flow' }).buttonStyle).toBe('flow');
+    expect(parseNotesIndexAppearance({ buttonStyle: 'flow' }).buttonStyle).toBe('paper');
+    expect(parseNotesIndexAppearance({ buttonStyle: 'frost' }).buttonStyle).toBe('frost');
     expect(parseNotesIndexAppearance(null).defaultButtonStyle).toBe('soft');
     expect(parseNotesIndexAppearance({ defaultButtonStyle: 'unknown' }).defaultButtonStyle).toBe('soft');
     expect(parseNotesIndexAppearance({ defaultButtonStyle: 'glass' }).defaultButtonStyle).toBe('glass');
     expect(parseNotesIndexAppearance(null).dialogStyle).toBe('float');
     expect(parseNotesIndexAppearance({ dialogStyle: 'unknown' }).dialogStyle).toBe('float');
+    expect(parseNotesIndexAppearance({ dialogStyle: 'glass' }).dialogStyle).toBe('float');
     expect(parseNotesIndexAppearance({ dialogStyle: 'tray' }).dialogStyle).toBe('tray');
   });
   it('保存材质并在明暗切换与重新挂载时保留', async () => {
