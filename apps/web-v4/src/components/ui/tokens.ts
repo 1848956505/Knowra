@@ -66,5 +66,5 @@ export type InputShadowToken = (typeof INPUT_SHADOW_TOKENS)[number];
 export type CanonicalMotionToken = (typeof CANONICAL_MOTION_TOKENS)[number];
 export type CanonicalFontToken = (typeof CANONICAL_FONT_TOKENS)[number];
 
-export type ButtonVariant = 'default' | 'primary' | 'accent' | 'danger' | 'ghost';
+export type ButtonVariant = 'default' | 'primary' | 'danger' | 'ghost';
 export type StatusTone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger';

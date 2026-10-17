@@ -1,15 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { GhostIconButton } from './GhostIconButton';
+import { IconButton } from './IconButton';
 
-describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
+describe('IconButton (ghost icon 纯图标按钮)', () => {
   it('renders a type=button element with aria-label and forwards click', async () => {
     const onClick = vi.fn();
     render(
-      <GhostIconButton aria-label="新建笔记" onClick={onClick}>
+      <IconButton aria-label="新建笔记" onClick={onClick}>
         <span data-testid="icon">+</span>
-      </GhostIconButton>
+      </IconButton>
     );
 
     const button = screen.getByRole('button', { name: '新建笔记' });
@@ -23,25 +23,25 @@ describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
 
   it('applies the size class so 24/30/40 container sizes are visually distinct', () => {
     const { rerender } = render(
-      <GhostIconButton size={24} aria-label="24">
+      <IconButton size={24} aria-label="24">
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     let button = screen.getByRole('button', { name: '24' });
     expect(button.className).toMatch(/size24/);
 
     rerender(
-      <GhostIconButton size={30} aria-label="30">
+      <IconButton size={30} aria-label="30">
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     button = screen.getByRole('button', { name: '30' });
     expect(button.className).toMatch(/size30/);
 
     rerender(
-      <GhostIconButton size={40} aria-label="40">
+      <IconButton size={40} aria-label="40">
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     button = screen.getByRole('button', { name: '40' });
     expect(button.className).toMatch(/size40/);
@@ -49,20 +49,20 @@ describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
 
   it('defaults to size 30 when size prop is omitted', () => {
     render(
-      <GhostIconButton aria-label="默认">
+      <IconButton aria-label="默认">
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     const button = screen.getByRole('button', { name: '默认' });
     expect(button.className).toMatch(/size30/);
   });
 
-  it.each(['ghost', 'glass', 'crystal', 'satin'] as const)('%s forwards disabled state and does not fire onClick when disabled', (variant) => {
+  it.each(['ghost', 'floating', 'primary'] as const)('%s forwards disabled state and does not fire onClick when disabled', (tone) => {
     const onClick = vi.fn();
     render(
-      <GhostIconButton variant={variant} aria-label="禁用" disabled onClick={onClick}>
+      <IconButton tone={tone} aria-label="禁用" disabled onClick={onClick}>
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     const button = screen.getByRole('button', { name: '禁用' });
     expect(button).toBeDisabled();
@@ -74,9 +74,9 @@ describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
   it('accepts data-force-* attributes so showcase can demo hover/focus/active without jsdom', () => {
     render(
       <>
-        <GhostIconButton aria-label="force hover" data-force-hover>×</GhostIconButton>
-        <GhostIconButton aria-label="force focus" data-force-focus>×</GhostIconButton>
-        <GhostIconButton aria-label="force active" data-force-active>×</GhostIconButton>
+        <IconButton aria-label="force hover" data-force-hover>×</IconButton>
+        <IconButton aria-label="force focus" data-force-focus>×</IconButton>
+        <IconButton aria-label="force active" data-force-active>×</IconButton>
       </>
     );
 
@@ -90,13 +90,13 @@ describe('GhostIconButton (ghost icon 纯图标按钮)', () => {
 
   it('forwards title and merges className without losing base styles', () => {
     render(
-      <GhostIconButton aria-label="组合" title="提示" className="extra-class">
+      <IconButton aria-label="组合" title="提示" className="extra-class">
         ×
-      </GhostIconButton>
+      </IconButton>
     );
     const button = screen.getByRole('button', { name: '组合' });
     expect(button).toHaveAttribute('title', '提示');
-    expect(button.className).toMatch(/ghost/);
+    expect(button.className).toMatch(/base/);
     expect(button.className).toMatch(/size30/);
     expect(button.className).toMatch(/extra-class/);
   });

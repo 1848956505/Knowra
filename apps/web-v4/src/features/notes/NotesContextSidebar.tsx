@@ -18,7 +18,7 @@ import {
   StarIcon
 } from '../../components/icons/knowra';
 import {
-  GhostIconButton, SideNavItem,
+  IconButton, SideNavItem,
   Menu,
   MenuItem,
   MenuPopover,
@@ -122,9 +122,9 @@ export function NotesContextSidebar({
       <header className={styles.header}>
         <span className={styles.title}>笔记</span>
         <MenuTrigger>
-          <GhostIconButton aria-label="笔记更多操作" title="更多操作">
+          <IconButton aria-label="笔记更多操作" title="更多操作">
             <MoreHorizontalIcon size={16} />
-          </GhostIconButton>
+          </IconButton>
           <MenuPopover>
             <Menu
               ariaLabel="笔记目录操作"
@@ -144,11 +144,11 @@ export function NotesContextSidebar({
             </Menu>
           </MenuPopover>
         </MenuTrigger>
-        <GhostIconButton aria-label="搜索笔记" title="搜索笔记" onPress={onOpenSearch} disabled={!onOpenSearch}>
+        <IconButton aria-label="搜索笔记" title="搜索笔记" onPress={onOpenSearch} disabled={!onOpenSearch}>
           <SearchIcon size={16} />
-        </GhostIconButton>
+        </IconButton>
         <CreateEntryMenu canWrite={canWrite} onCreate={mode => treeOperations.openCreate(mode, selectedFolderId)}>
-          <GhostIconButton variant="glass" aria-label="新建" title="新建" disabled={!canWrite}><EditIcon size={16} /></GhostIconButton>
+          <IconButton tone="floating" aria-label="新建" title="新建" disabled={!canWrite}><EditIcon size={16} /></IconButton>
         </CreateEntryMenu>
       </header>
 
@@ -180,7 +180,7 @@ export function NotesContextSidebar({
           id="folders"
           title="文件夹"
           action={(
-            <GhostIconButton
+            <IconButton
               size={24}
               aria-label="新建文件夹"
               title="新建文件夹"
@@ -188,7 +188,7 @@ export function NotesContextSidebar({
               onClick={() => treeOperations.openCreate('folder', selectedFolderId)}
             >
               <PlusIcon size={16} />
-            </GhostIconButton>
+            </IconButton>
           )}
         >
           <div className={styles.entryDragArea}
@@ -223,7 +223,7 @@ export function NotesContextSidebar({
           />
         </SidebarSection>
 
-        <SidebarSection id="tags" title={`标签 ${serverData.tags.length}`} collapsible expanded={tagsExpanded} onExpandedChange={setTagsExpanded} action={<div className={styles.tagHeaderActions}><GhostIconButton size={24} aria-label="新建标签" title="新建标签" disabled={!canWrite} onClick={() => setCreateTagOpen(true)}><PlusIcon size={16} /></GhostIconButton><MenuTrigger><GhostIconButton size={24} aria-label="标签更多操作" title="更多"><MoreVerticalIcon size={16} /></GhostIconButton><MenuPopover><Menu ariaLabel="标签操作" onAction={(key) => { if (key === 'manage') navigate('/materials/tags'); if (key === 'expand') setTagsExpanded(true); if (key === 'collapse') setTagsExpanded(false); }}><MenuItem id="manage">管理标签</MenuItem><MenuItem id="expand">展开全部</MenuItem><MenuItem id="collapse">收起全部</MenuItem></Menu></MenuPopover></MenuTrigger></div>}>
+        <SidebarSection id="tags" title={`标签 ${serverData.tags.length}`} collapsible expanded={tagsExpanded} onExpandedChange={setTagsExpanded} action={<div className={styles.tagHeaderActions}><IconButton size={24} aria-label="新建标签" title="新建标签" disabled={!canWrite} onClick={() => setCreateTagOpen(true)}><PlusIcon size={16} /></IconButton><MenuTrigger><IconButton size={24} aria-label="标签更多操作" title="更多"><MoreVerticalIcon size={16} /></IconButton><MenuPopover><Menu ariaLabel="标签操作" onAction={(key) => { if (key === 'manage') navigate('/materials/tags'); if (key === 'expand') setTagsExpanded(true); if (key === 'collapse') setTagsExpanded(false); }}><MenuItem id="manage">管理标签</MenuItem><MenuItem id="expand">展开全部</MenuItem><MenuItem id="collapse">收起全部</MenuItem></Menu></MenuPopover></MenuTrigger></div>}>
           <div className={styles.tags} aria-label="标签筛选">
             {visibleTags.map((tag) => tag ? (
               <TagChip

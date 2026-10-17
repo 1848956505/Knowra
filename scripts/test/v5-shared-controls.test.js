@@ -8,7 +8,7 @@ const readCss = (file) => readFileSync(join(directory, file), 'utf8');
 
 const css = {
   button: readCss('./button/Button.module.css'),
-  ghost: readCss('./button/GhostIconButton.module.css'),
+  ghost: readCss('./button/IconButton.module.css'),
   segmented: readCss('./button/SegmentedControl.module.css'),
   input: readCss('./input/Input.module.css'),
   search: readCss('./input/SearchBox.module.css'),
@@ -92,7 +92,7 @@ describe('V5 shared control styles', () => {
   it('preserves keyboard focus in normal and forced-color themes', () => {
     for (const [source, selector] of [
       [css.button, '.btn[data-focus-visible]'],
-      [css.ghost, '.ghost:focus-visible'],
+      [css.ghost, '.base:focus-visible'],
       [css.segmented, '.segment[data-focus-visible]'],
       [css.input, '.checkbox[data-focus-visible] .box'],
       [css.overlay, '.item[data-focus-visible]'],
@@ -140,13 +140,8 @@ describe('V5 shared control styles', () => {
     }
   });
 
-  it('keeps toolbar and footer icon targets wide enough on touch screens', () => {
+  it('keeps button targets wide enough on touch screens', () => {
     const touch = css.button.split('@media (max-width: 767px), (any-pointer: coarse)')[1];
-    for (const selector of ['.toolbar.iconOnly', '.footer.iconOnly']) {
-      const rule = declarations(touch, selector);
-      assert.match(rule, /min-width:\s*44px/);
-      assert.match(rule, /width:\s*44px/);
-    }
     assert.match(declarations(touch, '.btn'), /--button-min-height:\s*44px/);
   });
 

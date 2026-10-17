@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react';
-import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl, Switch, Tooltip, TooltipTrigger } from '../../components/ui';
+import { IconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl, Switch, Tooltip, TooltipTrigger } from '../../components/ui';
 import { DisplayOptionsIcon, FilterLinesIcon, MoreHorizontalIcon, PlusIcon, RefreshIcon, SearchIcon } from '../../components/icons/knowra';
 import { notesIndexAppearanceProps } from '../notes/NotesIndexAppearance';
 import { useNotesIndexAppearance } from '../notes/notesIndexAppearanceModel';
@@ -44,7 +44,7 @@ export function KnowledgeIndexTools(props: KnowledgeIndexToolsProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const filter = <PopoverTrigger isOpen={filterOpen} onOpenChange={setFilterOpen}>
-    <TooltipTrigger><Button variant="ghost" size="toolbar" iconOnly className={menuStyles.dotHost} data-filtering={filtering || undefined} aria-label="筛选"><FilterLinesIcon size={16} /></Button>{filterOpen ? null : <Tooltip>筛选</Tooltip>}</TooltipTrigger>
+    <TooltipTrigger><IconButton size={28} className={menuStyles.dotHost} data-filtering={filtering || undefined} aria-label="筛选"><FilterLinesIcon size={16} /></IconButton>{filterOpen ? null : <Tooltip>筛选</Tooltip>}</TooltipTrigger>
     <Popover placement="bottom end" offset={6} {...theme}>
       <PopoverDialog aria-label="按知识状态筛选" className={menuStyles.panel}>
         <div className={menuStyles.list} role="menu" aria-label="知识状态" onKeyDown={moveFocus}>
@@ -55,7 +55,7 @@ export function KnowledgeIndexTools(props: KnowledgeIndexToolsProps) {
     </Popover>
   </PopoverTrigger>;
   const displayMenu = <PopoverTrigger isOpen={displayOpen} onOpenChange={setDisplayOpen}>
-    <TooltipTrigger><Button variant="ghost" size="toolbar" iconOnly className={menuStyles.dotHost} data-on={customized || undefined} aria-label="显示选项（布局、分组、排序、属性）"><DisplayOptionsIcon size={16} /></Button>{displayOpen ? null : <Tooltip>显示选项</Tooltip>}</TooltipTrigger>
+    <TooltipTrigger><IconButton size={28} className={menuStyles.dotHost} data-on={customized || undefined} aria-label="显示选项（布局、分组、排序、属性）"><DisplayOptionsIcon size={16} /></IconButton>{displayOpen ? null : <Tooltip>显示选项</Tooltip>}</TooltipTrigger>
     <Popover placement="bottom end" offset={6} {...theme}>
       <PopoverDialog aria-label="知识显示选项" className={menuStyles.panel}>
         <div className={menuStyles.displayBody}>
@@ -70,14 +70,14 @@ export function KnowledgeIndexTools(props: KnowledgeIndexToolsProps) {
       </PopoverDialog>
     </Popover>
   </PopoverTrigger>;
-  const create = <GhostIconButton variant="crystal" aria-label="新建知识候选" title="新建知识候选"
-    disabled={!props.canWrite || props.busy} onPress={props.onCreate}><PlusIcon size={16} /></GhostIconButton>;
+  const create = <IconButton tone="floating" aria-label="新建知识候选" title="新建知识候选"
+    disabled={!props.canWrite || props.busy} onPress={props.onCreate}><PlusIcon size={16} /></IconButton>;
 
   if (compact) {
     return <div className={styles.compactTools} role="toolbar" aria-label="知识库工具栏">
       {search}{filter}{displayMenu}
       <MenuTrigger>
-        <Button size="workspace" variant="ghost" iconOnly aria-label="更多操作"><MoreHorizontalIcon size={16} /></Button>
+        <IconButton size={30} aria-label="更多操作"><MoreHorizontalIcon size={16} /></IconButton>
         <MenuPopover {...theme}><Menu ariaLabel="更多操作" onAction={() => props.onRefresh()}>
           <MenuItem id="refresh" icon={<RefreshIcon size={14} />} isDisabled={props.busy}>刷新</MenuItem>
         </Menu></MenuPopover>
@@ -88,7 +88,7 @@ export function KnowledgeIndexTools(props: KnowledgeIndexToolsProps) {
   return <div className={styles.desktopTools} role="toolbar" aria-label="知识库工具栏">
     {search}{filter}{displayMenu}
     <span className={styles.separator} />
-    <TooltipTrigger><Button variant="ghost" size="toolbar" iconOnly aria-label="刷新" isDisabled={props.busy} onPress={props.onRefresh}><RefreshIcon size={16} /></Button><Tooltip>刷新</Tooltip></TooltipTrigger>
+    <TooltipTrigger><IconButton size={28} aria-label="刷新" isDisabled={props.busy} onPress={props.onRefresh}><RefreshIcon size={16} /></IconButton><Tooltip>刷新</Tooltip></TooltipTrigger>
     {create}
   </div>;
 }

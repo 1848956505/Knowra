@@ -1,5 +1,7 @@
 import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { CloseIcon } from '../../icons/knowra';
+import { IconButton } from '../button/IconButton';
+import { PressableButton } from '../button/PressableButton';
 import styles from './SearchBox.module.css';
 
 export type SearchBoxSize = 'toolbar' | 'sidebar' | 'command' | 'field';
@@ -28,13 +30,9 @@ export function SearchSurface({ children, icon, size = 'field', shortcut, onClea
     {icon ? <span className={styles.icon} aria-hidden="true">{icon}</span> : null}
     {children}
     {shortcut ? <kbd className={styles.shortcut} aria-hidden="true">{shortcut}</kbd> : null}
-    {onClear ? <button className={clearText ? styles.clearText : styles.clearIcon} type="button" aria-label={clearLabel} onClick={event => {
-      const input = event.currentTarget.parentElement?.querySelector('input');
-      onClear();
-      input?.focus();
-    }} data-testid="search-clear">
-      {clearText ?? <CloseIcon size={12} />}
-    </button> : null}
+    {onClear ? (clearText
+      ? <PressableButton className={styles.clearText} aria-label={clearLabel} onPress={event => { const input = (event.target as Element).parentElement?.querySelector('input'); onClear(); input?.focus(); }} data-testid="search-clear">{clearText}</PressableButton>
+      : <IconButton size={24} className={styles.clearIcon} aria-label={clearLabel} onPress={event => { const input = (event.target as Element).parentElement?.querySelector('input'); onClear(); input?.focus(); }} data-testid="search-clear"><CloseIcon size={12} /></IconButton>) : null}
   </div>;
 }
 

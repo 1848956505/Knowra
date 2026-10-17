@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { PressableButton } from '../../components/ui/button/PressableButton';
 import { Select, TextAreaField } from '../../components/ui/input';
 import { WorkspacePanel, WorkspacePanelBody, WorkspacePanelHeader } from '../../components/workspace/WorkspacePanel';
 import { useNavigate } from '../../app/router';
@@ -194,13 +195,13 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
     <WorkspacePanelBody grid className={styles.body} aria-label="AI 助手工作区">
       <aside className={styles.history} aria-label="历史任务">
         <h2>最近任务</h2>
-        {jobs.length ? jobs.map(job => <button key={job.jobId} type="button" className={styles.historyItem}
+        {jobs.length ? jobs.map(job => <PressableButton key={job.jobId} type="button" className={styles.historyItem}
           aria-current={selectedJob?.jobId === job.jobId ? 'true' : undefined}
-          onClick={() => { setError(null); setSourceView(null); void getJob(job.jobId)
+          onPress={() => { setError(null); setSourceView(null); void getJob(job.jobId)
             .then(detail => { if (detail.spaceId === currentSpaceRef.current) setSelectedJob(detail); })
             .catch(cause => setError(cause.message)); }}>
           <span>{job.question || '只读问答'}</span><small>{statusLabel[job.status]}</small>
-        </button>) : <p className={styles.empty}>当前知识空间还没有助手任务。</p>}
+        </PressableButton>) : <p className={styles.empty}>当前知识空间还没有助手任务。</p>}
       </aside>
       <div className={styles.content}>
         <div className={styles.banner} role="status">
@@ -227,7 +228,7 @@ export function LegacyAssistantView({ pathname, onOpenNote, readOnly = false }: 
           </div>
           <TextAreaField label="问题" value={question} onChange={value => { setQuestion(value); resetPreview(); }}
             placeholder="请基于选中的资料回答…" rows={3} />
-          <div className={styles.actions}><Button variant="accent" isDisabled={pending || !spaceId || !question.trim()}
+          <div className={styles.actions}><Button variant="primary" isDisabled={pending || !spaceId || !question.trim()}
             onPress={() => void prepare()}>预览发送范围</Button></div>
         </section> : null}
         {!readOnly && preview ? <section className={styles.card} aria-label="发送预览">

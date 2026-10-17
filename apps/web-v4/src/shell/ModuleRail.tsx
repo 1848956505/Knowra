@@ -3,6 +3,7 @@
 // 工作域切换：setActiveWorkDomain；品牌按钮回主页。
 
 import { forwardRef, type ReactNode } from 'react';
+import { PressableButton } from '../components/ui/button/PressableButton';
 import {
   KnowledgeIcon,
   BellIcon,
@@ -98,15 +99,15 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
       className={styles.rail}
       aria-label="工作域导航"
     >
-      <button
+      <PressableButton
         type="button"
         className={styles.railItem}
         aria-label="知境工作区"
         title="知境工作区"
-        onClick={onReturnHome}
+        onPress={onReturnHome}
       >
         <span className={styles.railIcon}><HomeIcon size={18} /></span>
-      </button>
+      </PressableButton>
 
       <div className={styles.railGroup} role="group" aria-label="主要工作域">
         {PRIMARY_DOMAINS.map((item) => (
@@ -120,30 +121,30 @@ export const ModuleRail = forwardRef<HTMLElement, ModuleRailProps>(function Modu
       </div>
 
       <div className={cx(styles.railGroup, styles.railGroupUtility)} role="group" aria-label="工具">
-        <button type="button" className={styles.railItem} onClick={onOpenAssistant}
+        <PressableButton type="button" className={styles.railItem} onPress={onOpenAssistant}
           aria-label="AI 助手" title="AI 助手" aria-current={isAssistantActive ? 'page' : undefined}
-          disabled={!onOpenAssistant}>
+          isDisabled={!onOpenAssistant}>
           <span className={styles.railIcon}><SparkIcon size={18} /></span>
-        </button>
+        </PressableButton>
         <RailActionButton
           label="通知"
           title="通知：尚未上线"
           Icon={BellIcon}
           onClick={onOpenNotifications}
         />
-        <button
+        <PressableButton
           type="button"
           className={styles.railItem}
-          onClick={onOpenSettings}
+          onPress={onOpenSettings}
           aria-current={isSettingsActive ? 'page' : undefined}
           aria-label={onOpenSettings ? '设置' : '设置（尚未上线）'}
           title={onOpenSettings ? '设置' : '设置：尚未上线'}
-          disabled={!onOpenSettings}
+          isDisabled={!onOpenSettings}
         >
           <span className={styles.railIcon}>
             <SettingsIcon size={18} />
           </span>
-        </button>
+        </PressableButton>
         {UTILITY_ITEMS.map((item) => (
           <RailButton
             key={item.id}
@@ -168,34 +169,34 @@ function RailButton({ item, isActive, onClick }: RailButtonProps) {
   const ariaCurrent = isActive ? 'page' : undefined;
   if (!available) {
     return (
-      <button
+      <PressableButton
         type="button"
         className={styles.railItem}
         aria-label={`${label}（${available ? '可用' : '尚未上线'}）`}
         aria-disabled="true"
-        disabled
+        isDisabled
         title={`${label}：${description}`}
       >
         <span className={styles.railIcon}>
           <Icon size={18} />
         </span>
-      </button>
+      </PressableButton>
     );
   }
   return (
-    <button
+    <PressableButton
       type="button"
       className={styles.railItem}
       aria-label={label}
       aria-current={ariaCurrent}
       data-module={id}
-      onClick={onClick}
+      onPress={onClick}
       title={`${label}：${description}`}
     >
       <span className={styles.railIcon}>
         <Icon size={18} />
       </span>
-    </button>
+    </PressableButton>
   );
 }
 
@@ -208,18 +209,18 @@ interface RailActionButtonProps {
 
 function RailActionButton({ label, title, Icon, onClick }: RailActionButtonProps) {
   return (
-    <button
+    <PressableButton
       type="button"
       className={styles.railItem}
-      onClick={onClick}
+      onPress={onClick}
       aria-label={onClick ? label : `${label}（尚未上线）`}
       title={title}
-      disabled={!onClick}
+      isDisabled={!onClick}
     >
       <span className={styles.railIcon}>
         <Icon size={18} />
       </span>
-    </button>
+    </PressableButton>
   );
 }
 

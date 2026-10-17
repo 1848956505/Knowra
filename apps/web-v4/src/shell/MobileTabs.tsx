@@ -4,6 +4,7 @@
 // 选中态顶部 4px 蓝条 + 蓝字 + 白底。
 
 import { forwardRef, type CSSProperties } from 'react';
+import { PressableButton } from '../components/ui/button/PressableButton';
 import { PRIMARY_DOMAINS, UTILITY_ITEMS, type RailItem } from './ModuleRail';
 import { SearchIcon, SettingsIcon, SparkIcon } from '../components/icons/knowra';
 import type { WorkDomain } from '../store/types';
@@ -30,64 +31,64 @@ export const MobileTabs = forwardRef<HTMLElement, MobileTabsProps>(function Mobi
       {ALL_ITEMS.map((item) => {
         if (!item.available) {
           return (
-            <button
+            <PressableButton
               key={item.id}
               type="button"
               className={styles.mobileTab}
-              disabled
+              isDisabled
               aria-label={`${item.label}：${item.description}`}
             >
               <span className={styles.mobileIcon}>
                 <item.Icon size={19} />
               </span>
               <span className={styles.mobileLabel}>{item.label}</span>
-            </button>
+            </PressableButton>
           );
         }
         return (
-          <button
+          <PressableButton
             key={item.id}
             type="button"
             className={styles.mobileTab}
             aria-current={item.id === activeDomain ? 'page' : undefined}
             aria-label={item.label}
-            onClick={() => onSelect(item.id)}
+            onPress={() => onSelect(item.id)}
           >
             <span className={styles.mobileIcon}>
               <item.Icon size={19} />
             </span>
             <span className={styles.mobileLabel}>{item.label}</span>
-          </button>
+          </PressableButton>
         );
       })}
-      <button type="button" className={styles.mobileTab} aria-label="AI 助手"
-        aria-current={isAssistantActive ? 'page' : undefined} onClick={onOpenAssistant} disabled={!onOpenAssistant}>
+      <PressableButton type="button" className={styles.mobileTab} aria-label="AI 助手"
+        aria-current={isAssistantActive ? 'page' : undefined} onPress={onOpenAssistant} isDisabled={!onOpenAssistant}>
         <span className={styles.mobileIcon}><SparkIcon size={19} /></span>
         <span className={styles.mobileLabel}>助手</span>
-      </button>
-      <button
+      </PressableButton>
+      <PressableButton
         type="button"
         className={styles.mobileTab}
         aria-label="设置"
         aria-current={isSettingsActive ? 'page' : undefined}
-        onClick={onOpenSettings}
-        disabled={!onOpenSettings}
+        onPress={onOpenSettings}
+        isDisabled={!onOpenSettings}
       >
         <span className={styles.mobileIcon}><SettingsIcon size={19} /></span>
         <span className={styles.mobileLabel}>设置</span>
-      </button>
-      <button
+      </PressableButton>
+      <PressableButton
         type="button"
         className={styles.mobileTab}
         aria-label="打开全局搜索"
-        onClick={onOpenSearch}
-        disabled={!onOpenSearch}
+        onPress={onOpenSearch}
+        isDisabled={!onOpenSearch}
       >
         <span className={styles.mobileIcon}>
           <SearchIcon size={19} />
         </span>
         <span className={styles.mobileLabel}>搜索</span>
-      </button>
+      </PressableButton>
     </nav>
   );
 });

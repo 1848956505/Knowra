@@ -50,7 +50,7 @@ export function FileDropField({
       <strong className={styles.label}>{label}</strong>
       <span className={styles.description}>{description}</span>
       <Button
-        variant="accent"
+        variant="primary"
         isDisabled={isDisabled}
         onPress={() => inputRef.current?.click()}
       >

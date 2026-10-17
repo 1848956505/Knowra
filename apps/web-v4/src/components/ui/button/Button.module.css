@@ -58,46 +58,26 @@
 .compact { --button-min-height: 29px; padding-inline: 10px; }
 .toolbar { --button-min-height: 28px; min-height: 28px; padding-inline: 9px; }
 .footer { --button-min-height: 22px; min-height: 22px; padding-inline: 6px; gap: 3px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.footer.iconOnly { min-width: 22px; width: 22px; padding: 0; }
 /* 底栏里不可点的按钮（如首页的“上一页”）只变浅，不加底色和描边。 */
 .btn.footer[data-disabled], .btn.footer[disabled] { background: transparent; border-color: transparent; box-shadow: none; opacity: .35; }
 .footer[aria-current='page'] { background: var(--surface-raised, var(--surface-page)); border-color: transparent; color: var(--text-primary); font-weight: 550; box-shadow: 0 0 0 1px var(--border-subtle), 0 1px 2px rgb(24 30 48 / 6%); }
 .square { border-radius: var(--radius-control); }
 .pill { border-radius: var(--radius-pill); }
 .mini { --button-min-height: 27px; padding-inline: 6px; font-size: 11px; box-shadow: none; }
-.toolbar.iconOnly { min-width: 28px; width: 28px; }
-.iconOnly { min-width: var(--index-size-30); min-height: var(--button-min-height); padding: 0; justify-content: center; }
 
 .primary {
   --knowra-icon-accent: currentColor;
-  background: var(--text-primary);
-  border-color: transparent;
-  color: var(--surface-page);
-}
-
-.primary[data-hovered]:not([data-disabled]):not([data-pending]) {
-  background: var(--text-secondary);
-  border-color: transparent;
-  color: var(--surface-page);
-}
-
-.primary[data-pressed]:not([data-disabled]):not([data-pending]) {
-  background: var(--text-primary);
-}
-
-.accent {
-  --knowra-icon-accent: currentColor;
-  background: var(--button-accent-bg, var(--accent-solid));
-  color: var(--button-accent-ink, var(--text-on-accent, var(--surface-page)));
+  background: var(--button-primary-bg, var(--accent-solid));
+  color: var(--button-primary-ink, var(--text-on-accent, var(--surface-page)));
   border-color: transparent;
   box-shadow: var(--shadow-accent, none);
 }
 
-.accent[data-hovered]:not([data-disabled]):not([data-pending]),
-.accent[data-pressed]:not([data-disabled]):not([data-pending]) {
-  background: var(--button-accent-hover, var(--accent-hover));
+.primary[data-hovered]:not([data-disabled]):not([data-pending]),
+.primary[data-pressed]:not([data-disabled]):not([data-pending]) {
+  background: var(--button-primary-hover, var(--accent-hover));
   border-color: transparent;
-  color: var(--button-accent-ink, var(--text-on-accent, var(--surface-page)));
+  color: var(--button-primary-ink, var(--text-on-accent, var(--surface-page)));
 }
 
 .danger {
@@ -184,5 +164,5 @@
 
 @media (max-width: 767px), (any-pointer: coarse) {
   .btn { --button-min-height: 44px; min-height: var(--button-min-height); }
-  .icon, .iconOnly, .toolbar.iconOnly, .footer.iconOnly { min-width: 44px; width: 44px; }
+  .icon { min-width: 44px; width: 44px; }
 }

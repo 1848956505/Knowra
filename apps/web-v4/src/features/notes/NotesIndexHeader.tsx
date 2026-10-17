@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { CreateEntryMenu } from './CreateEntryMenu';
-import { Button, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, MenuSeparator, SubmenuTrigger } from '../../components/ui';
+import { IconButton, Menu, MenuItem, MenuPopover, MenuTrigger, MenuSeparator, SubmenuTrigger } from '../../components/ui';
 import { PathTrail } from '../../shell/PathTrail';
 import type { PathSegment } from '../../shell/path';
 import { PlusIcon, MoreHorizontalIcon, SettingsIcon, CheckIcon, NoteIcon } from '../../components/icons/knowra';
@@ -17,7 +17,7 @@ export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selecti
   const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
   // 容器可因桌面侧栏变窄；菜单路径始终可达，不依赖视口断点。
   const ancestors = path.filter((segment, index) => index < path.length - 1 && !segment.current && segment.onNavigate);
-  const more = <MenuTrigger><Button size="workspace" variant="ghost" iconOnly aria-label="更多操作" aria-pressed={selectionMode}><MoreHorizontalIcon size={16} /></Button>
+  const more = <MenuTrigger><IconButton size={30} aria-label="更多操作" aria-pressed={selectionMode}><MoreHorizontalIcon size={16} /></IconButton>
     <MenuPopover {...theme}><Menu ariaLabel="更多操作" onAction={key => { if (key === 'spaces') onOpenSpaces(); else if (key === 'batch') onToggleSelection(); }}>
       {ancestors.length ? <SubmenuTrigger>
         <MenuItem id="path-navigation">路径导航</MenuItem>
@@ -31,7 +31,7 @@ export function NotesIndexHeader({ path, count, canWrite, isRecycleView, selecti
     </Menu></MenuPopover>
   </MenuTrigger>;
   const create = <CreateEntryMenu canWrite={canWrite && !isRecycleView} onCreate={onCreate} onImport={onImport}>
-    <GhostIconButton variant="crystal" aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></GhostIconButton>
+    <IconButton tone="floating" aria-label="新建" title="新建" disabled={!canWrite || isRecycleView}><PlusIcon size={16} /></IconButton>
   </CreateEntryMenu>;
   return <header className={styles.header}>
     <div className={styles.heading}><NoteIcon size={17} /><strong>{path.at(-1)?.label ?? '笔记索引'}</strong><span title="当前已加载范围内的项目数，包含笔记与文件夹" aria-label={`已加载 ${count} 项`}>{count}</span></div>

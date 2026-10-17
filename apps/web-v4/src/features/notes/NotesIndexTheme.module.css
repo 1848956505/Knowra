@@ -90,7 +90,7 @@ color-scheme:dark;
   --ni-hover:rgba(255,255,255,.055); --ni-press:rgba(255,255,255,.09);
   --ni-selected:rgba(255,255,255,.09);
   /* 深色下主按钮降亮度、去外发光，避免刺眼。 */
-  --button-accent-bg:color-mix(in srgb,var(--ni-accent) 72%,#17181c); --button-accent-hover:color-mix(in srgb,var(--ni-accent) 82%,#17181c); --button-accent-ink:rgba(255,255,255,.92);
+  --button-primary-bg:color-mix(in srgb,var(--ni-accent) 72%,#17181c); --button-primary-hover:color-mix(in srgb,var(--ni-accent) 82%,#17181c); --button-primary-ink:rgba(255,255,255,.92);
   /* 上下文侧栏左上角的白色柔光（参考 Linear 深色）。 */
   --ni-ctx-glow:radial-gradient(340px 280px at 0% 0%,rgba(255,255,255,.075),transparent 70%);
   /* 工作区面板：同一光源（左上）的白色柔光与顶边渐变高光。 */

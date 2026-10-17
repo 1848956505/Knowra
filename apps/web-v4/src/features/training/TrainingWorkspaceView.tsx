@@ -169,7 +169,7 @@ export function TrainingWorkspaceView() {
   return <WorkspacePanel as="main" aria-labelledby="training-title">
     <WorkspacePanelHeader title="试题库" code="TRAIN" titleId="training-title" icon={<QuestionIcon size={14} />}
       breadcrumb={<PathTrail path={[{ id: 'training', label: '试题库', current: true }]} variant="top" />}
-      actionsLabel="训练资产操作" actions={canWrite ? <Button variant="accent" size="workspace" onPress={() => kind === 'learningObjective' ? setObjectiveReview({}) : setForm({ kind })}><PlusIcon size={17} />新建{LABELS[kind]}</Button> : null} />
+      actionsLabel="训练资产操作" actions={canWrite ? <Button variant="primary" size="workspace" onPress={() => kind === 'learningObjective' ? setObjectiveReview({}) : setForm({ kind })}><PlusIcon size={17} />新建{LABELS[kind]}</Button> : null} />
     <WorkspacePanelToolbar className={styles.toolbar} role="toolbar" aria-label="训练资产筛选">
       <SegmentedControl density="compact" className={styles.filterGroup} aria-label="训练资产类型">{KINDS.map(value => <SegmentedButton key={value} aria-pressed={kind === value} onPress={() => { setKind(value); setQuery(''); }}>{LABELS[value]}</SegmentedButton>)}</SegmentedControl>
       <SearchBox label={`搜索${LABELS[kind]}`} icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} onClear={query ? () => setQuery('') : undefined} placeholder={`搜索${LABELS[kind]}…`} />

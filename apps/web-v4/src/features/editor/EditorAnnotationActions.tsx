@@ -2,7 +2,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { BoldIcon, ItalicIcon, CodeIcon, StarIcon } from '../../components/icons/knowra';
-import { Button, GhostIconButton } from '../../components/ui/button';
+import { Button, IconButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuTrigger, SubmenuTrigger } from '../../components/ui/overlay';
 import type { AnnotationImportance } from './annotationPayloads';
 import { listItemAt } from './editorListAnnotations';
@@ -98,16 +98,16 @@ export function EditorAnnotationActions({ hostRef, getView, onCreate, onCommand,
 
   return <>
     {selection ? <div className={styles.toolbar} style={{ left: selection.x, top: selection.y }} role="toolbar" aria-label="选区工具" onMouseDown={(event) => event.preventDefault()}>
-      <GhostIconButton className={styles.formatAction} size={24} aria-label="加粗" title="加粗" onPress={() => onCommand('bold')}><BoldIcon size={15} /></GhostIconButton>
-      <GhostIconButton className={styles.formatAction} size={24} aria-label="斜体" title="斜体" onPress={() => onCommand('italic')}><ItalicIcon size={15} /></GhostIconButton>
-      <GhostIconButton className={styles.formatAction} size={24} aria-label="行内代码" title="行内代码" onPress={() => onCommand('inline-code')}><CodeIcon size={15} /></GhostIconButton>
+      <IconButton className={styles.formatAction} size={24} aria-label="加粗" title="加粗" onPress={() => onCommand('bold')}><BoldIcon size={15} /></IconButton>
+      <IconButton className={styles.formatAction} size={24} aria-label="斜体" title="斜体" onPress={() => onCommand('italic')}><ItalicIcon size={15} /></IconButton>
+      <IconButton className={styles.formatAction} size={24} aria-label="行内代码" title="行内代码" onPress={() => onCommand('inline-code')}><CodeIcon size={15} /></IconButton>
       <span className={styles.divider} aria-hidden="true" />
       <Button variant="ghost" size="mini" onPress={() => onCommand('internal-link')}>内部链接</Button>
       {IMPORTANCE_LEVELS.map(level => <Button key={level.id} variant="ghost" size="mini" aria-label={`标记重点（${level.label}）`} isDisabled={pending} onPress={() => void create('selection', level.id)} icon={<StarIcon size={15} fill={level.id === 'normal' ? 'none' : 'currentColor'} />}>{level.label}</Button>)}
     </div> : null}
     {block && !selection ? <div data-annotation-actions className={styles.blockAction} style={{ left: block.x, top: block.y }}>
       <MenuTrigger isOpen={menuOpen} onOpenChange={(open) => { if (open) { const view = getView(); if (view) captureAnnotationActionTarget(view, block.pos); } setMenuOpen(open); }}>
-        <GhostIconButton aria-label={block.list ? '列表项重点菜单' : block.heading ? '标题重点菜单' : '内容块重点菜单'}>⋮</GhostIconButton>
+        <IconButton aria-label={block.list ? '列表项重点菜单' : block.heading ? '标题重点菜单' : '内容块重点菜单'}>⋮</IconButton>
         <MenuPopover placement="bottom start"><Menu ariaLabel="标记重点">
           <SubmenuTrigger><MenuItem id="blocks" isDisabled={pending}>标记此块为重点</MenuItem>
             <MenuPopover><Menu ariaLabel="此块重点等级">{IMPORTANCE_LEVELS.map(level => <MenuItem key={level.id} id={level.id} isDisabled={pending} onAction={() => void create('blocks', level.id)}>{level.label}</MenuItem>)}</Menu></MenuPopover>

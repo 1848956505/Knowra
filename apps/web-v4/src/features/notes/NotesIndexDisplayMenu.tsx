@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverDialog, PopoverTrigger, SegmentedButton, SegmentedControl, Switch } from '../../components/ui';
+import { IconButton, Popover, PopoverDialog, PopoverTrigger, SegmentedButton, SegmentedControl, Switch } from '../../components/ui';
 import { DisplayOptionsIcon } from '../../components/icons/knowra';
 import type { GroupMode, IndexDisplayProperties, SortMode, ViewMode } from './notesIndexPresentation';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
@@ -27,8 +27,8 @@ export function NotesIndexDisplayMenu({ c, showType = false, showPreview = false
   const theme = notesIndexAppearanceProps(useNotesIndexAppearance());
   const customized = c.sort !== 'updated-desc' || c.group !== 'updated';
   return <PopoverTrigger>
-    <span className={styles.tipHost} data-tip="显示选项"><Button variant="ghost" size="toolbar" iconOnly className={styles.dotHost} data-on={customized || undefined}
-      aria-label="显示选项（布局、分组、排序、属性）"><DisplayOptionsIcon size={16} /></Button></span>
+    <span className={styles.tipHost} data-tip="显示选项"><IconButton size={28} className={styles.dotHost} data-on={customized || undefined}
+      aria-label="显示选项（布局、分组、排序、属性）"><DisplayOptionsIcon size={16} /></IconButton></span>
     <Popover placement="bottom end" offset={6} {...theme}>
       <PopoverDialog aria-label="索引显示选项" className={styles.panel}>
         <div className={styles.displayBody}>

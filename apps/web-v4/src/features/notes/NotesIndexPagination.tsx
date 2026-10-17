@@ -1,5 +1,5 @@
 import styles from './NotesIndexView.module.css';
-import { Button, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
+import { Button, IconButton, Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/ui';
 import { ChevronDownIcon, ChevronRightIcon } from '../../components/icons/knowra';
 import { WorkspacePanelFooter } from '../../components/workspace/WorkspacePanel';
 import { notesIndexAppearanceProps } from './NotesIndexAppearance';
@@ -19,12 +19,12 @@ export function NotesIndexPagination({ page, pageCount, total, noteTotal, folder
     </span>
     <div className={styles.pageNavigation}>
       <nav aria-label="笔记分页">
-        <Button size="footer" variant="ghost" iconOnly aria-label="上一页" isDisabled={loading || page === 0} onPress={() => onPageChange(page - 1)}><span className={styles.previous}><ChevronRightIcon size={12} /></span></Button>
+        <IconButton size={24} aria-label="上一页" isDisabled={loading || page === 0} onPress={() => onPageChange(page - 1)}><span className={styles.previous}><ChevronRightIcon size={12} /></span></IconButton>
         {pages.map((value, index) => <span className={styles.pageEntry} key={value}>
           {index > 0 && value - pages[index - 1] > 1 ? <span aria-hidden="true">…</span> : null}
           <Button size="footer" variant="ghost" aria-label={`第 ${value + 1} 页`} aria-current={page === value ? 'page' : undefined} isDisabled={loading} onPress={() => onPageChange(value)}>{value + 1}</Button>
         </span>)}
-        <Button size="footer" variant="ghost" iconOnly aria-label="下一页" isDisabled={loading || page + 1 >= pageCount} onPress={() => onPageChange(page + 1)}><ChevronRightIcon size={12} /></Button>
+        <IconButton size={24} aria-label="下一页" isDisabled={loading || page + 1 >= pageCount} onPress={() => onPageChange(page + 1)}><ChevronRightIcon size={12} /></IconButton>
       </nav>
       <MenuTrigger><Button size="footer" variant="ghost" aria-label="每页条数">每页 {pageSize} 条<ChevronDownIcon size={11} /></Button>
         <MenuPopover {...theme}><Menu ariaLabel="每页条数" selectionMode="single" selectedKeys={[String(pageSize)]} onAction={key => onPageSizeChange(Number(key))}>

@@ -18,10 +18,9 @@ import {
   DialogFooter,
   DialogTrigger,
   EmptyState,
-  GhostIconButton,
+  IconButton,
   GridList,
   type GridListColumn,
-  IconButton,
   LoadingState,
   Menu,
   MenuItem,
@@ -153,7 +152,7 @@ function ColorTokens() {
 function ButtonSection() {
   return (
     <section className={styles.section} aria-labelledby="section-buttons">
-      <h2 id="section-buttons" className={styles.sectionTitle}>Button / IconButton</h2>
+      <h2 id="section-buttons" className={styles.sectionTitle}>Button</h2>
       <p className={styles.sectionLead}>
         <strong>决策规则</strong>：① 危险 → <code>danger</code>；
         ② 当前容器最关键的那一个动作（保存/发布/确定/完成）→ <code>primary</code>（黑）；
@@ -163,11 +162,10 @@ function ButtonSection() {
       </p>
       <div className={styles.grid}>
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>5 个 variant 总览</span>
+          <span className={styles.exampleLabel}>4 个 variant 总览</span>
           <div className={styles.row}>
             <Button>默认</Button>
-            <Button variant="primary">保存（黑）</Button>
-            <Button variant="accent">新建（蓝）</Button>
+            <Button variant="primary">主操作</Button>
             <Button variant="danger">删除（红）</Button>
             <Button variant="ghost">取消（无底）</Button>
           </div>
@@ -179,49 +177,15 @@ function ButtonSection() {
           </span>
           <div className={styles.stack}>
             <div className={styles.row}>
-              <Button variant="accent">新建笔记</Button>
+              <Button variant="primary">新建笔记</Button>
               <Button>导入 Markdown</Button>
               <Button variant="ghost">查看历史</Button>
             </div>
             <div className={styles.row}>
               <Button variant="primary">保存</Button>
-              <Button variant="accent">发布</Button>
+              <Button variant="primary">发布</Button>
               <Button variant="ghost">放弃改动</Button>
             </div>
-          </div>
-        </div>
-
-        <div className={styles.example}>
-          <span className={styles.exampleLabel}>IconButton：5 个 variant 全支持</span>
-          <div className={styles.row}>
-            <IconButton aria-label="更多（默认）">
-              <svg viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-                <rect y="2" width="14" height="2" />
-                <rect y="6" width="14" height="2" />
-                <rect y="10" width="14" height="2" />
-              </svg>
-            </IconButton>
-            <IconButton variant="primary" aria-label="新建（黑）">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <path d="M7 2v10M2 7h10" />
-              </svg>
-            </IconButton>
-            <IconButton variant="accent" aria-label="搜索（蓝）">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <circle cx="6" cy="6" r="4" />
-                <path d="M9 9l3 3" />
-              </svg>
-            </IconButton>
-            <IconButton variant="danger" aria-label="删除（红）">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <path d="M2 4h10M5 4V2h4v2M4 4l1 8h4l1-8" />
-              </svg>
-            </IconButton>
-            <IconButton variant="ghost" aria-label="关闭（ghost）">
-              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" />
-              </svg>
-            </IconButton>
           </div>
         </div>
 
@@ -249,13 +213,13 @@ function ButtonSection() {
 function IconSection() {
   return (
     <section className={styles.section} aria-labelledby="section-icons">
-      <h2 id="section-icons" className={styles.sectionTitle}>GhostIconButton（ghost icon 纯图标按钮）</h2>
+      <h2 id="section-icons" className={styles.sectionTitle}>IconButton（tone: ghost / floating / primary）</h2>
       <a className={styles.catalogLink} href="#/showcase/icons">浏览完整图标库 →</a>
       <p className={styles.sectionLead}>
         <strong>概念</strong>：纯图标无文字按钮（"ghost icon"），视觉与左轨 ModuleRail
         图标一致——30×30 透明方块，内部 SVG 20×20，hover 沉底加深、
         active translate(2px, 2px) 模拟按压、focus 接 --shadow-focus。
-        与 Button/IconButton 的 ghost variant 是<strong>两件事</strong>：后者是
+        与 Button 的 ghost variant 是<strong>两件事</strong>：后者是
         "弱化的有文字操作按钮"，本组件是"专门为纯图标操作入口"的薄封装。
         <br />
         <strong>适用</strong>：侧栏头部"更多 / 新建"、Tab 端点、工具条尾部、
@@ -265,36 +229,36 @@ function IconSection() {
         <div className={styles.example}>
           <span className={styles.exampleLabel}>3 个 size（24 / 30 / 40）</span>
           <div className={styles.row}>
-            <GhostIconButton size={24} aria-label="搜索（紧凑）">
+            <IconButton size={24} aria-label="搜索（紧凑）">
               <SearchIcon size={14} />
-            </GhostIconButton>
-            <GhostIconButton size={30} aria-label="更多（侧栏头部默认）">
+            </IconButton>
+            <IconButton size={30} aria-label="更多（侧栏头部默认）">
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton size={40} aria-label="新建（与左轨 rail 一致）">
+            </IconButton>
+            <IconButton size={40} aria-label="新建（与左轨 rail 一致）">
               <PlusIcon size={20} />
-            </GhostIconButton>
+            </IconButton>
           </div>
         </div>
 
         <div className={styles.example}>
           <span className={styles.exampleLabel}>状态：默认 / hover / focus / active / disabled</span>
           <div className={styles.row}>
-            <GhostIconButton aria-label="默认">
+            <IconButton aria-label="默认">
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton aria-label="hover（鼠标停留时）" data-force-hover>
+            </IconButton>
+            <IconButton aria-label="hover（鼠标停留时）" data-force-hover>
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton aria-label="focus（键盘聚焦）" data-force-focus>
+            </IconButton>
+            <IconButton aria-label="focus（键盘聚焦）" data-force-focus>
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton aria-label="active（按压中）" data-force-active>
+            </IconButton>
+            <IconButton aria-label="active（按压中）" data-force-active>
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton aria-label="disabled（未上线）" disabled>
+            </IconButton>
+            <IconButton aria-label="disabled（未上线）" disabled>
               <MoreHorizontalIcon size={20} />
-            </GhostIconButton>
+            </IconButton>
           </div>
           <p style={{ fontSize: 11, color: 'var(--ink-secondary)', margin: 0 }}>
             hover / focus / active 用 data-* 属性强制展示（视觉演示用，非交互）。
@@ -302,34 +266,34 @@ function IconSection() {
         </div>
 
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>通透玻璃：默认 / 悬停 / 按下 / 禁用</span>
+          <span className={styles.exampleLabel}>floating 通透玻璃：默认 / 悬停 / 按下 / 禁用</span>
           <div className={styles.row}>
-            <GhostIconButton variant="crystal" aria-label="玻璃新建"><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="crystal" aria-label="玻璃新建悬停" data-force-hover><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="crystal" aria-label="玻璃新建按下" data-force-active><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="crystal" aria-label="玻璃新建禁用" disabled><PlusIcon size={16} /></GhostIconButton>
+            <IconButton tone="floating" aria-label="玻璃新建"><PlusIcon size={16} /></IconButton>
+            <IconButton tone="floating" aria-label="玻璃新建悬停" data-force-hover><PlusIcon size={16} /></IconButton>
+            <IconButton tone="floating" aria-label="玻璃新建按下" data-force-active><PlusIcon size={16} /></IconButton>
+            <IconButton tone="floating" aria-label="玻璃新建禁用" disabled><PlusIcon size={16} /></IconButton>
           </div>
         </div>
 
         <div className={styles.example}>
-          <span className={styles.exampleLabel}>柔橙实心：默认 / 悬停 / 按下 / 禁用</span>
+          <span className={styles.exampleLabel}>primary 柔橙实心：默认 / 悬停 / 按下 / 禁用</span>
           <div className={styles.row}>
-            <GhostIconButton variant="satin" aria-label="柔橙新建"><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="satin" aria-label="柔橙新建悬停" data-force-hover><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="satin" aria-label="柔橙新建按下" data-force-active><PlusIcon size={16} /></GhostIconButton>
-            <GhostIconButton variant="satin" aria-label="柔橙新建禁用" disabled><PlusIcon size={16} /></GhostIconButton>
+            <IconButton tone="primary" aria-label="柔橙新建"><PlusIcon size={16} /></IconButton>
+            <IconButton tone="primary" aria-label="柔橙新建悬停" data-force-hover><PlusIcon size={16} /></IconButton>
+            <IconButton tone="primary" aria-label="柔橙新建按下" data-force-active><PlusIcon size={16} /></IconButton>
+            <IconButton tone="primary" aria-label="柔橙新建禁用" disabled><PlusIcon size={16} /></IconButton>
           </div>
         </div>
 
         <div className={styles.example}>
           <span className={styles.exampleLabel}>实际用法对照</span>
           <div className={styles.row}>
-            <GhostIconButton aria-label="新建笔记（笔记侧栏头部默认 size=30）">
+            <IconButton aria-label="新建笔记（笔记侧栏头部默认 size=30）">
               <PlusIcon size={20} />
-            </GhostIconButton>
-            <GhostIconButton size={40} aria-label="新建笔记（与左轨 rail 等大 size=40）">
+            </IconButton>
+            <IconButton size={40} aria-label="新建笔记（与左轨 rail 等大 size=40）">
               <PlusIcon size={20} />
-            </GhostIconButton>
+            </IconButton>
           </div>
         </div>
       </div>

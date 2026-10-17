@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Tag, TagColor, TagGroup } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogClose, DialogFooter, GhostIconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl, Select, TextField } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogClose, DialogFooter, IconButton, Menu, MenuItem, MenuPopover, MenuTrigger, Popover, PopoverDialog, PopoverTrigger, SearchBox, SegmentedButton, SegmentedControl, Select, TextField, PressableButton } from '../../components/ui';
 import { useNavigate } from '../../app/router';
 import { useAppStore } from '../../store/AppStoreProvider';
 import { TagChip, normalizeTagColor } from './TagChip';
@@ -106,7 +106,7 @@ export function TagManagerView() {
   const optionsActive = filtering || sort !== 'manual';
   /* 筛选与排序合为一个入口：分组、使用情况、排序都收进同一个浮层，有生效项时按钮带小圆点。 */
   const options = <PopoverTrigger>
-    <GhostIconButton size={compact ? 40 : 30} className={styles.dotHost} data-on={optionsActive || undefined} aria-label="筛选与排序" title="筛选与排序"><FilterLinesIcon size={16} /></GhostIconButton>
+    <IconButton size={compact ? 40 : 30} className={styles.dotHost} data-on={optionsActive || undefined} aria-label="筛选与排序" title="筛选与排序"><FilterLinesIcon size={16} /></IconButton>
     <Popover placement="bottom end" offset={6} {...theme}><PopoverDialog aria-label="筛选与排序" className={styles.optionsPanel}>
       <div className={styles.field}><span>分组</span><div className={styles.selectBox}><Select presentation="toolbar" label="按分组筛选" name="tag-group-filter" selectedKey={groupFilter} onSelectionChange={(key) => setGroupFilter(String(key))} options={groupOptions} /></div></div>
       <div className={styles.field}><span>使用情况</span>{usageFilter}</div>
@@ -125,7 +125,7 @@ export function TagManagerView() {
         {options}
         {search}
         {canWrite ? <MenuTrigger>
-          <GhostIconButton variant="glass" aria-label="新建" title="新建"><PlusIcon size={16} /></GhostIconButton>
+          <IconButton tone="floating" aria-label="新建" title="新建"><PlusIcon size={16} /></IconButton>
           <MenuPopover {...theme}><Menu ariaLabel="新建" onAction={(key) => setEditTarget({ kind: key === 'group' ? 'group' : 'tag' })}>
             <MenuItem id="tag" icon={<TagIcon size={14} />}>新建标签</MenuItem>
             <MenuItem id="group" icon={<PlusIcon size={14} />}>新建分组</MenuItem>
@@ -136,7 +136,7 @@ export function TagManagerView() {
       : header(<div className={styles.deskTools} role="toolbar" aria-label="筛选标签">
         {search}
         {options}
-        {canWrite ? <><Button size="workspace" onPress={() => setEditTarget({ kind: 'group' })}>新建分组</Button><Button size="workspace" variant="accent" onPress={() => setEditTarget({ kind: 'tag' })}><PlusIcon size={17} />新建标签</Button></> : null}
+        {canWrite ? <><Button size="workspace" onPress={() => setEditTarget({ kind: 'group' })}>新建分组</Button><Button size="workspace" variant="primary" onPress={() => setEditTarget({ kind: 'tag' })}><PlusIcon size={17} />新建标签</Button></> : null}
       </div>)}
     <WorkspacePanelBody grid className={styles.content}>
       {pendingDeletion ? <p role="status" className={styles.meta}>“{pendingDeletion.tag.name}”将在 10 秒后删除。<Button variant="ghost" onPress={undoDeletion}>撤销删除</Button></p> : null}
@@ -146,7 +146,7 @@ export function TagManagerView() {
           <div className={styles.groupTitle}><span className={styles.groupNumber}>{String(groupIndex + 1).padStart(2, '0')}</span><h2 id={`group-${group.id}`}>{group.name}</h2><span className={styles.groupCount}>{items.length} 个标签</span><span className={styles.meta}>{group.selectionMode === 'single' ? '单选' : '多选'}</span>{group.isSystem ? <span className={styles.system}>内置</span> : null}</div>
           {canWrite ? (compact
             ? <MenuTrigger>
-              <GhostIconButton size={28} className={styles.groupMenu} aria-label={`分组“${group.name}”的更多操作`}><MoreHorizontalIcon size={16} /></GhostIconButton>
+              <IconButton size={28} className={styles.groupMenu} aria-label={`分组“${group.name}”的更多操作`}><MoreHorizontalIcon size={16} /></IconButton>
               <MenuPopover placement="bottom end" {...theme}><Menu ariaLabel={`${group.name}的操作`} onAction={(key) => {
                 if (key === 'edit') setEditTarget({ kind: 'group', value: group });
                 else if (key === 'delete') void deleteTagGroup(group.id);
@@ -159,12 +159,12 @@ export function TagManagerView() {
         </header>
         <div className={styles.cards}>{items.map((tag, index) => <article className={styles.card} data-dragging={draggedTagId === tag.id || undefined} draggable={canWrite && sort === 'manual'} onDragStart={() => setDraggedTagId(tag.id)} onDragEnd={() => setDraggedTagId('')} onDragOver={(event) => { if (draggedTagId && draggedTagId !== tag.id) event.preventDefault(); }} onDrop={() => void dropBefore(tag)} key={tag.id}>
           <div className={styles.cardHead}>
-            <button type="button" className={styles.cardOpen} aria-label={`查看“${tag.name ?? '未命名标签'}”的笔记`}
-              onClick={() => navigate(`/materials?tags=${encodeURIComponent(tag.id)}&match=all`)}>
+            <PressableButton type="button" className={styles.cardOpen} aria-label={`查看“${tag.name ?? '未命名标签'}”的笔记`}
+              onPress={() => navigate(`/materials?tags=${encodeURIComponent(tag.id)}&match=all`)}>
               <TagChip tag={tag} className={styles.tagChip} />
-            </button>
+            </PressableButton>
             {canWrite ? <MenuTrigger>
-              <GhostIconButton size={28} className={styles.cardMenu} aria-label={`标签“${tag.name ?? '未命名标签'}”的更多操作`}><MoreHorizontalIcon size={16} /></GhostIconButton>
+              <IconButton size={28} className={styles.cardMenu} aria-label={`标签“${tag.name ?? '未命名标签'}”的更多操作`}><MoreHorizontalIcon size={16} /></IconButton>
               <MenuPopover placement="bottom end" {...theme}><Menu ariaLabel={`${tag.name ?? '未命名标签'}的操作`} onAction={(key) => {
                 if (key === 'edit') setEditTarget({ kind: 'tag', value: tag });
                 else if (key === 'up') void move(tag, -1);
