@@ -34,6 +34,11 @@
 
 /* 已开启筛选/显示项的小点（对照原型 .tbtn[data-on]::after）。 */
 .dotHost { position: relative; }
+/* 纯 CSS 悬停提示：跟随按钮自身定位，不走浮层，不会失去锚点；按钮按下或菜单展开时不显示。 */
+.tipHost { position: relative; display: inline-flex; }
+.tipHost::after { content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: 50%; z-index: 30; padding: 5px 9px; border-radius: 8px; background: var(--text-primary); color: var(--surface-page); font: 500 11px/1.3 var(--font-ui); white-space: nowrap; pointer-events: none; opacity: 0; transform: translate(-50%, -2px); transition: opacity .12s ease, transform .12s ease; }
+.tipHost:is(:hover, :has(:focus-visible)):not(:has([aria-expanded='true'], :active))::after { opacity: 1; transform: translate(-50%, 0); transition-delay: .3s; }
+@media (any-pointer: coarse) { .tipHost::after { display: none; } }
 .dotHost[data-on]::after, .dotHost[data-filtering]::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--ni-accent, var(--accent)); box-shadow: 0 0 0 2px var(--ni-page, var(--surface-page)), var(--ni-glow-dot, 0 0 0 0 transparent); pointer-events: none; }
 
 /* 筛选条件胶囊：维度 | 关系 | 值 | × */

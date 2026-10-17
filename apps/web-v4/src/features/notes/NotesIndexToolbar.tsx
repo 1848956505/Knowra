@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from 'react';
-import { Button, SearchBox, SegmentedButton, SegmentedControl, Tooltip, TooltipTrigger } from '../../components/ui';
+import { Button, SearchBox, SegmentedButton, SegmentedControl } from '../../components/ui';
 import { ComponentLibraryIcon, ListIcon, SearchIcon, FilterLinesIcon, PanelIcon } from '../../components/icons/knowra';
 import { NotesIndexDisplayMenu } from './NotesIndexDisplayMenu';
 import type { NotesIndexController } from './useNotesIndexController';
@@ -16,9 +16,9 @@ function IndexSearch({ c }: { c: NotesIndexController }) {
 
 function IndexFilterButton({ c }: { c: NotesIndexController }) {
   const filterButton = useRef<HTMLButtonElement>(null);
-  return <TooltipTrigger><Button ref={filterButton} variant="ghost" size="toolbar" iconOnly className={menuStyles.dotHost} aria-label="筛选" aria-haspopup="menu"
+  return <span className={menuStyles.tipHost} data-tip="筛选"><Button ref={filterButton} variant="ghost" size="toolbar" iconOnly className={menuStyles.dotHost} aria-label="筛选" aria-haspopup="menu"
     data-filtering={c.filters.statuses.length > 0 || Boolean(c.filters.updatedWithin) || c.urlTagIds.length > 0 || undefined}
-    aria-expanded={Boolean(c.filterMenu)} onPress={() => c.openFilterMenu(filterButton.current)}><FilterLinesIcon size={16} /></Button>{c.filterMenu ? null : <Tooltip>筛选</Tooltip>}</TooltipTrigger>;
+    aria-expanded={Boolean(c.filterMenu)} onPress={() => c.openFilterMenu(filterButton.current)}><FilterLinesIcon size={16} /></Button></span>;
 }
 
 /** 触屏/窄屏：搜索（默认收成图标）、筛选、显示选项并入标题行；类型筛选收进显示选项。 */
