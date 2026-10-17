@@ -5,11 +5,16 @@ export interface NotesIndexAppearance {
   theme: 'orange';
   shape: 'pill';
   overlayMaterial: 'glass' | 'acrylic';
+  buttonStyle: ButtonStyle;
 }
+
+/** 主按钮（Button primary）外观：纸感、白玻璃、暖橙→珊瑚渐变、流光。 */
+export const BUTTON_STYLES = ['paper', 'frost', 'gradient', 'flow'] as const;
+export type ButtonStyle = typeof BUTTON_STYLES[number];
 
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';
 export const DEFAULT_NOTES_INDEX_APPEARANCE: Readonly<NotesIndexAppearance> = {
-  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass'
+  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper'
 };
 const listeners = new Set<() => void>();
 let snapshot = readAppearance();
@@ -22,7 +27,8 @@ export function parseNotesIndexAppearance(value: unknown): NotesIndexAppearance 
     // 保留旧外观存储格式及明暗偏好；pill 仅作为兼容值，实际形状由组件用途决定。
     theme: 'orange',
     shape: 'pill',
-    overlayMaterial: candidate.overlayMaterial === 'acrylic' ? 'acrylic' : 'glass'
+    overlayMaterial: candidate.overlayMaterial === 'acrylic' ? 'acrylic' : 'glass',
+    buttonStyle: BUTTON_STYLES.includes(candidate.buttonStyle as ButtonStyle) ? candidate.buttonStyle as ButtonStyle : 'paper'
   };
 }
 

@@ -9,7 +9,8 @@ export function notesIndexAppearanceProps(appearance: NotesIndexAppearance) {
     'data-ni-mode': appearance.mode,
     'data-ni-theme': appearance.theme,
     'data-ni-shape': appearance.shape,
-    'data-overlay-material': appearance.overlayMaterial
+    'data-overlay-material': appearance.overlayMaterial,
+    'data-button-style': appearance.buttonStyle
   };
 }
 

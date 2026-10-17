@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文字按钮样式选型（定稿候选）</title>
+<style>
+:root {
+  --page: #f4f5f8; --card: #fff; --text: #17181b; --muted: #6b7080; --line: #e3e5ec; --line-strong: #c9ccd6;
+  --hover: #f1f2f6; --pressed: #e6e8ee;
+  --accent: #e5743a; --accent-hi: #f08a55; --accent-lo: #d2622a; --accent-ink: #b8501d; --danger: #c93a2e;
+  --ctl-shadow: 0 1px 2px rgba(24,30,48,.08), 0 1px 1px rgba(24,30,48,.04);
+  --stage: linear-gradient(135deg, #fde6d3 0%, #f7d3c2 40%, #dfe6f7 100%);
+  --stage2: linear-gradient(135deg, #2b3a5c 0%, #5b3f6e 55%, #b85a3c 100%);
+}
+:root[data-theme="dark"] {
+  --page: #17181b; --card: #202226; --text: #eceef2; --muted: #9a9fae; --line: #30333a; --line-strong: #454953;
+  --hover: #2a2d33; --pressed: #34383f; --danger: #ef6a5e; --accent-ink: #ff9a5c;
+  --ctl-shadow: 0 1px 2px rgba(0,0,0,.4);
+  --stage: linear-gradient(135deg, #3a2418 0%, #2a2230 45%, #1d2a3f 100%);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 24px 80px; background: var(--page); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+header p { margin: 0; color: var(--muted); max-width: 680px; }
+.toggle { border: 1px solid var(--line-strong); background: var(--card); color: var(--text); padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; white-space: nowrap; }
+h2.fam { margin: 36px 0 4px; font-size: 18px; }
+p.fam { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.opt h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.opt h3 b { min-width: 30px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--text); color: var(--card); display: grid; place-items: center; font-size: 13px; }
+.opt .desc { margin: 0; color: var(--muted); font-size: 12.5px; }
+.dlg { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--page); }
+.dlg .hd { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--line); background: var(--card); }
+.dlg .ft { padding: 12px 16px; display: flex; gap: 10px; justify-content: flex-end; background: color-mix(in srgb, var(--page) 60%, var(--card)); border-top: 1px solid var(--line); }
+.stage { border-radius: 12px; padding: 14px; background: var(--stage); }
+.stage.dk { background: var(--stage2); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cap { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+
+/* 深色衬底上的文字按钮用浅色字 */
+.stage.dk .b.g { color: #fff; }
+.stage.dk .b.g:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+
+/* ===== 公共：全部为胶囊 ===== */
+.b { position: relative; overflow: hidden; font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1; height: 34px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--text); transition: background .18s, box-shadow .18s, border-color .18s, filter .18s, transform .12s; white-space: nowrap; }
+.b.sm { height: 28px; padding: 0 13px; font-size: 12px; }
+.b:disabled { opacity: .45; cursor: not-allowed; }
+.b:active:not(:disabled) { transform: scale(.975); }
+.b.g:hover:not(:disabled) { background: var(--hover); }
+.b.x { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 30%, transparent); background: var(--card); }
+.b.x:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 10%, var(--card)); border-color: var(--danger); }
+.b.d { background: var(--card); border-color: var(--line); box-shadow: var(--ctl-shadow); }
+.b.d:hover:not(:disabled) { background: var(--hover); border-color: var(--line-strong); }
+
+/* ================= 家族 2：扁平纯色 ================= */
+/* 2B 纸感：纯色 + 极淡顶边高光 + 1px 贴地影，轻微有"实体"感 */
+.f2b .p { background: var(--accent); color: #fff; font-weight: 600; box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 1px 1px rgba(150,60,20,.35), 0 2px 4px -1px rgba(150,60,20,.25); }
+.f2b .p:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 92%, #000); box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 1px 1px rgba(150,60,20,.35), 0 3px 6px -1px rgba(150,60,20,.3); }
+.f2b .p:active:not(:disabled) { box-shadow: inset 0 1px 2px rgba(0,0,0,.2); }
+.f2b .d { box-shadow: 0 1px 1px rgba(24,30,48,.08); }
+
+/* ================= 家族 4：通透玻璃 ================= */
+/* 4B 白玻璃：主按钮为乳白磨砂 + 橙字 + 橙色发丝边，最克制，叠任何背景都协调 */
+.f4b .p { background: rgba(255,255,255,.62); color: var(--accent-ink); font-weight: 600; border-color: color-mix(in srgb, var(--accent) 45%, rgba(255,255,255,.6)); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 3px 10px -4px color-mix(in srgb, var(--accent) 45%, transparent); }
+.f4b .p:hover:not(:disabled) { background: rgba(255,255,255,.8); border-color: var(--accent); }
+:root[data-theme="dark"] .f4b .p { background: rgba(255,255,255,.1); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.f4b .d { background: rgba(255,255,255,.3); border-color: rgba(255,255,255,.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+:root[data-theme="dark"] .f4b .d { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+
+/* ================= 家族 9：暖橙渐变 ================= */
+/* 9A 暖橙→珊瑚：横向渐变 + 柔发光（原 9） */
+.f9a .p { background: linear-gradient(120deg, #f59a4a, #ee6a4c 60%, #e5543f); color: #fff; font-weight: 600; box-shadow: 0 6px 16px -6px rgba(238,106,76,.8), inset 0 1px 0 rgba(255,255,255,.3); text-shadow: 0 1px 1px rgba(120,30,10,.25); }
+.f9a .p:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 8px 20px -6px rgba(238,106,76,.9), inset 0 1px 0 rgba(255,255,255,.3); }
+.f9a .p:active:not(:disabled) { filter: brightness(.95); }
+
+/* 9C 流光：对角深色渐变 + 悬停时一道高光扫过 + 外圈光晕 */
+.f9c .p { background: linear-gradient(135deg, #f58a3f 0%, #ec5d3a 55%, #d8433a 100%); color: #fff; font-weight: 600; box-shadow: 0 0 0 3px color-mix(in srgb, #ec5d3a 16%, transparent), 0 6px 16px -6px rgba(216,67,58,.75), inset 0 1px 0 rgba(255,255,255,.28); text-shadow: 0 1px 1px rgba(100,20,10,.35); }
+.f9c .p::after { content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.5), transparent); transform: skewX(-20deg); transition: left .55s ease; pointer-events: none; }
+.f9c .p:hover:not(:disabled)::after { left: 130%; }
+.f9c .p:hover:not(:disabled) { box-shadow: 0 0 0 5px color-mix(in srgb, #ec5d3a 22%, transparent), 0 8px 20px -6px rgba(216,67,58,.85), inset 0 1px 0 rgba(255,255,255,.28); }
+
+
+/* ---- 9A / 9C 深色模式与深色衬底：降低明度与饱和，收小发光 ---- */
+:root[data-theme="dark"] .f9a .p, .f9a .stage.dk .p { background: linear-gradient(120deg, #cf7a3b, #b9503c 60%, #a14034); color: #fff3ea; box-shadow: 0 4px 12px -6px rgba(185,80,60,.55), inset 0 1px 0 rgba(255,255,255,.14); text-shadow: 0 1px 1px rgba(60,10,0,.35); }
+:root[data-theme="dark"] .f9a .p:hover:not(:disabled), .f9a .stage.dk .p:hover:not(:disabled) { filter: brightness(1.07); box-shadow: 0 6px 14px -6px rgba(185,80,60,.65), inset 0 1px 0 rgba(255,255,255,.16); }
+:root[data-theme="dark"] .f9c .p, .f9c .stage.dk .p { background: linear-gradient(135deg, #c96d36 0%, #b04a36 55%, #983935 100%); color: #fff3ea; box-shadow: 0 0 0 2px rgba(176,74,54,.14), 0 4px 12px -6px rgba(152,57,53,.6), inset 0 1px 0 rgba(255,255,255,.14); text-shadow: 0 1px 1px rgba(60,10,0,.4); }
+:root[data-theme="dark"] .f9c .p::after, .f9c .stage.dk .p::after { background: linear-gradient(100deg, transparent, rgba(255,235,220,.26), transparent); }
+:root[data-theme="dark"] .f9c .p:hover:not(:disabled), .f9c .stage.dk .p:hover:not(:disabled) { box-shadow: 0 0 0 3px rgba(176,74,54,.2), 0 6px 14px -6px rgba(152,57,53,.7), inset 0 1px 0 rgba(255,255,255,.16); }
+
+.notes { margin-top: 32px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; color: var(--muted); font-size: 13px; }
+.notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>文字按钮样式选型（定稿候选）</h1>
+      <p>已选定 2B、4B、9A、9C；9A / 9C 的深色模式已调暗（点右上角「切换深色」对比）。每张卡片：对话框预览、全部状态、浅色衬底、深色衬底（后两者用来看玻璃和发光）。悬停、按下、禁用都可以试。</p>
+    </div>
+    <button class="toggle" id="theme">切换深色</button>
+  </header>
+  <div id="root"></div>
+  <div class="notes">
+    <b>怎么选：</b>告诉我编号即可（如 4B），也可以组合（如「主按钮用 9C，默认按钮用 4B 的玻璃」）。选定后我只改 <code>Button.module.css</code>，业务页面不动，并让 <code>IconButton</code> 的 <code>primary</code> 与之保持一致。
+  </div>
+</div>
+<script>
+  const families = [
+    ['扁平纯色', '无光晕、无重阴影，只带一点纸张般的实体感。', [
+      ['f2b', '2B', '纸感', '顶边极淡高光 + 贴地影，按下内凹；有实体感但不抢眼。']
+    ]],
+    ['通透玻璃', '半透明材质，对背景敏感；下方「彩色衬底」最能看出区别。', [
+      ['f4b', '4B', '白玻璃', '乳白磨砂 + 橙字 + 橙色发丝边；主按钮最克制，叠在任何背景上都协调。']
+    ]],
+    ['暖橙渐变', '实心渐变，视觉权重最高。深色模式与深色衬底下已单独调暗：降低明度与饱和，收小发光。', [
+      ['f9a', '9A', '暖橙→珊瑚', '横向渐变，柔发光。深色下为暗铜橙渐变。'],
+      ['f9c', '9C', '流光', '对角深色渐变 + 外圈光晕，悬停时一道高光扫过。深色下光晕更弱、扫光更淡。']
+    ]]
+  ];
+  const states = `<div class="row"><button class="b p">主要</button><button class="b d">默认</button><button class="b g">文字</button><button class="b x">删除</button><button class="b p" disabled>禁用</button><button class="b p sm">小尺寸</button><button class="b d sm">小尺寸</button></div>`;
+  document.getElementById('root').innerHTML = families.map(([title, lead, items]) => `
+    <h2 class="fam">${title}</h2><p class="fam">${lead}</p>
+    <div class="grid">${items.map(([cls, id, name, desc]) => `
+      <section class="opt ${cls}">
+        <h3><b>${id}</b>${name}</h3>
+        <p class="desc">${desc}</p>
+        <div class="dlg"><div class="hd">新建文件夹</div><div class="ft"><button class="b g">取消</button><button class="b p">创建</button></div></div>
+        <div><p class="cap">全部状态</p>${states}</div>
+        <div><p class="cap">浅色彩色衬底</p><div class="stage">${states}</div></div>
+        <div><p class="cap">深色彩色衬底</p><div class="stage dk">${states}</div></div>
+      </section>`).join('')}</div>`).join('');
+  const root = document.documentElement, btn = document.getElementById('theme');
+  btn.addEventListener('click', () => {
+    const dark = root.dataset.theme !== 'dark';
+    root.dataset.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '切换浅色' : '切换深色';
+  });
+</script>
+</body>
+</html>
