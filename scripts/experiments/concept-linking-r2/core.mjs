@@ -45,6 +45,11 @@ export const SYSTEM_PROMPT = [
   '只有当候选与这条知识讲的是同一个概念（同一含义、同一语境）时才复用它；名称相近、话题相关、或一个是另一个的组成部分，都不算同一概念。',
   '没有合适的候选时就新建概念。新建的概念如果和已有概念重复，用户之后可以合并；挂到含义不同的概念上，则很难被发现。',
   'newConcept.sense 只写“它是什么、属于哪个语境”，用于和同名概念区分；不要写性质、条件、公式、计算方法或用法，那些属于知识条目。',
+  '新建概念前用三条标准检查：①它是能独立命名、含义稳定的对象、运算、方法、机制或现象；②它能承载多条独立的知识，而不只是一两句用法；③它会和其他概念发生关系（作为前提、组成部分、对比对象或被引用）。满足①并且满足②③中至少一条才新建；否则把这条知识作为条目挂到它所描述的那个概念上（候选中有就复用，没有就新建那个更合适的概念）。',
+  '两个概念之间的关系（例如“A 是 B 的一种”“A 与 B 的关系”），以及两个概念的比较或区别，都是知识条目而不是概念：把它挂到最相关的那个概念上。',
+  '工具、函数或命令的用法，挂到它所操作的对象或所属的库上；不要挂到整门编程语言、整个学科这类过于宽泛的概念上。',
+  '概念名使用该领域的规范术语，不要照抄笔记的小标题或章节编号；小标题常是“X 的 Y”“A 与 B”“怎样做 Z”之类的描述，不是概念名。',
+  '同一篇笔记里围绕同一主题的几条知识归到同一个概念下，不要为每个参数或每个函数各建一个概念。',
   '同一篇笔记里多条知识属于同一个新概念时，每条都写 conceptAction=create 并使用完全相同的 newConcept.name。',
   '新建概念时，如果你怀疑它和某个候选其实是同一个概念（例如同名或近义），在 possibleDuplicateOf 填那个候选的 id，交给用户决定是否合并；否则填 null。复用概念时 possibleDuplicateOf 为 null。',
   'candidateItems 是候选概念下的已有知识条目。新知识与某个已有条目表达的是同一条可修订陈述时，itemAction=reuse 并给出它的 id，不要改写它；否则 itemAction=new。',
@@ -166,26 +171,43 @@ export function applyResponse(state, note, response) {
   return { accepted: true, links, remarks: typeof response.remarks === 'string' ? response.remarks.slice(0, 300) : '' };
 }
 
-const matches = (quote, span) => !!quote && (span.includes(quote) || quote.includes(span) || longestCommon(quote, span) >= 6);
+const overlap = (quote, span) => !quote ? 0 : (span.includes(quote) || quote.includes(span)) ? Infinity : longestCommon(quote, span);
+
+/** 每条链接只归给重合度最高的那一条预期知识：同一篇里几段原文共享代码片段时，避免一条链接同时算到多条上。 */
+function assignLinks(note, links) {
+  const owner = new Map();
+  for (const link of links) {
+    let best = -1;
+    let bestScore = 5;
+    note.expected.forEach((expected, index) => { const score = overlap(link.quote, expected.span); if (score > bestScore) { best = index; bestScore = score; } });
+    if (best >= 0) owner.set(link.index, best);
+  }
+  return owner;
+}
+
+const CREATED = new Set(['create', 'create-same-note']);
 
 /**
  * 对一次运行的全部笔记评分。结论分为：
  * correct 正确；duplicate 有正确候选却新建（安全，可合并）；contamination 挂到禁止的概念；
- * wrong 挂到其他不对的已有概念；missing 预期知识没有被提出。
+ * wrong 挂到其他不对的已有概念；missing 预期知识没有被提出；
+ * typeError 把操作、关系或比较建成了概念（粒度规则，2026-10-17）。
  */
 export function gradeRun(results) {
   const rows = [];
+  const splits = [];
   for (const note of NOTES) {
     const result = results.find(entry => entry.noteId === note.id);
     const links = result?.response?.accepted ? result.response.links.filter(link => link.accepted) : [];
     const used = new Set();
-    for (const expected of note.expected) {
-      const hits = links.filter(link => matches(link.quote, expected.span));
+    const owner = assignLinks(note, links);
+    note.expected.forEach((expected, expectedIndex) => {
+      const hits = links.filter(link => owner.get(link.index) === expectedIndex);
       hits.forEach(link => used.add(link.index));
-      if (hits.length === 0) { rows.push({ noteId: note.id, span: expected.span, outcome: 'missing', itemOk: false, detail: result?.error ?? '没有对应条目' }); continue; }
+      if (hits.length === 0) { rows.push({ noteId: note.id, span: expected.span, outcome: 'missing', itemOk: false, detail: result?.error ?? '没有对应条目' }); return; }
       for (const link of hits) {
         let outcome;
-        if (link.conceptAction !== 'reuse') outcome = expected.accept.includes('create') ? 'correct' : 'duplicate';
+        if (link.conceptAction !== 'reuse') outcome = expected.accept.includes('create') ? 'correct' : expected.createIsTypeError ? 'typeError' : 'duplicate';
         else if (expected.accept.includes(link.conceptId)) outcome = 'correct';
         else if (expected.forbid.includes(link.conceptId)) outcome = 'contamination';
         else outcome = 'wrong';
@@ -193,9 +215,14 @@ export function gradeRun(results) {
           : link.itemAction === 'new' || (expected.allowItemReuse ?? []).includes(link.itemId);
         const faithful = expected.mustKeep ? link.statement.includes(expected.mustKeep) : null;
         const issueFlagged = expected.mustKeep ? Boolean(link.sourceIssue) : null;
-        rows.push({ noteId: note.id, span: expected.span, outcome, itemOk, faithful, issueFlagged, sourceIssue: link.sourceIssue, conceptName: link.conceptName, conceptId: link.conceptId,
+        const nameCopied = Boolean(expected.badName) && CREATED.has(link.conceptAction) && new RegExp(expected.badName, 'u').test(link.conceptName);
+        rows.push({ noteId: note.id, span: expected.span, outcome, itemOk, faithful, issueFlagged, nameCopied, sourceIssue: link.sourceIssue, conceptName: link.conceptName, conceptId: link.conceptId,
           itemAction: link.itemAction, itemId: link.itemId, senseAbsorbs: link.senseAbsorbs, duplicateOfHidden: link.duplicateOfHidden, possibleDuplicateOf: link.possibleDuplicateOf, detail: link.title });
       }
+    });
+    if (note.maxNewConcepts) {
+      const names = [...new Set(links.filter(link => CREATED.has(link.conceptAction)).map(link => link.conceptName))];
+      splits.push({ noteId: note.id, names, over: names.length > note.maxNewConcepts });
     }
     const extras = links.filter(link => !used.has(link.index));
     for (const link of extras) rows.push({ noteId: note.id, span: link.quote, outcome: 'extra', itemOk: true, conceptName: link.conceptName, conceptId: link.conceptId, detail: link.title });
@@ -207,7 +234,8 @@ export function gradeRun(results) {
   return {
     rows,
     expectedTotal: NOTES.reduce((sum, note) => sum + note.expected.length, 0),
-    correct: count('correct'), duplicate: count('duplicate'), contamination: count('contamination'), wrong: count('wrong'),
+    correct: count('correct'), duplicate: count('duplicate'), contamination: count('contamination'), wrong: count('wrong'), typeError: count('typeError'),
+    nameCopied: rows.filter(row => row.nameCopied).length, splits,
     missing: count('missing'), extra: count('extra'), rejected: count('rejected'),
     itemOk: graded.filter(row => row.outcome !== 'missing' && row.itemOk).length,
     graded: graded.filter(row => row.outcome !== 'missing').length,
@@ -217,11 +245,11 @@ export function gradeRun(results) {
   };
 }
 
-const OUTCOME_LABEL = { correct: '✓', duplicate: '重复新建', contamination: '✗污染', wrong: '✗挂错', missing: '缺失', extra: '额外', rejected: '被拒' };
+const OUTCOME_LABEL = { correct: '✓', duplicate: '重复新建', typeError: '✗类型错误', contamination: '✗污染', wrong: '✗挂错', missing: '缺失', extra: '额外', rejected: '被拒' };
 
 export function markdownReport(runs, meta) {
   const lines = [
-    '# Concept 融合实验第二轮（公开合成笔记）', '',
+    '# Concept 融合实验第二轮（公开合成笔记，含粒度规则）', '',
     `> 模型 ${meta.model}，temperature ${meta.temperature}，重复 ${runs.length} 次；每篇只给检索返回的 8 个候选概念。仅内存模拟，不碰正式知识库。`, '',
     '## 汇总', '',
     `| 指标 | ${runs.map((_, i) => `第 ${i + 1} 次`).join(' | ')} |`, `| --- | ${runs.map(() => '---').join(' | ')} |`
@@ -232,6 +260,9 @@ export function markdownReport(runs, meta) {
   metric('**污染**（挂到明确错误的概念）', g => g.contamination);
   metric('挂到其他不对的概念', g => g.wrong);
   metric('有正确候选却新建（可合并）', g => g.duplicate);
+  metric('**类型错误**（操作、关系或比较被建成概念）', g => g.typeError);
+  metric('概念名照抄小标题', g => g.nameCopied);
+  metric('R14 新建的概念', g => g.splits.map(split => `${split.names.join('、') || '无'}${split.over ? '（拆得过细）' : ''}`).join('；') || '—');
   metric('缺失', g => g.missing);
   metric('额外条目', g => g.extra);
   metric('被校验拒绝的条目', g => g.rejected);
@@ -243,7 +274,7 @@ export function markdownReport(runs, meta) {
   for (const note of NOTES) {
     for (const expected of note.expected) {
       const cells = runs.map(run => run.grade.rows.filter(row => row.noteId === note.id && row.span === expected.span)
-        .map(row => `${OUTCOME_LABEL[row.outcome]}${row.conceptName ? ` ${row.conceptName}` : ''}${row.itemAction === 'reuse' ? `（复用 ${row.itemId}）` : ''}${row.senseAbsorbs ? '［说明含内容］' : ''}${row.duplicateOfHidden ? `［与 ${row.duplicateOfHidden} 同名］` : ''}${row.possibleDuplicateOf ? `［模型标注疑似重复 ${row.possibleDuplicateOf}］` : ''}`).join('；') || '—');
+        .map(row => `${OUTCOME_LABEL[row.outcome]}${row.conceptName ? ` ${row.conceptName}` : ''}${row.itemAction === 'reuse' ? `（复用 ${row.itemId}）` : ''}${row.senseAbsorbs ? '［说明含内容］' : ''}${row.nameCopied ? '［名称照抄标题］' : ''}${row.duplicateOfHidden ? `［与 ${row.duplicateOfHidden} 同名］` : ''}${row.possibleDuplicateOf ? `［模型标注疑似重复 ${row.possibleDuplicateOf}］` : ''}`).join('；') || '—');
       lines.push(`| ${note.id} | ${expected.span.slice(0, 18)}… | ${cells.join(' | ')} |`);
     }
   }
@@ -251,12 +282,14 @@ export function markdownReport(runs, meta) {
   if (failures.length) lines.push('', '## 整篇失败', '', ...failures);
   const repairs = runs.flatMap((run, i) => run.results.filter(result => result.repaired).map(result => `第 ${i + 1} 次 ${result.noteId}`));
   if (repairs.length) lines.push('', `**修复了非法 JSON 转义：** ${repairs.join('、')}`);
+  const retries = runs.flatMap((run, i) => run.results.filter(result => result.retried).map(result => `第 ${i + 1} 次 ${result.noteId}`));
+  if (retries.length) lines.push('', `**首次输出不是合法 JSON、重试一次后成功：** ${retries.join('、')}`);
   const others = runs.flatMap((run, i) => run.grade.rows.filter(row => ['extra', 'rejected'].includes(row.outcome)).map(row => `- 第 ${i + 1} 次 ${row.noteId} ${OUTCOME_LABEL[row.outcome]}：${row.detail}${row.conceptName ? `（${row.conceptName}）` : ''}`));
   if (others.length) lines.push('', '## 额外与被拒条目', '', ...others);
   const created = runs.flatMap((run, i) => run.created.map(concept => `- 第 ${i + 1} 次：${concept.name}（${concept.id}）——${concept.sense}`));
   if (created.length) lines.push('', '## 新建的概念及其说明', '', ...created);
   const remarks = runs.flatMap((run, i) => run.results.filter(r => r.response?.remarks).map(r => `- 第 ${i + 1} 次 ${r.noteId}：${r.response.remarks}`));
   if (remarks.length) lines.push('', '## 模型自述的不确定之处', '', ...remarks);
-  lines.push('', '## 注意', '', '8 篇合成笔记 × 3 次运行，只能说明受控场景下的行为倾向，不是准确率。评分按预设规则，存疑时以人工阅读为准。');
+  lines.push('', '## 注意', '', `${NOTES.length} 篇合成笔记 × ${runs.length} 次运行，只能说明受控场景下的行为倾向，不是准确率。评分按预设规则，存疑时以人工阅读为准。`);
   return `${lines.join('\n')}\n`;
 }

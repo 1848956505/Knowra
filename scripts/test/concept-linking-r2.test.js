@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
 import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
-import { main, repairInvalidEscapes } from '../experiments/concept-linking-r2/run.mjs';
+import { invokeWithRetry, main, repairInvalidEscapes } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
 const item = (quote, kind = 'fact') => ({ title: quote.slice(0, 10), kind, statement: quote, quote });
@@ -227,4 +227,64 @@ test('JSON 无效时报告附出错位置附近的片段', async () => {
   await main(['--out', out, '--repeats', '1'], { env: { DEEPSEEK_API_KEY: 'k' }, fetchImpl, log: () => {} });
   const report = await readFile(path.join(out, 'report.md'), 'utf8');
   assert.match(report, /模型输出不是合法 JSON（.*附近内容/);
+});
+
+test('粒度规则写进提示词，且仍不点名具体概念', () => {
+  assert.match(SYSTEM_PROMPT, /三条标准/);
+  assert.match(SYSTEM_PROMPT, /关系.*比较.*不是概念/);
+  assert.match(SYSTEM_PROMPT, /不要照抄笔记的小标题/);
+  for (const name of ['查阅文档', '原地运算', 'keepdims', '深度学习']) assert.doesNotMatch(SYSTEM_PROMPT, new RegExp(name));
+});
+
+test('把操作、关系或比较建成概念计为类型错误；挂到合适概念计为正确', () => {
+  const state = createState();
+  const r10 = applyResponse(state, note('R10'), response('R10', [create('查阅文档', '查看库函数用法的方法', note('R10').expected[0].span)]));
+  const r11 = applyResponse(state, note('R11'), response('R11', [reuse('C_DL', note('R11').expected[0].span)]));
+  const r12 = applyResponse(state, note('R12'), response('R12', [reuse('C_RANK', note('R12').expected[0].span)]));
+  const grade = gradeRun([{ noteId: 'R10', response: r10 }, { noteId: 'R11', response: r11 }, { noteId: 'R12', response: r12 }]);
+  const outcome = id => grade.rows.filter(row => row.noteId === id).map(row => row.outcome);
+  assert.deepEqual(outcome('R10'), ['typeError']);
+  assert.deepEqual(outcome('R11'), ['correct']);
+  assert.deepEqual(outcome('R12'), ['contamination']);
+  assert.equal(grade.typeError, 1);
+});
+
+test('照抄小标题的概念名被标出，规范术语不标', () => {
+  const target = note('R13');
+  const [first, second] = target.expected.map(expected => expected.span);
+  const copied = applyResponse(createState(), target, response('R13', [create('节省内存', '张量运算的一种写法', first), create('节省内存', '张量运算的一种写法', second)]));
+  const proper = applyResponse(createState(), target, response('R13', [create('原地运算', '把结果写回原张量的运算方式', first), create('原地运算', '把结果写回原张量的运算方式', second)]));
+  assert.equal(gradeRun([{ noteId: 'R13', response: copied }]).nameCopied, 2);
+  const good = gradeRun([{ noteId: 'R13', response: proper }]);
+  assert.equal(good.nameCopied, 0);
+  assert.equal(good.rows.filter(row => row.noteId === 'R13' && row.outcome === 'correct').length, 2);
+});
+
+test('共享代码片段的几段原文各自只匹配自己的链接；R14 拆成过多概念会被标出', () => {
+  const target = note('R14');
+  const spans = target.expected.map(expected => expected.span);
+  const one = applyResponse(createState(), target, response('R14', spans.map(span => create('非降维求和', '求和时保留被求和的轴', span))));
+  const grade = gradeRun([{ noteId: 'R14', response: one }]);
+  const rows = grade.rows.filter(row => row.noteId === 'R14');
+  assert.deepEqual(rows.map(row => row.outcome), ['correct', 'correct', 'correct']);
+  assert.deepEqual(grade.splits.find(split => split.noteId === 'R14'), { noteId: 'R14', names: ['非降维求和'], over: false });
+  const many = applyResponse(createState(), target, response('R14', spans.map((span, i) => create(['keepdims', '广播求和', 'cumsum'][i], '张量操作', span))));
+  assert.equal(gradeRun([{ noteId: 'R14', response: many }]).splits.find(split => split.noteId === 'R14').over, true);
+});
+
+test('输出不是合法 JSON 时只重试一次', async () => {
+  const valid = JSON.stringify({ requestId: 'x', links: [], remarks: '' });
+  let calls = 0;
+  const flaky = async () => { calls += 1; return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: calls === 1 ? '{"a":}' : valid } }] })); };
+  const ok = await invokeWithRetry(flaky, 'k', {}, 100);
+  assert.equal(ok.retried, true);
+  assert.equal(calls, 2);
+  calls = 0;
+  const broken = async () => { calls += 1; return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: '{"a":}' } }] })); };
+  await assert.rejects(invokeWithRetry(broken, 'k', {}, 100), /不是合法 JSON/);
+  assert.equal(calls, 2);
+  calls = 0;
+  const cut = async () => { calls += 1; return new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{' } }] })); };
+  await assert.rejects(invokeWithRetry(cut, 'k', {}, 100), /finish_reason=length/);
+  assert.equal(calls, 1);
 });

@@ -57,6 +57,15 @@ export async function invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens) {
   }
 }
 
+/** 输出不是合法 JSON 时（深层嵌套偶尔多一个括号）同样请求再试一次；其他错误不重试。 */
+export async function invokeWithRetry(fetchImpl, apiKey, payload, maxTokens) {
+  try { return { ...(await invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens)), retried: false }; }
+  catch (error) {
+    if (error?.message !== '模型输出不是合法 JSON') throw error;
+    return { ...(await invokeDeepSeek(fetchImpl, apiKey, payload, maxTokens)), retried: true };
+  }
+}
+
 export async function main(argv, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const args = parseArgs(argv);
   if (!args.dryRun && !env.DEEPSEEK_API_KEY) throw Error('缺少 DEEPSEEK_API_KEY 环境变量');
@@ -68,9 +77,9 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
       const request = modelRequest(state, note);
       if (args.dryRun) { results.push({ noteId: note.id, request, error: 'dry-run' }); continue; }
       try {
-        const { parsed, usage, repaired } = await invokeDeepSeek(fetchImpl, env.DEEPSEEK_API_KEY, request, args.maxTokens);
+        const { parsed, usage, repaired, retried } = await invokeWithRetry(fetchImpl, env.DEEPSEEK_API_KEY, request, args.maxTokens);
         const response = applyResponse(state, note, parsed);
-        results.push({ noteId: note.id, raw: parsed, response, usage, repaired, error: response.accepted ? null : response.error });
+        results.push({ noteId: note.id, raw: parsed, response, usage, repaired, retried, error: response.accepted ? null : response.error });
       } catch (error) {
         // 只记录本脚本自己生成的错误类别，不记录供应商响应正文。
         const known = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/.test(error?.message ?? '');
@@ -79,7 +88,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
     }
     const grade = gradeRun(results);
     runs.push({ results, grade, created: state.concepts.filter(concept => concept.origin === 'created') });
-    log(`第 ${repeat + 1} 次：正确 ${grade.correct}/${grade.expectedTotal}，污染 ${grade.contamination}，挂错 ${grade.wrong}，重复新建 ${grade.duplicate}，缺失 ${grade.missing}`);
+    log(`第 ${repeat + 1} 次：正确 ${grade.correct}/${grade.expectedTotal}，污染 ${grade.contamination}，类型错误 ${grade.typeError}，挂错 ${grade.wrong}，重复新建 ${grade.duplicate}，缺失 ${grade.missing}`);
   }
   const report = markdownReport(runs, { model: 'deepseek-chat', temperature: 0 });
   await mkdir(args.out, { recursive: true });

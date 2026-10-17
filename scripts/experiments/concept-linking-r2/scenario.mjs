@@ -5,6 +5,9 @@
 // - 概念目录 29 个，每篇只给“检索”返回的 8 个候选，R07 故意把正确概念藏起来；
 // - 加入同名异义（数学的梯度 vs x.grad）和一篇含 4 条知识的笔记；
 // - 同一设置重复运行 3 次。
+//
+// 2026-10-17 粒度规则（三条标准）补充 R10–R14：操作挂到所描述的对象、关系与比较不建概念、
+// 概念名不照抄小标题、内容充分且与其他概念有关系的子主题可以新建。
 
 export const CATALOG = Object.freeze([
   ['C_MATRIX', '矩阵', '线性代数中由行和列排成的二维数表，是对象而不是运算'],
@@ -35,7 +38,13 @@ export const CATALOG = Object.freeze([
   ['C_EIG', '特征值', '线性代数：满足 Av = λv 的标量 λ'],
   ['C_ATTN', '注意力机制', '按相关性对输入加权汇总的机制'],
   ['C_EMB', '嵌入', '把离散符号映射为稠密向量的表示方法'],
-  ['C_RESID', '残差连接', '把输入直接加到某层输出上的结构']
+  ['C_RESID', '残差连接', '把输入直接加到某层输出上的结构'],
+  ['C_PYTHON', 'Python', '一门通用编程语言'],
+  ['C_PYTORCH', 'PyTorch', '一个深度学习框架及其函数库'],
+  ['C_ML', '机器学习', '让计算机从数据中学习规律的一类方法'],
+  ['C_DL', '深度学习', '使用多层神经网络学习数据表示的方法'],
+  ['C_VECTOR', '向量', '线性代数中有序排列的一组数'],
+  ['C_BROADCAST', '广播', '形状不同的数组按规则自动扩展后逐元素运算的机制']
 ].map(([id, name, sense]) => Object.freeze({ id, name, sense })));
 
 export const INITIAL_ITEMS = Object.freeze([
@@ -115,6 +124,49 @@ export const NOTES = Object.freeze([
     markdown: '## 输出变成概率\nsoftmax 的输出各项之和等于 0，所以可以把它看成概率分布。',
     candidates: ['C_SOFTMAX', 'C_CE', 'C_LOSS', 'C_ACT', 'C_NORM', 'C_TENSOR', 'C_ATTN', 'C_EMB'],
     expected: [{ span: 'softmax 的输出各项之和等于 0，所以可以把它看成概率分布。', accept: ['C_SOFTMAX'], forbid: ['C_CE', 'C_LOSS', 'C_ACT'], mustKeep: '等于 0' }]
+  },
+  {
+    id: 'R10', title: '查函数怎么用',
+    // 只有一两行用法、描述的是“怎么查某个库”：应作为条目挂到它描述的对象上，不该单独成概念，也不该挂到整门语言上。
+    markdown: '## 查函数怎么用\n在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。',
+    candidates: ['C_PYTORCH', 'C_PYTHON', 'C_TENSOR', 'C_MATRIX', 'C_ACT', 'C_LOSS', 'C_EMB', 'C_NORM'],
+    expected: [{ span: '在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。', accept: ['C_PYTORCH'], forbid: ['C_PYTHON'], createIsTypeError: true }]
+  },
+  {
+    id: 'R11', title: '两者是什么关系',
+    // 讲的是两个已有概念之间的关系：是一条知识，不是新概念。
+    markdown: '## 两者是什么关系\n深度学习是机器学习的一个分支，它的特点是用多层神经网络从数据中自动学习表示。',
+    candidates: ['C_DL', 'C_ML', 'C_ACT', 'C_BACKPROP', 'C_OVERFIT', 'C_REG', 'C_LOSS', 'C_EMB'],
+    expected: [{ span: '深度学习是机器学习的一个分支，它的特点是用多层神经网络从数据中自动学习表示。', accept: ['C_DL', 'C_ML'], forbid: ['C_ACT', 'C_BACKPROP'], createIsTypeError: true }]
+  },
+  {
+    id: 'R12', title: '同一个词两种意思',
+    // 比较两个概念中同一个词的含义：是一条比较类知识，不是新概念。
+    markdown: '## 同一个词两种意思\n说向量的维度，指的是它的长度，也就是元素个数；说张量的维度，指的是它有几个轴。两处的“维度”含义不同。',
+    candidates: ['C_TENSOR', 'C_VECTOR', 'C_MATRIX', 'C_RANK', 'C_NORM', 'C_DOT', 'C_BROADCAST', 'C_EMB'],
+    expected: [{ span: '说向量的维度，指的是它的长度，也就是元素个数；说张量的维度，指的是它有几个轴。两处的“维度”含义不同。', accept: ['C_TENSOR', 'C_VECTOR'], forbid: ['C_RANK', 'C_NORM', 'C_MATRIX'], createIsTypeError: true }]
+  },
+  {
+    id: 'R13', title: '节省内存',
+    // 小标题是“节省内存”，讲的是原地运算。可以新建概念，但名称应是规范术语，不能照抄标题。
+    markdown: '## 2.1.5 节省内存\n执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。\n改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。',
+    candidates: ['C_TENSOR', 'C_ADD', 'C_BROADCAST', 'C_MATRIX', 'C_PYTORCH', 'C_HADAMARD', 'C_NORM', 'C_TRANSPOSE'],
+    expected: [
+      { span: '执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' },
+      { span: '改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' }
+    ]
+  },
+  {
+    id: 'R14', title: '求和时保留轴',
+    // 内容足够多（3 条命题）且与“广播”有关系：可以新建一个概念，但不应把每个参数拆成一个概念，也不应挂到广播上。
+    markdown: '## 求和时保留轴\n调用 sum 时传入 keepdims=True，被求和的轴会保留下来，长度变为 1。\n这样结果的轴数和原张量相同，可以直接和原张量做广播，例如 A / A.sum(axis=1, keepdims=True) 让每行之和为 1。\n如果想沿某个轴算累积和，可以用 A.cumsum(axis=0)，它同样不会减少轴数。',
+    candidates: ['C_TENSOR', 'C_BROADCAST', 'C_NORM', 'C_SOFTMAX', 'C_MATRIX', 'C_ADD', 'C_PYTORCH', 'C_VECTOR'],
+    maxNewConcepts: 2,
+    expected: [
+      { span: '调用 sum 时传入 keepdims=True，被求和的轴会保留下来，长度变为 1。', accept: ['create', 'C_TENSOR'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },
+      { span: '这样结果的轴数和原张量相同，可以直接和原张量做广播，例如 A / A.sum(axis=1, keepdims=True) 让每行之和为 1。', accept: ['create', 'C_TENSOR', 'C_BROADCAST'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },
+      { span: '如果想沿某个轴算累积和，可以用 A.cumsum(axis=0)，它同样不会减少轴数。', accept: ['create', 'C_TENSOR'], forbid: ['C_NORM', 'C_ADD'] }
+    ]
   }
 ].map(note => Object.freeze(note)));
 

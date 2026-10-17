@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { splitBySection } from '../knowledge-extraction-ab/lib.mjs';
 import { resolveApiKey } from '../knowledge-extraction-ab/run.mjs';
 import { applyResponse, candidatesFor, createState, modelRequest } from './core.mjs';
-import { invokeDeepSeek } from './run.mjs';
+import { invokeWithRetry } from './run.mjs';
 
 const KIND = { definition: '定义', fact: '性质/事实', procedure: '方法/步骤', application: '用法' };
 const cell = value => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
@@ -93,7 +93,7 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
   for (const note of notes) {
     const candidates = candidatesFor(state, note).concepts;
     try {
-      const { parsed, usage } = await invokeDeepSeek(fetchImpl, key.value, modelRequest(state, note), args.maxTokens);
+      const { parsed, usage } = await invokeWithRetry(fetchImpl, key.value, modelRequest(state, note), args.maxTokens);
       const response = applyResponse(state, note, parsed);
       results.push({ noteId: `${note.id} ${note.source}`, candidates, response, usage, error: response.accepted ? null : response.error });
     } catch {
