@@ -54,6 +54,7 @@ export const INITIAL_ITEMS = Object.freeze([
 ].map(item => Object.freeze(item)));
 
 /**
+ * review 是挂靠之后整理建议的预期（只用于评分）：ideal 为理想建议，forbid 为有害的降级或合并，其余视为可接受。
  * candidates 模拟检索返回的前 8 个概念。expected 每项用 span 标识笔记中的一段原文：
  * accept 为可接受的概念 ID（'create' 表示应新建），forbid 为挂上去就算污染的概念，
  * reuseItem 表示应复用的已有条目。
@@ -81,6 +82,7 @@ export const NOTES = Object.freeze([
     id: 'R04', title: 'grad 属性',
     markdown: '## grad 属性\n调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。',
     candidates: ['C_GRADIENT', 'C_BACKPROP', 'C_DERIV', 'C_TENSOR', 'C_SGD', 'C_LR', 'C_LOSS', 'C_MATRIX'],
+    review: { ideal: ['keep'], forbid: ['demote:C_GRADIENT', 'merge:C_GRADIENT', 'demote:C_DERIV', 'merge:C_DERIV'] },
     // x.grad 是框架里存放梯度值的属性，与数学上的梯度相关但不是同一概念。
     expected: [{ span: '调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。', accept: ['create', 'C_BACKPROP'], forbid: ['C_GRADIENT', 'C_DERIV'] }]
   },
@@ -110,6 +112,7 @@ export const NOTES = Object.freeze([
     // 关键：正确的“矩阵乘法”被检索漏掉了。挂到点积、逐元素乘法或矩阵上都是污染；新建可以由用户事后合并。
     candidates: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE', 'C_TENSOR', 'C_RANK', 'C_DET', 'C_ADD'],
     hidden: ['C_MATMUL'],
+    review: { ideal: ['merge:C_MATMUL'], forbid: ['demote:C_DOT', 'merge:C_DOT', 'demote:C_HADAMARD', 'merge:C_HADAMARD', 'demote:C_MATRIX', 'merge:C_MATRIX'] },
     expected: [{ span: '结果矩阵第 i 行第 j 列的元素，等于左边矩阵第 i 行和右边矩阵第 j 列做点积。', accept: ['create'], forbid: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE'] }]
   },
   {
@@ -130,6 +133,7 @@ export const NOTES = Object.freeze([
     // 只有一两行用法：应作为条目挂靠，不该单独成概念。dir/help 本身是 Python 内置函数，挂 Python 或 PyTorch 都可接受（第一次运行后修正）。
     markdown: '## 查函数怎么用\n在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。',
     candidates: ['C_PYTORCH', 'C_PYTHON', 'C_TENSOR', 'C_MATRIX', 'C_ACT', 'C_LOSS', 'C_EMB', 'C_NORM'],
+    review: { ideal: ['demote:C_PYTORCH', 'demote:C_PYTHON'], forbid: ['demote:C_TENSOR', 'merge:C_TENSOR', 'merge:C_PYTORCH', 'merge:C_PYTHON'] },
     expected: [{ span: '在 Python 里想知道 torch 模块里有哪些函数，可以调用 dir(torch)；想看某个函数的具体用法，调用 help(torch.ones)。', accept: ['C_PYTORCH', 'C_PYTHON'], forbid: ['C_TENSOR', 'C_MATRIX'], createIsTypeError: true }]
   },
   {
@@ -144,6 +148,7 @@ export const NOTES = Object.freeze([
     // 比较两个概念中同一个词的含义：是一条比较类知识，不是新概念。
     markdown: '## 同一个词两种意思\n说向量的维度，指的是它的长度，也就是元素个数；说张量的维度，指的是它有几个轴。两处的“维度”含义不同。',
     candidates: ['C_TENSOR', 'C_VECTOR', 'C_MATRIX', 'C_RANK', 'C_NORM', 'C_DOT', 'C_BROADCAST', 'C_EMB'],
+    review: { ideal: ['demote:C_TENSOR', 'demote:C_VECTOR'], forbid: ['demote:C_RANK', 'merge:C_RANK', 'demote:C_NORM', 'merge:C_NORM', 'merge:C_TENSOR', 'merge:C_VECTOR', 'demote:C_MATRIX'] },
     expected: [{ span: '说向量的维度，指的是它的长度，也就是元素个数；说张量的维度，指的是它有几个轴。两处的“维度”含义不同。', accept: ['C_TENSOR', 'C_VECTOR'], forbid: ['C_RANK', 'C_NORM', 'C_MATRIX'], createIsTypeError: true }]
   },
   {
@@ -151,6 +156,7 @@ export const NOTES = Object.freeze([
     // 小标题是“节省内存”，讲的是原地运算。可以新建概念，但名称应是规范术语，不能照抄标题。
     markdown: '## 2.1.5 节省内存\n执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。\n改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。',
     candidates: ['C_TENSOR', 'C_ADD', 'C_BROADCAST', 'C_MATRIX', 'C_PYTORCH', 'C_HADAMARD', 'C_NORM', 'C_TRANSPOSE'],
+    review: { ideal: ['keep'], forbid: ['demote:C_ADD', 'merge:C_ADD', 'demote:C_BROADCAST', 'merge:C_BROADCAST', 'merge:C_TENSOR'] },
     expected: [
       { span: '执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' },
       { span: '改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' }
@@ -162,6 +168,8 @@ export const NOTES = Object.freeze([
     markdown: '## 求和时保留轴\n调用 sum 时传入 keepdims=True，被求和的轴会保留下来，长度变为 1。\n这样结果的轴数和原张量相同，可以直接和原张量做广播，例如 A / A.sum(axis=1, keepdims=True) 让每行之和为 1。\n如果想沿某个轴算累积和，可以用 A.cumsum(axis=0)，它同样不会减少轴数。',
     candidates: ['C_TENSOR', 'C_BROADCAST', 'C_NORM', 'C_SOFTMAX', 'C_MATRIX', 'C_ADD', 'C_PYTORCH', 'C_VECTOR'],
     maxNewConcepts: 2,
+    // 用户希望“非降维求和”成为一个概念：把 keepdims 与累积和合并为同一主题是理想建议。
+    review: { ideal: ['merge:sibling'], forbid: ['demote:C_BROADCAST', 'merge:C_BROADCAST', 'demote:C_NORM', 'merge:C_NORM', 'demote:C_SOFTMAX', 'merge:C_TENSOR'] },
     expected: [
       { span: '调用 sum 时传入 keepdims=True，被求和的轴会保留下来，长度变为 1。', accept: ['create', 'C_TENSOR'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },
       { span: '这样结果的轴数和原张量相同，可以直接和原张量做广播，例如 A / A.sum(axis=1, keepdims=True) 让每行之和为 1。', accept: ['create', 'C_TENSOR', 'C_BROADCAST'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },

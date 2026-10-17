@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
-import { SYSTEM_PROMPT, applyResponse, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
+import { BASELINE_PROMPT_20261016, REVIEW_PROMPT, SYSTEM_PROMPT, applyResponse, applyReview, gradeReview, reviewRequests, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
 import { invokeWithRetry, main, repairInvalidEscapes } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
@@ -229,11 +229,66 @@ test('JSON 无效时报告附出错位置附近的片段', async () => {
   assert.match(report, /模型输出不是合法 JSON（.*附近内容/);
 });
 
-test('提示词只保留不增加挂靠倾向的粒度规则，且不点名具体概念', () => {
-  assert.doesNotMatch(SYSTEM_PROMPT, /三条标准/);
-  assert.match(SYSTEM_PROMPT, /关系.*比较.*不是概念/);
+test('挂靠提示词 = 对照版 + 命名规则；三条标准只出现在整理建议提示词里', () => {
+  assert.equal(SYSTEM_PROMPT.split('\n').length, BASELINE_PROMPT_20261016.split('\n').length + 1);
   assert.match(SYSTEM_PROMPT, /不要照抄笔记的小标题/);
-  for (const name of ['查阅文档', '原地运算', 'keepdims', '深度学习']) assert.doesNotMatch(SYSTEM_PROMPT, new RegExp(name));
+  assert.doesNotMatch(SYSTEM_PROMPT, /三条标准|最相关/);
+  assert.match(REVIEW_PROMPT, /三条标准/);
+  for (const prompt of [SYSTEM_PROMPT, REVIEW_PROMPT]) for (const name of ['查阅文档', '原地运算', 'keepdims', '深度学习', '梯度']) assert.doesNotMatch(prompt, new RegExp(name));
+});
+
+/** 跑完 R04、R07、R14 三篇（按理想回答新建概念），返回状态。 */
+function stateWithCreated() {
+  const state = createState();
+  applyResponse(state, note('R04'), response('R04', idealLinks(note('R04'))));
+  applyResponse(state, note('R07'), response('R07', idealLinks(note('R07'))));
+  const spans = note('R14').expected.map(expected => expected.span);
+  applyResponse(state, note('R14'), response('R14', [create('keepdims', '求和参数', spans[0]), create('keepdims', '求和参数', spans[1]), create('累积和', '沿轴累加的运算', spans[2])]));
+  return state;
+}
+
+test('整理建议请求只含新建概念及其条目，候选来自已有概念且能找回被藏起来的同名概念', () => {
+  const state = stateWithCreated();
+  const [request] = reviewRequests(state);
+  assert.deepEqual(request.newConcepts.map(concept => concept.name), ['x.grad', '矩阵乘法', 'keepdims', '累积和']);
+  const matmul = request.newConcepts.find(concept => concept.name === '矩阵乘法');
+  assert.equal(matmul.candidates[0].id, 'C_MATMUL');
+  assert.ok(request.newConcepts.every(concept => concept.candidates.every(candidate => !candidate.id.startsWith('C_NEW'))));
+  assert.equal(request.newConcepts.find(concept => concept.name === 'keepdims').items.length, 2);
+});
+
+test('整理建议逐条校验，并按预期评为理想、可接受或有害', () => {
+  const state = stateWithCreated();
+  const [request] = reviewRequests(state);
+  const id = name => request.newConcepts.find(concept => concept.name === name).id;
+  const result = applyReview(state, request, { requestId: request.requestId, suggestions: [
+    { conceptId: id('x.grad'), action: 'keep', targetId: null, reason: '框架属性' },
+    { conceptId: id('矩阵乘法'), action: 'merge', targetId: 'C_MATMUL', reason: '同名同义' },
+    { conceptId: id('keepdims'), action: 'demote', targetId: 'C_BROADCAST', reason: '为广播服务' },
+    { conceptId: id('累积和'), action: 'merge', targetId: id('keepdims'), reason: '同一主题' },
+    { conceptId: id('累积和'), action: 'demote', targetId: 'C_NOT_SHOWN', reason: '目标不在候选' },
+    { conceptId: id('累积和'), action: 'keep', targetId: null, reason: '重复给出' }
+  ] });
+  assert.deepEqual(result.suggestions.map(entry => entry.accepted), [true, true, true, true, false, false]);
+  const graded = gradeReview(state, result.suggestions);
+  assert.deepEqual(graded.map(entry => `${entry.name}:${entry.token}:${entry.grade}`), ['x.grad:keep:ideal', '矩阵乘法:merge:C_MATMUL:ideal', 'keepdims:demote:C_BROADCAST:harmful', '累积和:merge:sibling:ideal']);
+  assert.equal(applyReview(state, request, { requestId: 'x', suggestions: [] }).accepted, false);
+});
+
+test('端到端：挂靠之后请求整理建议，报告含建议表', async () => {
+  const out = await mkdtemp(path.join(os.tmpdir(), 'concept-r2-review-'));
+  const fetchImpl = async (_url, init) => {
+    const request = JSON.parse(JSON.parse(init.body).messages[1].content);
+    const content = request.newConcepts
+      ? JSON.stringify({ requestId: request.requestId, suggestions: request.newConcepts.map(concept => ({ conceptId: concept.id, action: 'keep', targetId: null, reason: '保留' })) })
+      : JSON.stringify(response(request.note.id, idealLinks(note(request.note.id))));
+    return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }], usage: {} }));
+  };
+  const { runs, report } = await main(['--out', out, '--repeats', '1'], { env: { DEEPSEEK_API_KEY: 'k' }, fetchImpl, log: () => {} });
+  assert.ok(runs[0].review.graded.length > 0);
+  assert.equal(runs[0].review.errors.length, 0);
+  assert.match(report, /## 整理建议/);
+  assert.match(report, /整理建议：理想 \/ 可接受/);
 });
 
 test('把操作、关系或比较建成概念计为类型错误；挂到合适概念计为正确', () => {

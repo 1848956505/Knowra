@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { splitBySection } from '../knowledge-extraction-ab/lib.mjs';
 import { resolveApiKey } from '../knowledge-extraction-ab/run.mjs';
 import { applyResponse, candidatesFor, createState, modelRequest } from './core.mjs';
-import { invokeWithRetry } from './run.mjs';
+import { invokeWithRetry, runReview } from './run.mjs';
 
 const KIND = { definition: '定义', fact: '性质/事实', procedure: '方法/步骤', application: '用法' };
 const cell = value => String(value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
@@ -31,7 +31,7 @@ export function parseArgs(argv) {
   return args;
 }
 
-export function renderLocalReport(state, results) {
+export function renderLocalReport(state, results, review = null) {
   const conceptName = id => state.concepts.find(concept => concept.id === id)?.name ?? id;
   const accepted = results.flatMap(result => result.response?.accepted ? result.response.links.filter(link => link.accepted) : []);
   const rejected = results.flatMap(result => result.response?.accepted ? result.response.links.filter(link => !link.accepted) : []);
@@ -55,6 +55,16 @@ export function renderLocalReport(state, results) {
     const items = state.items.filter(item => item.conceptId === concept.id);
     const notes = [...new Set(items.flatMap(item => item.sources.map(source => source.noteId)))];
     lines.push(`| ${cell(concept.name)} | ${cell(concept.sense)} | ${items.length} | ${notes.join('、')} |`);
+  }
+  if (review) {
+    const ACTION = { keep: '保留', demote: '降级到', merge: '合并到' };
+    lines.push('', '## 整理建议（按三条标准，只供你决定，未自动执行）', '');
+    for (const error of review.errors) lines.push(`- 失败：${error}`);
+    lines.push('| 新概念 | 条目数 | 建议 | 理由 |', '| --- | --- | --- | --- |');
+    for (const entry of review.graded) {
+      const count = state.items.filter(item => item.conceptId === entry.conceptId).length;
+      lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''} | ${cell(entry.reason)} |`);
+    }
   }
   lines.push('', '## 逐篇明细', '');
   for (const result of results) {
@@ -102,11 +112,13 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
     const last = results.at(-1);
     log(`${last.noteId}：${last.error ?? `${last.response.links.filter(link => link.accepted).length} 条`}`);
   }
+  log('整理建议…');
+  const review = await runReview(state, { fetchImpl, apiKey: key.value, maxTokens: args.maxTokens });
   await mkdir(args.out, { recursive: true });
-  await writeFile(path.join(args.out, 'report.md'), renderLocalReport(state, results));
-  await writeFile(path.join(args.out, 'result.json'), JSON.stringify({ state, results }, null, 2));
+  await writeFile(path.join(args.out, 'report.md'), renderLocalReport(state, results, review));
+  await writeFile(path.join(args.out, 'result.json'), JSON.stringify({ state, results, review: { suggestions: review.suggestions, errors: review.errors } }, null, 2));
   log(`报告：${path.join(args.out, 'report.md')}`);
-  return { state, results };
+  return { state, results, review };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
