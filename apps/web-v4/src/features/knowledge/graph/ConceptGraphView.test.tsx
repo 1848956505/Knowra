@@ -1,11 +1,20 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ConceptGraphView } from './ConceptGraphView';
 import { CONCEPT_GRAPH_SAMPLE, type ConceptGraphData } from './conceptGraphData';
 import { conceptEmphasis, conceptStatus, itemPositions, itemsOf } from './conceptGraphModel';
 
+import { REUSED_ITEM_RESULT } from './experimentGraph.fixture';
+
 const data = CONCEPT_GRAPH_SAMPLE;
+
+async function importExperiment() {
+  const file = new File([JSON.stringify(REUSED_ITEM_RESULT)], 'result.json', { type: 'application/json' });
+  Object.defineProperty(file, 'text', { value: async () => JSON.stringify(REUSED_ITEM_RESULT) });
+  fireEvent.change(screen.getByLabelText('选择实验结果文件'), { target: { files: [file] } });
+  await screen.findByRole('button', { name: '回到示例' });
+}
 
 describe('conceptGraphModel', () => {
   it('概念状态只聚合已确认、已评估的条目；没有证据时是未评估而不是薄弱', () => {
@@ -45,6 +54,46 @@ describe('conceptGraphModel', () => {
 });
 
 describe('ConceptGraphView', () => {
+  it('关闭研究关系层后回到示例，所有示例连线仍可见，重复导入也不污染示例', async () => {
+    const user = userEvent.setup();
+    render(<ConceptGraphView />);
+    const edges = () => screen.getByRole('group', { name: '概念图' }).querySelectorAll('[data-relation]');
+    expect(edges()).toHaveLength(data.relations.length);
+    await importExperiment();
+    expect(edges()).toHaveLength(1);
+    await user.click(screen.getByRole('checkbox', { name: /概念关系/ }));
+    expect(edges()).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: '回到示例' }));
+    expect(screen.queryByRole('group', { name: '显示哪些连线' })).not.toBeInTheDocument();
+    expect(edges()).toHaveLength(data.relations.length);
+    await importExperiment();
+    expect(screen.getByRole('checkbox', { name: /概念关系/ })).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: '回到示例' }));
+    expect(edges()).toHaveLength(data.relations.length);
+  });
+
+  it('导入后可查看全部来源，每条存疑意见明确对应自己的笔记与原文', async () => {
+    const user = userEvent.setup();
+    render(<ConceptGraphView />);
+    await importExperiment();
+    await user.click(screen.getByRole('button', { name: /^梯度，/ }));
+    await user.click(within(screen.getByRole('region', { name: '详情' })).getByRole('button', { name: /梯度定义/ }));
+    const panel = screen.getByRole('region', { name: '详情' });
+    expect(within(panel).getByText('条目陈述（模型复述）')).toBeInTheDocument();
+    expect(within(panel).getByText('模型复述的梯度定义')).toBeInTheDocument();
+    for (const note of ['L1', 'L2', 'L3']) expect(within(panel).getByText(note)).toBeInTheDocument();
+    const issues = within(panel).getByRole('region', { name: 'AI 存疑意见' });
+    for (const [note, quote, issue] of [
+      ['L2', 'L2 的偏导树原文', '偏导树可能是笔误'], ['L3', 'L3 的 gard 原文', 'gard 可能是笔误']
+    ]) {
+      const entry = within(issues).getByText(issue).parentElement!;
+      expect(within(entry).getByText(`对应笔记：${note}`)).toBeInTheDocument();
+      expect(within(entry).getByText(quote)).toBeInTheDocument();
+      expect(within(entry).queryByText('L1 的正确原文')).not.toBeInTheDocument();
+    }
+    expect(within(panel).queryByText('拒绝的意见')).not.toBeInTheDocument();
+  });
+
   it('点击概念展开其条目，再点条目查看来源；Esc 收起', async () => {
     const user = userEvent.setup();
     render(<ConceptGraphView />);

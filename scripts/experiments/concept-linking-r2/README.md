@@ -81,3 +81,13 @@ API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--ke
 - `run-local.mjs` 的报告新增“整理建议”表。
 - 补充：单独一条“概念名用规范术语、不照抄小标题”也会让 x.grad 3/3 挂到梯度上（x.grad 没有“规范术语”名，模型就不建了）。对照版本身没有照抄小标题的问题，所以挂靠提示词最终恢复为对照版原文。
 - 整理建议新增 `split`：列出要移出去组成新概念的条目组（每组至少 2 条，原概念至少留 1 条）。新增 R15（张量与广播都被藏起来，检验能否建议把广播拆出去）；对 x.grad、矩阵乘法、原地运算提出拆分记为有害。
+
+## 关系提议与知识网络图（2026-10-17）
+
+- 新增 `relations.mjs`：挂靠和整理建议之后，把全部概念（名称、说明、条目标题与陈述，不含笔记原文）一次发给模型，提出 isA、partOf、prerequisiteOf、appliesTo、contrastsWith、relatedTo 六种关系。逐条校验；通过的一律为 `candidate`，有依据条目时 `sourceMode=note`，否则为 `ai`。不改动任何概念或条目。
+- `run-local.mjs` 的完整流程最后会跑这一步；`run-relations.mjs` 可以给已有结果单独补跑（1 次调用）：
+
+      node scripts/experiments/concept-linking-r2/run-relations.mjs --result 输出目录/result.json --out 新输出目录
+
+- 生成的 `result.json` 可以在 APP 概念图页（`#/knowledge/graph`）用“导入实验结果”查看，只在页面内存中，不写知识库。
+- 结果与问题见 [知识网络图第一版与实验改进](../../../docs/知识库与试题模块/讨论记录/2026-10-17_知识网络图第一版与实验改进_Claude.md)。
