@@ -1,16 +1,19 @@
 import { CalendarIcon, StatusRingIcon, TagIcon } from '../../components/icons/knowra';
 import { Button } from '../../components/ui/button/Button';
 import { SegmentedButton, SegmentedControl } from '../../components/ui/button/SegmentedControl';
+import { Dialog, DialogBody, DialogClose, DialogFooter, DialogTrigger } from '../../components/ui/overlay/Dialog';
+import { TextField } from '../../components/ui/input';
 import { Menu, MenuItem, MenuPopover, MenuTrigger, SubmenuTrigger } from '../../components/ui/overlay/Menu';
-import { BUTTON_STYLES, DEFAULT_BUTTON_STYLES, setNotesIndexAppearance, useNotesIndexAppearance, type ButtonStyle, type DefaultButtonStyle } from '../notes/notesIndexAppearanceModel';
+import { BUTTON_STYLES, DEFAULT_BUTTON_STYLES, DIALOG_STYLES, setNotesIndexAppearance, useNotesIndexAppearance, type ButtonStyle, type DefaultButtonStyle, type DialogStyle } from '../notes/notesIndexAppearanceModel';
 import { useCompactLayout } from '../../shell/useCompactLayout';
 import styles from './SettingsView.module.css';
 
 const BUTTON_STYLE_LABELS: Record<ButtonStyle, string> = { paper: '纸感', frost: '白玻璃', gradient: '暖橙渐变', flow: '流光' };
 const DEFAULT_BUTTON_STYLE_LABELS: Record<DefaultButtonStyle, string> = { soft: '无边软影', glass: '乳白玻璃' };
+const DIALOG_STYLE_LABELS: Record<DialogStyle, string> = { float: '浮起卡片', glass: '乳白玻璃', tray: '内嵌托盘' };
 
 export function OverlayMaterialSettings() {
-  const { overlayMaterial, buttonStyle, defaultButtonStyle } = useNotesIndexAppearance();
+  const { overlayMaterial, buttonStyle, defaultButtonStyle, dialogStyle } = useNotesIndexAppearance();
   const compact = useCompactLayout();
   return <section className={styles.group} aria-labelledby="settings-appearance-heading">
     <h3 id="settings-appearance-heading">外观</h3>
@@ -69,6 +72,24 @@ export function OverlayMaterialSettings() {
             {DEFAULT_BUTTON_STYLES.map(style => <SegmentedButton key={style} aria-pressed={defaultButtonStyle === style} onPress={() => setNotesIndexAppearance({ defaultButtonStyle: style })}>{DEFAULT_BUTTON_STYLE_LABELS[style]}</SegmentedButton>)}
           </SegmentedControl>
           <Button size="compact">默认按钮预览</Button>
+        </div>
+      </div>
+      <div className={`${styles.settingRow} ${styles.materialRow}`}>
+        <div className={styles.settingCopy}>
+          <h4>对话框样式</h4>
+          <p>影响「新建」「重命名」等对话框的外形。浮起卡片圆润柔和，乳白玻璃半透明通透，内嵌托盘把按钮放在卡片外的托盘上，切换后即时保存。</p>
+        </div>
+        <div className={`${styles.settingControl} ${styles.materialControl}`}>
+          <SegmentedControl aria-label="对话框样式">
+            {DIALOG_STYLES.map(style => <SegmentedButton key={style} aria-pressed={dialogStyle === style} onPress={() => setNotesIndexAppearance({ dialogStyle: style })}>{DIALOG_STYLE_LABELS[style]}</SegmentedButton>)}
+          </SegmentedControl>
+          <DialogTrigger>
+            <Button size="compact">预览对话框</Button>
+            <Dialog title="新建文件夹" description="这是对话框样式预览，不会创建任何内容。">
+              <DialogBody><TextField label="文件夹名称" isRequired /></DialogBody>
+              <DialogFooter><DialogClose variant="ghost">取消</DialogClose><DialogClose variant="primary">创建</DialogClose></DialogFooter>
+            </Dialog>
+          </DialogTrigger>
         </div>
       </div>
     </div>

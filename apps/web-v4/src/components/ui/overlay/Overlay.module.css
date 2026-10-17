@@ -411,6 +411,33 @@
   animation: popOut var(--motion-fast) var(--motion-ease);
 }
 
+/* ===== 对话框样式（设置 → 外观 → 对话框样式）：由 underlay 上的 data-dialog-style 切换 ===== */
+/* 三种样式共同点：去掉标题区/底部的分割线，按钮靠右，圆角加大 */
+:global([data-dialog-style]) .dialog .header { border-bottom: 0; padding: 24px 26px 4px; background: transparent; }
+:global([data-dialog-style]) .dialog .description { padding: 6px 26px 0; }
+:global([data-dialog-style]) .dialog .body { padding: 14px 26px 22px; }
+:global([data-dialog-style]) .dialog .footer { border-top: 0; justify-content: flex-end; padding: 14px 20px; }
+
+/* 浮起卡片：26px 圆角 + 大范围柔影，底部为淡色托盘（仅明度差） */
+:global([data-dialog-style='float']) .dialog { border-radius: 26px; border-color: transparent; box-shadow: 0 1px 3px rgb(24 30 48 / 6%), 0 30px 70px -18px rgb(24 30 48 / 38%); }
+:global([data-dialog-style='float']) .dialog .footer { background: color-mix(in srgb, var(--surface-sidebar) 80%, transparent); }
+:global([data-ni-mode='dark'][data-dialog-style='float']) .dialog { box-shadow: 0 1px 3px rgb(0 0 0 / 30%), 0 30px 70px -18px rgb(0 0 0 / 65%); }
+
+/* 乳白玻璃：半透明 + 模糊 + 白色亮边 */
+:global([data-dialog-style='glass']) .dialog { border-radius: 22px; border-color: transparent; background: rgb(255 255 255 / 62%); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 70%), inset 0 1px 0 rgb(255 255 255 / 95%), 0 24px 56px -14px rgb(24 30 48 / 30%); }
+:global([data-dialog-style='glass']) .dialog .header { padding: 22px 26px 6px; }
+:global([data-dialog-style='glass']) .dialog .body { padding: 12px 26px 8px; }
+:global([data-dialog-style='glass']) .dialog .footer { background: transparent; padding: 16px 26px 22px; }
+:global([data-ni-mode='dark'][data-dialog-style='glass']) .dialog { background: rgb(40 43 50 / 58%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%), inset 0 1px 0 rgb(255 255 255 / 14%), 0 24px 56px -14px rgb(0 0 0 / 60%); }
+
+/* 内嵌托盘：外层留 8px 边，内容在大圆角卡片里，按钮在卡片外的托盘上 */
+:global([data-dialog-style='tray']) .dialog { border-radius: 28px; border-color: transparent; padding: 8px; background: var(--surface-sidebar); box-shadow: 0 0 0 1px rgb(24 30 48 / 6%), 0 28px 64px -16px rgb(24 30 48 / 34%); }
+:global([data-dialog-style='tray']) .dialog .header { background: var(--surface-page); border-radius: 22px 22px 0 0; padding: 18px 20px 6px; }
+:global([data-dialog-style='tray']) .dialog .description { background: var(--surface-page); padding: 0 20px; }
+:global([data-dialog-style='tray']) .dialog .body { background: var(--surface-page); border-radius: 0 0 22px 22px; padding: 12px 20px 20px; }
+:global([data-dialog-style='tray']) .dialog .footer { background: transparent; padding: 12px 8px 6px; }
+:global([data-ni-mode='dark'][data-dialog-style='tray']) .dialog { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 28px 64px -16px rgb(0 0 0 / 65%); }
+
 @media (prefers-reduced-motion: reduce) {
   .dialog,
   .popover,

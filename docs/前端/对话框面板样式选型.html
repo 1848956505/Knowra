@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>对话框面板样式选型</title>
+<style>
+:root {
+  --bg: #f1f3f7; --card: #fff; --text: #17181b; --muted: #6b7080; --line: #e3e5ec;
+  --ink: 24 30 48;
+  --page: #fbfcfd; --sidebar: #f6f7f9; --border: rgb(24 30 48 / 7.5%);
+  --accent: #e5743a; --accent-ink: #b8501d; --danger: #c93a2e;
+  --field: #fff; --field-line: rgb(24 30 48 / 12%);
+  --scrim: rgb(24 30 48 / 24%);
+  --mock-a: #e9c9a8; --mock-b: #c9d5ec; --mock-c: #f3e0d2;
+}
+:root[data-theme="dark"] {
+  --bg: #101114; --card: #202226; --text: #eceef2; --muted: #9a9fae; --line: #30333a;
+  --ink: 255 255 255;
+  --page: #1d1f24; --sidebar: #181a1e; --border: rgb(255 255 255 / 8%);
+  --accent-ink: #ff9a5c; --danger: #ef6a5e;
+  --field: #16181c; --field-line: rgb(255 255 255 / 14%);
+  --scrim: rgb(0 0 0 / 46%);
+  --mock-a: #6b4630; --mock-b: #2f3d5c; --mock-c: #4a3a33;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 24px 80px; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+header p { margin: 0; color: var(--muted); max-width: 700px; }
+.toggle { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 20px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.opt h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.opt h3 b { min-width: 28px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--text); color: var(--card); display: grid; place-items: center; font-size: 13px; }
+.opt .desc { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+/* 模拟应用背景：用来看遮罩与玻璃效果 */
+.scene { position: relative; border-radius: 12px; overflow: hidden; padding: 28px 18px; display: grid; place-items: center; min-height: 300px; background: var(--page); }
+.scene .mock { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px; }
+.scene .mock i { display: block; border-radius: 10px; background: var(--mock-a); }
+.scene .mock i:nth-child(2n) { background: var(--mock-b); }
+.scene .mock i:nth-child(3n) { background: var(--mock-c); }
+.scene .scrim { position: absolute; inset: 0; background: var(--scrim); }
+
+/* ===== 对话框骨架 ===== */
+.dlg { position: relative; width: min(100%, 400px); display: flex; flex-direction: column; overflow: hidden; background: var(--page); }
+.dlg .hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 22px 16px; }
+.dlg .hd h4 { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.3; }
+.dlg .x { width: 24px; height: 24px; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; }
+.dlg .x:hover { background: rgb(var(--ink) / .06); color: var(--text); }
+.dlg .x svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.dlg .bd { padding: 20px 22px; display: grid; gap: 6px; }
+.dlg label { font-size: 13px; color: var(--muted); }
+.dlg label em { color: #c0392b; font-style: normal; margin-left: 2px; }
+.dlg .in { height: 40px; border-radius: 10px; background: var(--field); border: 1px solid var(--field-line); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.dlg .ft { display: flex; gap: 8px; padding: 14px 22px; }
+.b { font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1; height: 36px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 0; border-radius: 999px; background: transparent; color: var(--text); transition: background .18s, box-shadow .18s; }
+.b:hover { background: rgb(var(--ink) / .06); }
+.b.pri { background: var(--accent); color: #fff; font-weight: 600; box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%), 0 1px 1px rgb(150 60 20 / 35%), 0 2px 4px -1px rgb(150 60 20 / 25%); }
+.b.pri:hover { background: color-mix(in srgb, var(--accent) 92%, #000); }
+
+/* 0 当前（对照） */
+.d0 .dlg { border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 0 0 1px rgb(var(--ink) / 8%), 0 4px 10px rgb(var(--ink) / 6%), 0 24px 64px -12px rgb(var(--ink) / 28%); }
+.d0 .hd { border-bottom: 1px solid var(--border); }
+.d0 .ft { border-top: 1px solid var(--border); background: var(--sidebar); }
+
+/* 1 去分割线：三段之间不画线，靠留白分区；圆角加大 */
+.d1 .dlg { border-radius: 22px; box-shadow: 0 2px 6px rgb(var(--ink) / 6%), 0 24px 56px -14px rgb(var(--ink) / 30%); }
+.d1 .hd { padding: 22px 26px 6px; }
+.d1 .bd { padding: 12px 26px 8px; }
+.d1 .ft { padding: 16px 26px 22px; justify-content: flex-end; }
+
+/* 2 浮起卡片：大圆角 + 大范围柔影；底部为一整条淡色托盘（无分割线，仅明度差） */
+.d2 .dlg { border-radius: 26px; box-shadow: 0 1px 3px rgb(var(--ink) / 6%), 0 30px 70px -18px rgb(var(--ink) / 38%); }
+.d2 .hd { padding: 24px 26px 4px; }
+.d2 .bd { padding: 14px 26px 22px; }
+.d2 .ft { padding: 14px 20px; justify-content: flex-end; background: color-mix(in srgb, var(--sidebar) 80%, transparent); }
+
+/* 3 乳白玻璃：半透明 + 模糊 + 白色亮边，透出背景 */
+.d3 .dlg { border-radius: 22px; background: rgb(255 255 255 / 62%); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 70%), inset 0 1px 0 rgb(255 255 255 / 95%), 0 24px 56px -14px rgb(var(--ink) / 30%); }
+:root[data-theme="dark"] .d3 .dlg { background: rgb(40 43 50 / 58%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%), inset 0 1px 0 rgb(255 255 255 / 14%), 0 24px 56px -14px rgb(0 0 0 / 60%); }
+.d3 .hd { padding: 22px 26px 6px; }
+.d3 .bd { padding: 12px 26px 8px; }
+.d3 .ft { padding: 16px 26px 22px; justify-content: flex-end; }
+.d3 .in { background: rgb(255 255 255 / 70%); }
+:root[data-theme="dark"] .d3 .in { background: rgb(0 0 0 / 28%); }
+
+/* 4 暖纸：整体偏暖的纸张底，分割线改为极淡的暖色，标题区略重 */
+.d4 .dlg { --warm: color-mix(in srgb, var(--accent) 7%, var(--page)); border-radius: 18px; background: var(--warm); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent), 0 24px 56px -14px color-mix(in srgb, var(--accent) 30%, rgb(var(--ink) / 30%)); }
+.d4 .hd { border-bottom: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
+.d4 .hd h4 { font-size: 17px; }
+.d4 .ft { border-top: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); background: color-mix(in srgb, var(--accent) 5%, var(--page)); justify-content: flex-end; }
+.d4 .in { background: color-mix(in srgb, #fff 80%, var(--warm)); }
+:root[data-theme="dark"] .d4 .in { background: var(--field); }
+
+/* 5 内嵌托盘：内容在白色大圆角卡片里，底部按钮在内嵌圆角托盘中，面板四周留边 */
+.d5 .dlg { border-radius: 28px; padding: 8px; background: var(--sidebar); box-shadow: 0 0 0 1px rgb(var(--ink) / 6%), 0 28px 64px -16px rgb(var(--ink) / 34%); }
+.d5 .card { background: var(--page); border-radius: 22px; box-shadow: 0 1px 2px rgb(var(--ink) / 6%); }
+.d5 .hd { padding: 18px 20px 6px; }
+.d5 .bd { padding: 12px 20px 20px; }
+.d5 .ft { padding: 12px 8px 6px; justify-content: flex-end; }
+
+/* 6 居中简洁：标题居中、按钮两列等宽，偏移动端弹窗风格 */
+.d6 .dlg { border-radius: 24px; box-shadow: 0 2px 6px rgb(var(--ink) / 6%), 0 26px 60px -16px rgb(var(--ink) / 34%); }
+.d6 .hd { justify-content: center; padding: 24px 26px 4px; position: relative; }
+.d6 .hd .x { position: absolute; right: 16px; top: 18px; }
+.d6 .bd { padding: 14px 26px 8px; }
+.d6 .ft { padding: 14px 26px 24px; display: grid; grid-template-columns: 1fr 1fr; }
+.d6 .ft .b { height: 40px; }
+.d6 .ft .b:not(.pri) { background: rgb(var(--ink) / .06); }
+.d6 .ft .b:not(.pri):hover { background: rgb(var(--ink) / .1); }
+
+.notes { margin-top: 28px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; color: var(--muted); font-size: 13px; }
+.notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>对话框面板样式选型</h1>
+      <p>以「新建文件夹」为例。每张卡片是同一对话框在模拟应用画面上的效果（背景色块用来看遮罩与玻璃透出）。按钮按当前主按钮「纸感」样式绘制；右上角可切换深色。</p>
+    </div>
+    <button class="toggle" id="theme">切换深色</button>
+  </header>
+  <div class="grid" id="grid"></div>
+  <div class="notes">
+    <b>怎么选：</b>告诉我编号，或描述组合（如「3 的玻璃 + 2 的大圆角」）。选定后我只改 <code>Dialog</code> 的样式（<code>Overlay.module.css</code>），所有对话框一起变化；若要做成设置项（和按钮样式一样可切换），也可以一并做。
+    表单输入框样式本页保持当前风格，需要一起调整请说明。
+  </div>
+</div>
+<script>
+  const X = '<svg viewBox="0 0 14 14"><path d="M2 2l10 10M12 2L2 12"/></svg>';
+  const options = [
+    ['d0', '当前（对照）', '12px 圆角，标题区与底部各有一条灰色分割线，底部按钮靠左。'],
+    ['d1', '去分割线', '三段之间不再画线，靠留白分区；圆角加大到 22px，按钮靠右。'],
+    ['d2', '浮起卡片', '26px 大圆角 + 大范围柔影，底部是一整条淡色托盘（只靠明度差，无线）。'],
+    ['d3', '乳白玻璃', '半透明 + 22px 模糊 + 白色亮边，透出背景；与「白玻璃」按钮同族。'],
+    ['d4', '暖纸', '整体偏暖的纸张色，分割线改为极淡暖橙，投影带暖色；与橙色主题统一。'],
+    ['d5', '内嵌托盘', '外层灰底留 8px 边，内容在白色大圆角卡片里，按钮在卡片外的托盘上。'],
+    ['d6', '居中简洁', '标题居中，按钮两列等宽；偏手机弹窗风格。']
+  ];
+  const inner = `<div class="hd"><h4>新建文件夹</h4><button class="x" aria-label="关闭">${X}</button></div><div class="bd"><label>文件夹名称<em>*</em></label><div class="in"></div></div>`;
+  const foot = `<div class="ft"><button class="b">取消</button><button class="b pri">创建</button></div>`;
+  document.getElementById('grid').innerHTML = options.map(([cls, name, desc], i) => `
+    <section class="opt ${cls}">
+      <h3><b>${i === 0 ? '—' : i}</b>${name}</h3>
+      <p class="desc">${desc}</p>
+      <div class="scene">
+        <div class="mock">${'<i></i>'.repeat(9)}</div><div class="scrim"></div>
+        <div class="dlg">${cls === 'd5' ? `<div class="card">${inner}</div>${foot}` : inner + foot}</div>
+      </div>
+    </section>`).join('');
+  document.querySelectorAll('.mock i').forEach((el, i) => { el.style.height = (60 + (i * 37) % 50) + 'px'; });
+  const root = document.documentElement, btn = document.getElementById('theme');
+  btn.addEventListener('click', () => {
+    const dark = root.dataset.theme !== 'dark';
+    root.dataset.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '切换浅色' : '切换深色';
+  });
+</script>
+</body>
+</html>
