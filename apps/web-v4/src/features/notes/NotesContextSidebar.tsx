@@ -20,11 +20,8 @@ import {
 import {
   GhostIconButton, SideNavItem,
   Menu,
-  MenuHeader,
   MenuItem,
   MenuPopover,
-  MenuSection,
-  MenuSeparator,
   MenuTrigger,
   PointMenu
 } from '../../components/ui';
@@ -131,7 +128,6 @@ export function NotesContextSidebar({
           <MenuPopover>
             <Menu
               ariaLabel="笔记目录操作"
-              variant="rich"
               onAction={(key) => {
                 if (key === 'new-folder') treeOperations.openCreate('folder', selectedFolderId);
                 if (key === 'refresh') void retryWorkspace();
@@ -139,18 +135,12 @@ export function NotesContextSidebar({
                 if (key === 'folder-trash') setFolderTrashOpen(true);
               }}
             >
-              <MenuSection>
-                <MenuHeader>目录</MenuHeader>
-                <MenuItem id="new-folder" icon={<FolderIcon size={16} />} description="在当前位置创建" isDisabled={!canWrite}>新建文件夹</MenuItem>
-                <MenuItem id="refresh" icon={<RefreshIcon size={16} />} description="重新读取最新内容">刷新目录</MenuItem>
-              </MenuSection>
-              <MenuSeparator />
-              <MenuSection>
-                <MenuHeader>回收站</MenuHeader>
-                <MenuItem id="folder-trash" icon={<FolderIcon size={16} />} description="查看并恢复已删除的文件夹">文件夹回收站</MenuItem>
-                <MenuItem id="empty-trash" icon={<DeleteIcon size={16} />} isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}
-                  description={supportsPermanentDelete && trashCount > 0 ? `永久删除 ${trashCount} 篇笔记` : undefined}>{supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}</MenuItem>
-              </MenuSection>
+              <MenuItem id="new-folder" icon={<FolderIcon size={14} />} isDisabled={!canWrite}>新建文件夹</MenuItem>
+              <MenuItem id="refresh" icon={<RefreshIcon size={14} />}>刷新目录</MenuItem>
+              <MenuItem id="folder-trash" icon={<FolderIcon size={14} />}>文件夹回收站</MenuItem>
+              <MenuItem id="empty-trash" icon={<DeleteIcon size={14} />} isDanger isDisabled={!canWrite || !supportsPermanentDelete || trashCount === 0}>
+                {supportsPermanentDelete ? '清空回收站' : '清空回收站（请在网页版操作）'}
+              </MenuItem>
             </Menu>
           </MenuPopover>
         </MenuTrigger>

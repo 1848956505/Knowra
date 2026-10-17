@@ -9,7 +9,7 @@ import {
   MenuTrigger,
   PressableButton
 } from '../../components/ui';
-import { ChevronRightIcon, FolderIcon, NoteIcon } from '../../components/icons/knowra';
+import { ChevronRightIcon, FolderIcon, NoteIcon, SolidFolderIcon, SolidExpandedFolderIcon } from '../../components/icons/knowra';
 import { useAppStore, useAppStoreApi } from '../../store/AppStoreProvider';
 import { countFolderNotes, folderMatchesQuery } from './notesIndexModel';
 import { useEntryDragDrop, useEntryDropTarget } from './EntryDragDrop';
@@ -128,7 +128,7 @@ function FolderBranch({ folder, notes, query, level, canWrite, onAction, onOpenI
               onOpenIndex?.();
             }}
           >
-            <FolderIcon size={16} />
+            {expanded ? <SolidExpandedFolderIcon size={16} /> : <SolidFolderIcon size={16} />}
             <span>{folder.name}</span>
             <small>{countFolderNotes(folder, notes)}</small>
           </PressableButton>
