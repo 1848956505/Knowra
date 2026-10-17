@@ -229,8 +229,8 @@ test('JSON 无效时报告附出错位置附近的片段', async () => {
   assert.match(report, /模型输出不是合法 JSON（.*附近内容/);
 });
 
-test('粒度规则写进提示词，且仍不点名具体概念', () => {
-  assert.match(SYSTEM_PROMPT, /三条标准/);
+test('提示词只保留不增加挂靠倾向的粒度规则，且不点名具体概念', () => {
+  assert.doesNotMatch(SYSTEM_PROMPT, /三条标准/);
   assert.match(SYSTEM_PROMPT, /关系.*比较.*不是概念/);
   assert.match(SYSTEM_PROMPT, /不要照抄笔记的小标题/);
   for (const name of ['查阅文档', '原地运算', 'keepdims', '深度学习']) assert.doesNotMatch(SYSTEM_PROMPT, new RegExp(name));
