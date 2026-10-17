@@ -404,3 +404,32 @@ test('拆分最多保留 6 组，多出的组丢弃而不是整条被拒', () =>
   assert.equal(entry.accepted, true);
   assert.deepEqual([entry.split.length, entry.splitDropped], [6, 1]);
 });
+
+test('只重跑整理建议：读取已有 result.json，不重跑挂靠，报告按次列出建议并可导入图谱', async () => {
+  const { main: replay } = await import('../experiments/concept-linking-r2/run-review.mjs');
+  const { writeFile } = await import('node:fs/promises');
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'concept-r2-replay-'));
+  const state = createState();
+  const target = note('R15');
+  applyResponse(state, target, response('R15', target.expected.map(expected => create('张量', '多维数组', expected.span))));
+  await writeFile(path.join(dir, 'result.json'), JSON.stringify({ state, results: [], relations: { proposals: [] } }));
+  let calls = 0;
+  const fetchImpl = async (_url, init) => {
+    calls += 1;
+    const request = JSON.parse(JSON.parse(init.body).messages[1].content);
+    assert.ok(request.newConcepts, '只应发送整理建议请求');
+    const concept = request.newConcepts[0];
+    const ids = concept.items.map(item => item.id);
+    const suggestions = [{ conceptId: concept.id, action: 'split', targetId: null, newName: null, split: [{ name: '广播', sense: '自动扩展的机制', itemIds: ids.slice(3) }], reason: '广播是独立机制' }];
+    return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ requestId: request.requestId, suggestions }) } }] }));
+  };
+  const out = path.join(dir, 'out');
+  await replay(['--result', path.join(dir, 'result.json'), '--out', out, '--repeats', '2'], { env: { DEEPSEEK_API_KEY: 'secret-key' }, fetchImpl, log: () => {} });
+  assert.equal(calls, 2);
+  const report = await readFile(path.join(out, 'review.md'), 'utf8');
+  assert.match(report, /\| 张量 \| 6 \| 拆出 广播（.*） \| 拆出 广播/);
+  assert.equal(report.includes('secret-key'), false);
+  const saved = JSON.parse(await readFile(path.join(out, 'result.json'), 'utf8'));
+  assert.equal(saved.review.suggestions[0].action, 'split');
+  assert.deepEqual(saved.relations, { proposals: [] });
+});

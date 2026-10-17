@@ -92,3 +92,9 @@ API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--ke
 - 生成的 `result.json` 可以在 APP 概念图页（`#/knowledge/graph`）用“导入实验结果”查看，只在页面内存中，不写知识库。
 - 结果与问题见 [知识网络图第一版与实验改进](../../../docs/知识库与试题模块/讨论记录/2026-10-17_知识网络图第一版与实验改进_Claude.md)。
 - 拆分修通（2026-10-17）：真实笔记里“张量”（16 条）的拆分建议整条被拒（“需要 1 至 4 组”）。现在逐组校验：不合格或与前面重叠的组单独丢弃，上限放宽到 6 组；被拒建议的模型原文写进报告和 result.json（`raw`），便于区分是模型问题还是校验过严。
+
+## 只重跑整理建议（本机）
+
+挂靠的粒度每次运行都会变（真实笔记里“张量”有时 16 条，有时直接拆成 8 个概念），检验拆分等建议时需要固定输入。`run-review.mjs` 读取已有的 `result.json`，挂靠结果原样保留，只重新请求整理建议，可重复 1 至 3 次对比稳定性；输出的 `result.json` 可直接导入概念图页面。只发送概念名、说明和条目，不发送笔记原文。
+
+    node scripts/experiments/concept-linking-r2/run-review.mjs --result concept-out-6/result.json --out concept-out-6-review --repeats 3
