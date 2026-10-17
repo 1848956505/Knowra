@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NOTES, REPEATS } from './scenario.mjs';
-import { BASELINE_PROMPT_20261016, SYSTEM_PROMPT, applyResponse, createState, gradeRun, markdownReport, modelRequest } from './core.mjs';
+import { BASELINE_PROMPT_20261016, REVIEW_PROMPT, SYSTEM_PROMPT, applyResponse, applyReview, gradeReview, reviewRequests, createState, gradeRun, markdownReport, modelRequest } from './core.mjs';
 
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 
@@ -71,6 +71,28 @@ export async function invokeWithRetry(fetchImpl, apiKey, payload, maxTokens, sys
   }
 }
 
+const KNOWN_ERROR = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/;
+const describeError = error => KNOWN_ERROR.test(error?.message ?? '') ? `${error.message}${error.diagnostic ? `（${error.diagnostic}）` : ''}` : '模型调用失败（其他原因）';
+
+/** 挂靠全部完成后，对新建概念逐批请求整理建议；建议只记录，不改变状态。 */
+export async function runReview(state, { fetchImpl, apiKey, maxTokens, dryRun = false }) {
+  const requests = reviewRequests(state);
+  const suggestions = [];
+  const errors = [];
+  for (const request of requests) {
+    if (dryRun) continue;
+    try {
+      const { parsed } = await invokeWithRetry(fetchImpl, apiKey, request, maxTokens, REVIEW_PROMPT);
+      const result = applyReview(state, request, parsed);
+      if (!result.accepted) errors.push(`${request.requestId}：${result.error}`);
+      suggestions.push(...result.suggestions);
+      const rejected = result.suggestions.filter(entry => !entry.accepted);
+      if (rejected.length) errors.push(`${request.requestId}：${rejected.length} 条建议被校验拒绝（${rejected.flatMap(entry => entry.errors).join('；')}）`);
+    } catch (error) { errors.push(`${request.requestId}：${describeError(error)}`); }
+  }
+  return { requests, suggestions, errors, graded: gradeReview(state, suggestions) };
+}
+
 export async function main(argv, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const args = parseArgs(argv);
   if (!args.dryRun && !env.DEEPSEEK_API_KEY) throw Error('缺少 DEEPSEEK_API_KEY 环境变量');
@@ -87,12 +109,12 @@ export async function main(argv, { env = process.env, fetchImpl = fetch, log = c
         results.push({ noteId: note.id, raw: parsed, response, usage, repaired, retried, error: response.accepted ? null : response.error });
       } catch (error) {
         // 只记录本脚本自己生成的错误类别，不记录供应商响应正文。
-        const known = /^(DeepSeek HTTP \d+|DeepSeek 响应未完整结束（finish_reason=[\w]+）|模型输出不是合法 JSON)$/.test(error?.message ?? '');
-        results.push({ noteId: note.id, error: known ? `${error.message}${error.diagnostic ? `（${error.diagnostic}）` : ''}` : '模型调用失败（其他原因）' });
+        results.push({ noteId: note.id, error: describeError(error) });
       }
     }
     const grade = gradeRun(results);
-    runs.push({ results, grade, created: state.concepts.filter(concept => concept.origin === 'created') });
+    const review = await runReview(state, { fetchImpl, apiKey: env.DEEPSEEK_API_KEY, maxTokens: args.maxTokens, dryRun: args.dryRun });
+    runs.push({ results, grade, review, created: state.concepts.filter(concept => concept.origin === 'created') });
     log(`第 ${repeat + 1} 次：正确 ${grade.correct}/${grade.expectedTotal}，污染 ${grade.contamination}，类型错误 ${grade.typeError}，挂错 ${grade.wrong}，重复新建 ${grade.duplicate}，缺失 ${grade.missing}`);
   }
   const report = markdownReport(runs, { model: 'deepseek-chat', temperature: 0, prompt: args.prompt });
