@@ -46,21 +46,34 @@ for (const width of [1440, 390]) {
         await expectMaterial(menu, material, mode, width);
         backgrounds.set(`${mode}-${material}`, await menu.evaluate(element => getComputedStyle(element).backgroundImage));
         await expect(menu.getByRole('menuitem', { name: '不可用选项' })).toHaveAttribute('aria-disabled', 'true');
-        await menu.getByRole('menuitem', { name: '状态', exact: true }).click();
+        const status = menu.getByRole('menuitem', { name: '状态', exact: true });
+        await status.click();
         // React Aria 使用父菜单项为子菜单提供可访问名称。
         const submenu = page.getByRole('menu', { name: '状态', exact: true });
         await expectMaterial(submenu, material, mode, width);
         await expect(submenu.getByRole('menuitem')).toHaveText(['草稿', '进行中', '已完成']);
         await page.screenshot({ path: info.outputPath(`${mode}-${material}-submenu.png`), animations: 'disabled' });
+        // 指针打开子菜单时焦点仍在父项，Escape 从父菜单关闭整组。
+        await expect(status).toBeFocused();
         await page.keyboard.press('Escape');
         await expect(submenu).toBeHidden();
-        await expect(menu).toBeVisible();
-        await page.keyboard.press('Escape');
         await expect(menu).toBeHidden();
         await expect(trigger).toBeFocused();
         await page.keyboard.press('Space');
         await expect(menu).toBeVisible();
+        await expect(status).toBeFocused();
+        // 键盘进入子菜单后，向左和 Escape 都只关闭子级并将焦点归还父项。
+        for (const closeKey of ['ArrowLeft', 'Escape']) {
+          await page.keyboard.press('ArrowRight');
+          await expectMaterial(submenu, material, mode, width);
+          await expect(submenu.getByRole('menuitem', { name: '草稿', exact: true })).toBeFocused();
+          await page.keyboard.press(closeKey);
+          await expect(submenu).toBeHidden();
+          await expect(menu).toBeVisible();
+          await expect(status).toBeFocused();
+        }
         await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
         await expect(trigger).toBeFocused();
       }
     }
