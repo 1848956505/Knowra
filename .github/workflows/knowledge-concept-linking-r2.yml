@@ -4,6 +4,13 @@ name: Knowledge Concept linking round 2 (synthetic DeepSeek)
 # 不在 PR 事件中运行、不读取任何私人笔记；Secret 只映射为单个环境变量。
 on:
   workflow_dispatch:
+    inputs:
+      prompt:
+        description: 提示词版本（current 或 baseline）
+        required: false
+        default: current
+        type: choice
+        options: [current, baseline]
   push:
     branches: [main]
     paths:
@@ -41,6 +48,7 @@ jobs:
       - name: Run 14 synthetic notes x 3 repeats (42 bounded DeepSeek calls, one retry on invalid JSON)
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+          PROMPT_VARIANT: ${{ inputs.prompt || 'current' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -48,7 +56,7 @@ jobs:
             echo "DEEPSEEK repository secret not configured; no model calls made."
             exit 1
           fi
-          node scripts/experiments/concept-linking-r2/run.mjs --out "$RUNNER_TEMP/concept-linking-r2"
+          node scripts/experiments/concept-linking-r2/run.mjs --out "$RUNNER_TEMP/concept-linking-r2" --prompt "${PROMPT_VARIANT:-current}"
 
       - name: Publish summary
         if: always()
