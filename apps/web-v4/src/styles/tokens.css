@@ -2,15 +2,8 @@
  * 亮橙用于装饰；小字与实色按钮使用深橙以满足对比度。
  * --ink-* 是逐步迁移期间的兼容别名，不引入另一套主题。 */
 :root {
-  --surface-chrome: #f0f1f3;
-  /* 外栏定稿：云白 × 磨砂亚克力，50% 强度，顶部柔光开启。 */
-  --chrome-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .1 0 0 0 0 .12 0 0 0 0 .18 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  --chrome-cloud-glow: radial-gradient(ellipse 500px 340px at 0% 0%, #ffffff38, transparent 70%);
-  --chrome-acrylic-material: var(--chrome-grain), radial-gradient(ellipse at 6% 12%, #ffffff80, transparent 62%), radial-gradient(ellipse at 85% 95%, #73849a22, transparent 65%);
-  --chrome-material-strength: .5;
-  --surface-chrome-glow: var(--chrome-cloud-glow);
-  --surface-chrome-material: var(--chrome-acrylic-material);
-  --chrome-material-opacity: calc(var(--chrome-material-strength) * 1.5);
+  --surface-chrome: #e1e4ea;
+  --surface-chrome-glow: radial-gradient(460px 320px at 6% 4%, rgb(255 255 255 / 32%), transparent 70%), radial-gradient(640px 560px at -4% 104%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 66%);
   --surface-page: #fbfcfd;
   --surface-sidebar-solid: #f7f9fa;
   --surface-sidebar: rgb(247 249 250 / 92%);
@@ -65,8 +58,10 @@
   --shadow-rail-selected: 0 0 0 1px rgb(24 30 48 / 8%), 0 1px 2px rgb(24 30 48 / 6%), 0 6px 12px -6px color-mix(in srgb, var(--accent) 35%, transparent), inset 0 1px 0 var(--surface-raised);
   --shadow-action-glass: inset 0 1px 0 color-mix(in srgb, var(--surface-raised) 94%, transparent), 0 1px 3px rgb(24 30 48 / 6%);
   --shadow-action-glass-hover: inset 0 1px 0 var(--surface-raised), 0 4px 12px -6px color-mix(in srgb, var(--accent) 25%, transparent);
-  --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px rgb(54 60 74 / 13%), 0 1px 2px rgb(24 30 48 / 5%), 0 12px 28px -16px rgb(24 30 48 / 16%);
-  --shadow-page: 0 0 0 1px rgb(24 30 48 / 7%), 0 1px 2px rgb(24 30 48 / 5%), 0 6px 18px -6px rgb(24 30 48 / 10%), 0 22px 48px -18px rgb(24 30 48 / 14%);
+  /* 面板交界的短投影：加强贴近边缘的层次，避免扩大悬浮光晕。 */
+  --shadow-panel-contact: 0 2px 6px -2px rgb(24 30 48 / 15%);
+  --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px rgb(54 60 74 / 13%), var(--shadow-panel-contact), 0 12px 28px -16px rgb(24 30 48 / 16%);
+  --shadow-page: 0 0 0 1px rgb(24 30 48 / 7%), var(--shadow-panel-contact), 0 6px 18px -6px rgb(24 30 48 / 10%), 0 22px 48px -18px rgb(24 30 48 / 14%);
   --shadow-popover: 0 0 0 1px rgb(24 30 48 / 8%), 0 4px 10px rgb(24 30 48 / 6%), 0 24px 64px -12px rgb(24 30 48 / 28%);
   /* 两类形状共存：内容/表单/导航使用小圆角，轻量操作/标签使用胶囊。
    * 主题不得用胶囊覆盖通用圆角；按钮形状由基础组件显式选择。 */
