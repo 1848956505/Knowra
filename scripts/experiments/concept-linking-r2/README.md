@@ -98,3 +98,4 @@ API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--ke
 挂靠的粒度每次运行都会变（真实笔记里“张量”有时 16 条，有时直接拆成 8 个概念），检验拆分等建议时需要固定输入。`run-review.mjs` 读取已有的 `result.json`，挂靠结果原样保留，只重新请求整理建议，可重复 1 至 3 次对比稳定性；输出的 `result.json` 可直接导入概念图页面。只发送概念名、说明和条目，不发送笔记原文。
 
     node scripts/experiments/concept-linking-r2/run-review.mjs --result concept-out-6/result.json --out concept-out-6-review --repeats 3
+- 拆分每组改为至少 1 条：固定输入重跑 3 次（concept-out-6），2 次建议拆分“张量”，但模型为满足“每组至少 2 条”把“拼接”和“广播”、“索引切片”和“原地运算”凑成一组，还把“全部元素求和”放进了“按元素运算”。提示词改为每组必须是同一个概念、组名不写“A 与 B”，单条机制也可成组。
