@@ -82,7 +82,7 @@ export const NOTES = Object.freeze([
     id: 'R04', title: 'grad 属性',
     markdown: '## grad 属性\n调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。',
     candidates: ['C_GRADIENT', 'C_BACKPROP', 'C_DERIV', 'C_TENSOR', 'C_SGD', 'C_LR', 'C_LOSS', 'C_MATRIX'],
-    review: { ideal: ['keep'], forbid: ['demote:C_GRADIENT', 'merge:C_GRADIENT', 'demote:C_DERIV', 'merge:C_DERIV'] },
+    review: { ideal: ['keep'], forbid: ['demote:C_GRADIENT', 'merge:C_GRADIENT', 'demote:C_DERIV', 'merge:C_DERIV', 'split'] },
     // x.grad 是框架里存放梯度值的属性，与数学上的梯度相关但不是同一概念。
     expected: [{ span: '调用 y.backward() 之后，结果存放在 x.grad 里；再算一次之前要先调用 x.grad.zero_()，不然新结果会累加到旧结果上。', accept: ['create', 'C_BACKPROP'], forbid: ['C_GRADIENT', 'C_DERIV'] }]
   },
@@ -112,7 +112,7 @@ export const NOTES = Object.freeze([
     // 关键：正确的“矩阵乘法”被检索漏掉了。挂到点积、逐元素乘法或矩阵上都是污染；新建可以由用户事后合并。
     candidates: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE', 'C_TENSOR', 'C_RANK', 'C_DET', 'C_ADD'],
     hidden: ['C_MATMUL'],
-    review: { ideal: ['merge:C_MATMUL'], forbid: ['demote:C_DOT', 'merge:C_DOT', 'demote:C_HADAMARD', 'merge:C_HADAMARD', 'demote:C_MATRIX', 'merge:C_MATRIX'] },
+    review: { ideal: ['merge:C_MATMUL'], forbid: ['split', 'demote:C_DOT', 'merge:C_DOT', 'demote:C_HADAMARD', 'merge:C_HADAMARD', 'demote:C_MATRIX', 'merge:C_MATRIX'] },
     expected: [{ span: '结果矩阵第 i 行第 j 列的元素，等于左边矩阵第 i 行和右边矩阵第 j 列做点积。', accept: ['create'], forbid: ['C_DOT', 'C_HADAMARD', 'C_MATRIX', 'C_TRANSPOSE'] }]
   },
   {
@@ -156,7 +156,7 @@ export const NOTES = Object.freeze([
     // 小标题是“节省内存”，讲的是原地运算。可以新建概念，但名称应是规范术语，不能照抄标题。
     markdown: '## 2.1.5 节省内存\n执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。\n改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。',
     candidates: ['C_TENSOR', 'C_ADD', 'C_BROADCAST', 'C_MATRIX', 'C_PYTORCH', 'C_HADAMARD', 'C_NORM', 'C_TRANSPOSE'],
-    review: { ideal: ['keep'], forbid: ['demote:C_ADD', 'merge:C_ADD', 'demote:C_BROADCAST', 'merge:C_BROADCAST', 'merge:C_TENSOR'] },
+    review: { ideal: ['keep'], forbid: ['split', 'demote:C_ADD', 'merge:C_ADD', 'demote:C_BROADCAST', 'merge:C_BROADCAST', 'merge:C_TENSOR'] },
     expected: [
       { span: '执行 Y = X + Y 会为结果新分配一块内存，Y 指向新地址。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' },
       { span: '改写成 Y[:] = X + Y 或 X += Y，结果会直接写回原来的内存，不再分配新内存。', accept: ['create', 'C_TENSOR'], forbid: ['C_ADD', 'C_BROADCAST', 'C_HADAMARD'], badName: '节省|内存|\\d' }
@@ -174,6 +174,23 @@ export const NOTES = Object.freeze([
       { span: '调用 sum 时传入 keepdims=True，被求和的轴会保留下来，长度变为 1。', accept: ['create', 'C_TENSOR'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },
       { span: '这样结果的轴数和原张量相同，可以直接和原张量做广播，例如 A / A.sum(axis=1, keepdims=True) 让每行之和为 1。', accept: ['create', 'C_TENSOR', 'C_BROADCAST'], forbid: ['C_NORM', 'C_SOFTMAX', 'C_ADD'] },
       { span: '如果想沿某个轴算累积和，可以用 A.cumsum(axis=0)，它同样不会减少轴数。', accept: ['create', 'C_TENSOR'], forbid: ['C_NORM', 'C_ADD'] }
+    ]
+  },
+  {
+    id: 'R15', title: '数据操作',
+    // 拆分用例：“张量”和“广播”都被检索藏起来，模型多半新建一个粗概念并把广播的 3 条也放进去。
+    // 整理建议理想的做法是把广播拆出去（或合并回被藏起来的已有概念）。
+    markdown: '## 数据操作\n用 torch.arange(12) 可以创建一个包含 0 到 11 的行向量。\n用 x.reshape(3, 4) 可以把它变成 3 行 4 列，元素总数不变。\n用 x[1:3] 可以取出第 2 行和第 3 行。\n两个形状不同的张量相加时，会先沿长度为 1 的轴复制扩展，使形状一致，再按元素运算，这叫广播。\n能否广播，要从最后一个轴往前逐个比较：每个轴的长度要么相等，要么其中一个是 1。\n例如形状 (3, 1) 和 (1, 2) 的两个张量相加，结果的形状是 (3, 2)。',
+    candidates: ['C_MATRIX', 'C_ADD', 'C_HADAMARD', 'C_VECTOR', 'C_PYTORCH', 'C_NORM', 'C_TRANSPOSE', 'C_DOT'],
+    hidden: ['C_TENSOR', 'C_BROADCAST'],
+    review: { ideal: ['split', 'merge:C_TENSOR', 'merge:C_BROADCAST'], forbid: ['demote:C_MATRIX', 'merge:C_MATRIX', 'demote:C_ADD', 'merge:C_ADD', 'demote:C_HADAMARD', 'merge:C_HADAMARD', 'demote:C_VECTOR', 'merge:C_VECTOR'] },
+    expected: [
+      { span: '用 torch.arange(12) 可以创建一个包含 0 到 11 的行向量。', accept: ['create', 'C_PYTORCH'], forbid: ['C_MATRIX', 'C_NORM', 'C_DOT'] },
+      { span: '用 x.reshape(3, 4) 可以把它变成 3 行 4 列，元素总数不变。', accept: ['create', 'C_PYTORCH'], forbid: ['C_TRANSPOSE', 'C_NORM', 'C_DOT'] },
+      { span: '用 x[1:3] 可以取出第 2 行和第 3 行。', accept: ['create', 'C_PYTORCH'], forbid: ['C_NORM', 'C_DOT', 'C_TRANSPOSE'] },
+      { span: '两个形状不同的张量相加时，会先沿长度为 1 的轴复制扩展，使形状一致，再按元素运算，这叫广播。', accept: ['create'], forbid: ['C_ADD', 'C_HADAMARD', 'C_MATRIX'] },
+      { span: '能否广播，要从最后一个轴往前逐个比较：每个轴的长度要么相等，要么其中一个是 1。', accept: ['create'], forbid: ['C_ADD', 'C_HADAMARD', 'C_MATRIX'] },
+      { span: '例如形状 (3, 1) 和 (1, 2) 的两个张量相加，结果的形状是 (3, 2)。', accept: ['create'], forbid: ['C_ADD', 'C_HADAMARD', 'C_MATRIX'] }
     ]
   }
 ].map(note => Object.freeze(note)));

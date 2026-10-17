@@ -10,7 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { splitBySection } from '../knowledge-extraction-ab/lib.mjs';
 import { resolveApiKey } from '../knowledge-extraction-ab/run.mjs';
-import { applyResponse, candidatesFor, createState, modelRequest } from './core.mjs';
+import { applyResponse, candidatesFor, createState, describeSplit, modelRequest } from './core.mjs';
 import { invokeWithRetry, runReview } from './run.mjs';
 
 const KIND = { definition: '定义', fact: '性质/事实', procedure: '方法/步骤', application: '用法' };
@@ -57,13 +57,13 @@ export function renderLocalReport(state, results, review = null) {
     lines.push(`| ${cell(concept.name)} | ${cell(concept.sense)} | ${items.length} | ${notes.join('、')} |`);
   }
   if (review) {
-    const ACTION = { keep: '保留', demote: '降级到', merge: '合并到', rename: '改名为' };
+    const ACTION = { keep: '保留', demote: '降级到', merge: '合并到', rename: '改名为', split: '拆出' };
     lines.push('', '## 整理建议（按三条标准，只供你决定，未自动执行）', '');
     for (const error of review.errors) lines.push(`- 失败：${error}`);
     lines.push('| 新概念 | 条目数 | 建议 | 理由 |', '| --- | --- | --- | --- |');
     for (const entry of review.graded) {
       const count = state.items.filter(item => item.conceptId === entry.conceptId).length;
-      lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''}${entry.newName ? ` ${cell(entry.newName)}` : ''} | ${cell(entry.reason)} |`);
+      lines.push(`| ${cell(entry.name)} | ${count} | ${ACTION[entry.action]}${entry.targetName ? ` ${cell(entry.targetName)}` : ''}${entry.newName ? ` ${cell(entry.newName)}` : ''}${entry.splitParts ? ` ${cell(describeSplit(entry.splitParts))}` : ''} | ${cell(entry.reason)} |`);
     }
   }
   lines.push('', '## 逐篇明细', '');

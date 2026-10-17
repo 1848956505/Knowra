@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { NOTES } from '../experiments/concept-linking-r2/scenario.mjs';
-import { BASELINE_PROMPT_20261016, REVIEW_PROMPT, SYSTEM_PROMPT, applyResponse, applyReview, gradeReview, reviewRequests, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
+import { BASELINE_PROMPT_20261016, REVIEW_PROMPT, SYSTEM_PROMPT, applyResponse, applyReview, describeSplit, gradeReview, reviewRequests, createState, gradeRun, longestCommon, modelRequest, quoteHasSubstance, retrieveConcepts, senseLooksLikeContent } from '../experiments/concept-linking-r2/core.mjs';
 import { invokeWithRetry, main, repairInvalidEscapes } from '../experiments/concept-linking-r2/run.mjs';
 
 const note = id => NOTES.find(entry => entry.id === id);
@@ -263,12 +263,12 @@ test('整理建议逐条校验，并按预期评为理想、可接受或有害',
   const [request] = reviewRequests(state);
   const id = name => request.newConcepts.find(concept => concept.name === name).id;
   const result = applyReview(state, request, { requestId: request.requestId, suggestions: [
-    { conceptId: id('x.grad'), action: 'keep', targetId: null, newName: null, reason: '框架属性' },
-    { conceptId: id('矩阵乘法'), action: 'merge', targetId: 'C_MATMUL', newName: null, reason: '同名同义' },
-    { conceptId: id('keepdims'), action: 'demote', targetId: 'C_BROADCAST', newName: null, reason: '为广播服务' },
-    { conceptId: id('累积和'), action: 'merge', targetId: id('keepdims'), newName: null, reason: '同一主题' },
-    { conceptId: id('累积和'), action: 'demote', targetId: 'C_NOT_SHOWN', newName: null, reason: '目标不在候选' },
-    { conceptId: id('累积和'), action: 'keep', targetId: null, newName: null, reason: '重复给出' }
+    { conceptId: id('x.grad'), action: 'keep', targetId: null, newName: null, split: null, reason: '框架属性' },
+    { conceptId: id('矩阵乘法'), action: 'merge', targetId: 'C_MATMUL', newName: null, split: null, reason: '同名同义' },
+    { conceptId: id('keepdims'), action: 'demote', targetId: 'C_BROADCAST', newName: null, split: null, reason: '为广播服务' },
+    { conceptId: id('累积和'), action: 'merge', targetId: id('keepdims'), newName: null, split: null, reason: '同一主题' },
+    { conceptId: id('累积和'), action: 'demote', targetId: 'C_NOT_SHOWN', newName: null, split: null, reason: '目标不在候选' },
+    { conceptId: id('累积和'), action: 'keep', targetId: null, newName: null, split: null, reason: '重复给出' }
   ] });
   assert.deepEqual(result.suggestions.map(entry => entry.accepted), [true, true, true, true, false, false]);
   const graded = gradeReview(state, result.suggestions);
@@ -281,7 +281,7 @@ test('端到端：挂靠之后请求整理建议，报告含建议表', async ()
   const fetchImpl = async (_url, init) => {
     const request = JSON.parse(JSON.parse(init.body).messages[1].content);
     const content = request.newConcepts
-      ? JSON.stringify({ requestId: request.requestId, suggestions: request.newConcepts.map(concept => ({ conceptId: concept.id, action: 'keep', targetId: null, newName: null, reason: '保留' })) })
+      ? JSON.stringify({ requestId: request.requestId, suggestions: request.newConcepts.map(concept => ({ conceptId: concept.id, action: 'keep', targetId: null, newName: null, split: null, reason: '保留' })) })
       : JSON.stringify(response(request.note.id, idealLinks(note(request.note.id))));
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }], usage: {} }));
   };
@@ -349,9 +349,38 @@ test('整理建议支持改名：只能给出新名称，不能同时指向目�
   const state = stateWithCreated();
   const [request] = reviewRequests(state);
   const id = request.newConcepts.find(concept => concept.name === 'keepdims').id;
-  const ok = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'rename', targetId: null, newName: '非降维求和', reason: '参数名不是概念名' }] });
+  const ok = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'rename', targetId: null, newName: '非降维求和', split: null, reason: '参数名不是概念名' }] });
   assert.equal(ok.suggestions[0].accepted, true);
   assert.equal(gradeReview(state, ok.suggestions)[0].token, 'rename');
-  const bad = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'keep', targetId: null, newName: '多余', reason: '' }] });
+  const bad = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'keep', targetId: null, newName: '多余', split: null, reason: '' }] });
   assert.equal(bad.suggestions[0].accepted, false);
+});
+
+test('拆分建议：每组至少 2 条、条目属于该概念且不重叠，原概念至少留 1 条', () => {
+  const state = createState();
+  const target = note('R15');
+  applyResponse(state, target, response('R15', target.expected.map(expected => create('张量', '多维数组', expected.span))));
+  const [request] = reviewRequests(state);
+  const concept = request.newConcepts[0];
+  assert.equal(concept.items.length, 6);
+  const ids = concept.items.map(item => item.id);
+  const suggest = split => applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: concept.id, action: 'split', targetId: null, newName: null, split, reason: '广播是独立机制' }] }).suggestions[0];
+  const ok = suggest([{ name: '广播', sense: '形状不同时自动扩展的机制', itemIds: ids.slice(3) }]);
+  assert.equal(ok.accepted, true);
+  const [graded] = gradeReview(state, [ok]);
+  assert.equal(graded.grade, 'ideal');
+  assert.match(describeSplit(graded.splitParts), /^广播（/);
+  assert.equal(suggest([{ name: '广播', sense: 's', itemIds: [ids[3]] }]).accepted, false);
+  assert.equal(suggest([{ name: '全部', sense: 's', itemIds: ids }]).accepted, false);
+  assert.equal(suggest([{ name: 'a', sense: 's', itemIds: [ids[0], ids[1]] }, { name: 'b', sense: 's', itemIds: [ids[1], ids[2]] }]).accepted, false);
+  assert.equal(suggest([{ name: 'a', sense: 's', itemIds: ['K_PRE_1', ids[0]] }]).accepted, false);
+});
+
+test('不该拆分的概念收到拆分建议记为有害', () => {
+  const state = stateWithCreated();
+  const [request] = reviewRequests(state);
+  const grad = request.newConcepts.find(concept => concept.name === 'x.grad');
+  const result = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: grad.id, action: 'split', targetId: null, newName: null, split: [{ name: '清零', sense: 's', itemIds: grad.items.slice(0, 2).map(item => item.id) }], reason: '' }] });
+  // x.grad 只有 2 条条目，拆出 2 条会让原概念为空，校验直接拒绝。
+  assert.equal(result.suggestions[0].accepted, false);
 });

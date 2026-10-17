@@ -35,7 +35,7 @@ R07 新建的概念如果和被藏起来的“矩阵乘法”同名，报告会�
 
     node --test scripts/test/concept-linking-r2.test.js
 
-真实调用由 GitHub Actions 的 “Knowledge Concept linking round 2” 在合入 main 时运行一次（14 篇 × 3 次，共 42 次 DeepSeek 调用；输出不是合法 JSON 时每篇最多再试一次），之后只能手动触发。报告会写进 Step Summary，并自动评论到 issue #163。
+真实调用由 GitHub Actions 的 “Knowledge Concept linking round 2” 在合入 main 时运行一次（15 篇 × 3 次，加每次一轮整理建议，约 48 次 DeepSeek 调用；输出不是合法 JSON 时每篇最多再试一次），之后只能手动触发。报告会写进 Step Summary，并自动评论到 issue #163。
 
 本地不调用模型：
 
@@ -80,3 +80,4 @@ API key 从名字含 DEEPSEEK 和 KEY 的环境变量读取，也可以用 `--ke
 - 合成实验对 R04、R07、R10、R12、R13、R14 的建议评分：理想、可接受，或**有害**（错误的降级或合并，例如把 x.grad 降级到数学梯度）。
 - `run-local.mjs` 的报告新增“整理建议”表。
 - 补充：单独一条“概念名用规范术语、不照抄小标题”也会让 x.grad 3/3 挂到梯度上（x.grad 没有“规范术语”名，模型就不建了）。对照版本身没有照抄小标题的问题，所以挂靠提示词最终恢复为对照版原文。
+- 整理建议新增 `split`：列出要移出去组成新概念的条目组（每组至少 2 条，原概念至少留 1 条）。新增 R15（张量与广播都被藏起来，检验能否建议把广播拆出去）；对 x.grad、矩阵乘法、原地运算提出拆分记为有害。
