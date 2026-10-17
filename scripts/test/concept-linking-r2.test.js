@@ -252,7 +252,9 @@ test('整理建议请求只含新建概念及其条目，候选来自已有概�
   assert.deepEqual(request.newConcepts.map(concept => concept.name), ['x.grad', '矩阵乘法', 'keepdims', '累积和']);
   const matmul = request.newConcepts.find(concept => concept.name === '矩阵乘法');
   assert.equal(matmul.candidates[0].id, 'C_MATMUL');
-  assert.ok(request.newConcepts.every(concept => concept.candidates.every(candidate => !candidate.id.startsWith('C_NEW'))));
+  // 候选包含其他新建概念（真实笔记从空库开始），但不含自身。
+  assert.ok(request.newConcepts.every(concept => concept.candidates.every(candidate => candidate.id !== concept.id)));
+  assert.ok(request.newConcepts.find(concept => concept.name === '累积和').candidates.some(candidate => candidate.name === 'keepdims'));
   assert.equal(request.newConcepts.find(concept => concept.name === 'keepdims').items.length, 2);
 });
 
@@ -261,12 +263,12 @@ test('整理建议逐条校验，并按预期评为理想、可接受或有害',
   const [request] = reviewRequests(state);
   const id = name => request.newConcepts.find(concept => concept.name === name).id;
   const result = applyReview(state, request, { requestId: request.requestId, suggestions: [
-    { conceptId: id('x.grad'), action: 'keep', targetId: null, reason: '框架属性' },
-    { conceptId: id('矩阵乘法'), action: 'merge', targetId: 'C_MATMUL', reason: '同名同义' },
-    { conceptId: id('keepdims'), action: 'demote', targetId: 'C_BROADCAST', reason: '为广播服务' },
-    { conceptId: id('累积和'), action: 'merge', targetId: id('keepdims'), reason: '同一主题' },
-    { conceptId: id('累积和'), action: 'demote', targetId: 'C_NOT_SHOWN', reason: '目标不在候选' },
-    { conceptId: id('累积和'), action: 'keep', targetId: null, reason: '重复给出' }
+    { conceptId: id('x.grad'), action: 'keep', targetId: null, newName: null, reason: '框架属性' },
+    { conceptId: id('矩阵乘法'), action: 'merge', targetId: 'C_MATMUL', newName: null, reason: '同名同义' },
+    { conceptId: id('keepdims'), action: 'demote', targetId: 'C_BROADCAST', newName: null, reason: '为广播服务' },
+    { conceptId: id('累积和'), action: 'merge', targetId: id('keepdims'), newName: null, reason: '同一主题' },
+    { conceptId: id('累积和'), action: 'demote', targetId: 'C_NOT_SHOWN', newName: null, reason: '目标不在候选' },
+    { conceptId: id('累积和'), action: 'keep', targetId: null, newName: null, reason: '重复给出' }
   ] });
   assert.deepEqual(result.suggestions.map(entry => entry.accepted), [true, true, true, true, false, false]);
   const graded = gradeReview(state, result.suggestions);
@@ -279,7 +281,7 @@ test('端到端：挂靠之后请求整理建议，报告含建议表', async ()
   const fetchImpl = async (_url, init) => {
     const request = JSON.parse(JSON.parse(init.body).messages[1].content);
     const content = request.newConcepts
-      ? JSON.stringify({ requestId: request.requestId, suggestions: request.newConcepts.map(concept => ({ conceptId: concept.id, action: 'keep', targetId: null, reason: '保留' })) })
+      ? JSON.stringify({ requestId: request.requestId, suggestions: request.newConcepts.map(concept => ({ conceptId: concept.id, action: 'keep', targetId: null, newName: null, reason: '保留' })) })
       : JSON.stringify(response(request.note.id, idealLinks(note(request.note.id))));
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content } }], usage: {} }));
   };
@@ -341,4 +343,15 @@ test('输出不是合法 JSON 时只重试一次', async () => {
   const cut = async () => { calls += 1; return new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: '{' } }] })); };
   await assert.rejects(invokeWithRetry(cut, 'k', {}, 100), /finish_reason=length/);
   assert.equal(calls, 1);
+});
+
+test('整理建议支持改名：只能给出新名称，不能同时指向目标', () => {
+  const state = stateWithCreated();
+  const [request] = reviewRequests(state);
+  const id = request.newConcepts.find(concept => concept.name === 'keepdims').id;
+  const ok = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'rename', targetId: null, newName: '非降维求和', reason: '参数名不是概念名' }] });
+  assert.equal(ok.suggestions[0].accepted, true);
+  assert.equal(gradeReview(state, ok.suggestions)[0].token, 'rename');
+  const bad = applyReview(state, request, { requestId: request.requestId, suggestions: [{ conceptId: id, action: 'keep', targetId: null, newName: '多余', reason: '' }] });
+  assert.equal(bad.suggestions[0].accepted, false);
 });
