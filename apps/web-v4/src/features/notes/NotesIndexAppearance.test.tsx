@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('全局定稿外观', () => {
   it('校验持久化数据，不接纳未知值', () => {
-    expect(parseNotesIndexAppearance({ mode: 'dark', theme: 'invalid', shape: 1, deco: null })).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper' });
+    expect(parseNotesIndexAppearance({ mode: 'dark', theme: 'invalid', shape: 1, deco: null })).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper', defaultButtonStyle: 'soft' });
   });
   it('旧数据默认通透玻璃，只接受已支持的浮层材质', () => {
     expect(parseNotesIndexAppearance(null).overlayMaterial).toBe('glass');
@@ -19,6 +19,9 @@ describe('全局定稿外观', () => {
     expect(parseNotesIndexAppearance(null).buttonStyle).toBe('paper');
     expect(parseNotesIndexAppearance({ buttonStyle: 'unknown' }).buttonStyle).toBe('paper');
     expect(parseNotesIndexAppearance({ buttonStyle: 'flow' }).buttonStyle).toBe('flow');
+    expect(parseNotesIndexAppearance(null).defaultButtonStyle).toBe('soft');
+    expect(parseNotesIndexAppearance({ defaultButtonStyle: 'unknown' }).defaultButtonStyle).toBe('soft');
+    expect(parseNotesIndexAppearance({ defaultButtonStyle: 'glass' }).defaultButtonStyle).toBe('glass');
   });
   it('保存材质并在明暗切换与重新挂载时保留', async () => {
     render(<><NotesIndexAppearanceControls /><Surface /></>);
@@ -41,12 +44,12 @@ describe('全局定稿外观', () => {
     expect(surface).toHaveAttribute('data-ni-theme', 'orange');
     expect(surface).toHaveAttribute('data-ni-shape', 'pill');
     expect(surface).not.toHaveAttribute('data-ni-deco');
-    expect(JSON.parse(localStorage.getItem(NOTES_INDEX_APPEARANCE_KEY)!)).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper' });
+    expect(JSON.parse(localStorage.getItem(NOTES_INDEX_APPEARANCE_KEY)!)).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper', defaultButtonStyle: 'soft' });
     await userEvent.click(screen.getByRole('button', { name: '切换浅色模式' }));
     expect(surface).toHaveAttribute('data-ni-mode', 'light');
   });
   it('旧原型选项收敛到定稿外观，同时保留明暗偏好', () => {
-    expect(parseNotesIndexAppearance({ mode: 'dark', theme: 'mono', shape: 'rounded', deco: 'off' })).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper' });
+    expect(parseNotesIndexAppearance({ mode: 'dark', theme: 'mono', shape: 'rounded', deco: 'off' })).toEqual({ mode: 'dark', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper', defaultButtonStyle: 'soft' });
   });
   it('存储不可用时依然允许切换并在重新挂载后保留会话设置', async () => {
     render(<><NotesIndexAppearanceControls /><Surface /></>);

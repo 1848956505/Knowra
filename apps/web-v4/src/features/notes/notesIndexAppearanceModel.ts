@@ -6,15 +6,20 @@ export interface NotesIndexAppearance {
   shape: 'pill';
   overlayMaterial: 'glass' | 'acrylic';
   buttonStyle: ButtonStyle;
+  defaultButtonStyle: DefaultButtonStyle;
 }
 
 /** 主按钮（Button primary）外观：纸感、白玻璃、暖橙→珊瑚渐变、流光。 */
 export const BUTTON_STYLES = ['paper', 'frost', 'gradient', 'flow'] as const;
 export type ButtonStyle = typeof BUTTON_STYLES[number];
 
+/** 默认按钮（Button default）外观：无边软影、乳白玻璃。 */
+export const DEFAULT_BUTTON_STYLES = ['soft', 'glass'] as const;
+export type DefaultButtonStyle = typeof DEFAULT_BUTTON_STYLES[number];
+
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';
 export const DEFAULT_NOTES_INDEX_APPEARANCE: Readonly<NotesIndexAppearance> = {
-  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper'
+  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper', defaultButtonStyle: 'soft'
 };
 const listeners = new Set<() => void>();
 let snapshot = readAppearance();
@@ -28,7 +33,8 @@ export function parseNotesIndexAppearance(value: unknown): NotesIndexAppearance 
     theme: 'orange',
     shape: 'pill',
     overlayMaterial: candidate.overlayMaterial === 'acrylic' ? 'acrylic' : 'glass',
-    buttonStyle: BUTTON_STYLES.includes(candidate.buttonStyle as ButtonStyle) ? candidate.buttonStyle as ButtonStyle : 'paper'
+    buttonStyle: BUTTON_STYLES.includes(candidate.buttonStyle as ButtonStyle) ? candidate.buttonStyle as ButtonStyle : 'paper',
+    defaultButtonStyle: DEFAULT_BUTTON_STYLES.includes(candidate.defaultButtonStyle as DefaultButtonStyle) ? candidate.defaultButtonStyle as DefaultButtonStyle : 'soft'
   };
 }
 

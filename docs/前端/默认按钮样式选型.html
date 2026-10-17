@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>默认按钮样式选型</title>
+<style>
+:root {
+  --page: #fbfcfd; --bg: #f1f3f7; --card: #fff; --text: #17181b; --muted: #6b7080; --line: #e3e5ec;
+  --ink: 24 30 48;
+  --accent: #e5743a; --accent-ink: #b8501d; --danger: #c93a2e;
+  --stage: linear-gradient(135deg, #fde6d3 0%, #f7d3c2 40%, #dfe6f7 100%);
+  --surface: #ffffff; --tint: #f1f2f6; --tint-press: #e6e8ee;
+}
+:root[data-theme="dark"] {
+  --page: #18191d; --bg: #101114; --card: #202226; --text: #eceef2; --muted: #9a9fae; --line: #30333a;
+  --ink: 255 255 255; --accent-ink: #ff9a5c; --danger: #ef6a5e;
+  --stage: linear-gradient(135deg, #3a2418 0%, #2a2230 45%, #1d2a3f 100%);
+  --surface: #25272c; --tint: #2a2d33; --tint-press: #34383f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 24px 80px; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+h1 { margin: 0 0 4px; font-size: 22px; }
+header p { margin: 0; color: var(--muted); max-width: 680px; }
+.toggle { border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.opt h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.opt h3 b { min-width: 28px; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--text); color: var(--card); display: grid; place-items: center; font-size: 13px; }
+.opt .desc { margin: 0; color: var(--muted); font-size: 12.5px; }
+.panel { border-radius: 12px; padding: 18px 16px; background: var(--page); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.panel.stage { background: var(--stage); }
+.cap { font-size: 11.5px; color: var(--muted); margin: 0 0 6px; }
+
+/* ===== 公共 ===== */
+.b { font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1; height: 36px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border: 0; border-radius: 999px; background: transparent; color: var(--text); transition: background .18s, box-shadow .18s, border-color .18s; white-space: nowrap; }
+.b svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.b kbd { font: 500 11px/1 inherit; font-family: inherit; opacity: .6; }
+.b.ghost:hover { background: rgb(var(--ink) / .06); }
+.b.pri { background: var(--accent); color: #fff; font-weight: 600; box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%), 0 1px 1px rgb(150 60 20 / 35%), 0 2px 4px -1px rgb(150 60 20 / 25%); }
+.b:disabled { opacity: .45; cursor: not-allowed; }
+.b:active:not(:disabled) { transform: scale(.975); }
+
+/* 当前：灰色描边（对照） */
+.c0 .def { background: var(--page); box-shadow: 0 0 0 1px rgb(var(--ink) / 7.5%), 0 1px 2px rgb(var(--ink) / 8%); border: 1px solid rgb(var(--ink) / 7.5%); }
+.c0 .def:hover { background: rgb(var(--ink) / 4.5%); border-color: rgb(var(--ink) / 12%); }
+
+/* 1 无边软影：纯白，无描边，只靠两层柔和投影托起 */
+.c1 .def { background: var(--surface); box-shadow: 0 1px 2px rgb(var(--ink) / 7%), 0 4px 12px -4px rgb(var(--ink) / 14%); }
+.c1 .def:hover:not(:disabled) { box-shadow: 0 1px 2px rgb(var(--ink) / 9%), 0 6px 16px -4px rgb(var(--ink) / 20%); }
+.c1 .def:active:not(:disabled) { box-shadow: inset 0 1px 3px rgb(var(--ink) / 14%); }
+
+/* 2 暖调细边：描边改为极淡的暖橙，白底，配暖色柔影，与橙色主题统一 */
+.c2 .def { background: var(--surface); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent), 0 2px 8px -3px color-mix(in srgb, var(--accent) 28%, transparent); }
+.c2 .def:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 3px 10px -3px color-mix(in srgb, var(--accent) 34%, transparent); }
+.c2 .def:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+
+/* 3 灰底无边：浅灰填充，无描边无投影，最扁平 */
+.c3 .def { background: var(--tint); }
+.c3 .def:hover:not(:disabled) { background: var(--tint-press); }
+
+/* 4 缎面白：顶边高光 + 底部短影，同浮起图标按钮的材质，无描边 */
+.c4 .def { background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface) 90%, rgb(var(--ink)))); box-shadow: inset 0 1px 0 rgb(255 255 255 / 90%), 0 1px 2px rgb(var(--ink) / 12%), 0 3px 6px -2px rgb(var(--ink) / 10%); }
+:root[data-theme="dark"] .c4 .def { box-shadow: inset 0 1px 0 rgb(255 255 255 / 10%), 0 1px 2px rgb(0 0 0 / 40%); }
+.c4 .def:hover:not(:disabled) { background: var(--surface); }
+.c4 .def:active:not(:disabled) { box-shadow: inset 0 2px 4px rgb(var(--ink) / 16%); }
+
+/* 5 乳白玻璃：半透明白 + 模糊 + 白色亮边，叠在内容上通透（与「白玻璃」主按钮同族） */
+.c5 .def { background: rgb(255 255 255 / 58%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 75%), inset 0 1px 0 rgb(255 255 255 / 95%), 0 2px 10px -4px rgb(var(--ink) / 16%); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); }
+:root[data-theme="dark"] .c5 .def { background: rgb(255 255 255 / 8%); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 14%), inset 0 1px 0 rgb(255 255 255 / 12%), 0 2px 10px -4px rgb(0 0 0 / 50%); }
+.c5 .def:hover:not(:disabled) { background: rgb(255 255 255 / 78%); }
+:root[data-theme="dark"] .c5 .def:hover:not(:disabled) { background: rgb(255 255 255 / 13%); }
+
+/* 6 悬浮卡片：白底 + 大范围极淡阴影，悬停时阴影扩大（不位移） */
+.c6 .def { background: var(--surface); box-shadow: 0 0 0 .5px rgb(var(--ink) / 4%), 0 8px 24px -10px rgb(var(--ink) / 22%); }
+.c6 .def:hover:not(:disabled) { box-shadow: 0 0 0 .5px rgb(var(--ink) / 5%), 0 12px 30px -10px rgb(var(--ink) / 30%); }
+.c6 .def:active:not(:disabled) { box-shadow: 0 4px 12px -6px rgb(var(--ink) / 24%); }
+
+.notes { margin-top: 28px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; color: var(--muted); font-size: 13px; }
+.notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>默认按钮（白色）样式选型</h1>
+      <p>去掉灰色描边的几种做法。每张卡片：应用页面底色上的「搜索 / 日程」、与主按钮同行、彩色衬底上的效果。悬停、按下、禁用都可以试，右上角可切换深色。</p>
+    </div>
+    <button class="toggle" id="theme">切换深色</button>
+  </header>
+  <div class="grid" id="grid"></div>
+  <div class="notes">
+    <b>怎么选：</b>告诉我编号即可。选定后我会改 <code>Button</code> 的 <code>default</code> 变体（同时影响所有默认按钮），业务页面不动；也可以让它跟随「按钮样式」设置里的主按钮风格（比如选「白玻璃」时默认按钮也用乳白玻璃）。
+  </div>
+</div>
+<script>
+  const search = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+  const cal = '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>';
+  const options = [
+    ['c0', '当前（对照）', '灰色描边 + 灰色细影。'],
+    ['c1', '无边软影', '纯白、无描边，靠两层柔和投影托起；最接近原样但去掉了灰线。'],
+    ['c2', '暖调细边', '描边换成极淡的暖橙，配暖色柔影；与橙色主题统一。'],
+    ['c3', '灰底无边', '浅灰填充，无描边无投影；最扁平，和密集页面最协调。'],
+    ['c4', '缎面白', '顶边高光 + 底部短影，无描边；与浮起图标按钮同一材质。'],
+    ['c5', '乳白玻璃', '半透明白 + 模糊 + 白色亮边；叠在内容上通透，与「白玻璃」主按钮同族。'],
+    ['c6', '悬浮卡片', '白底 + 大范围极淡阴影，悬停时阴影扩大；最轻盈。']
+  ];
+  const row = `<button class="b def">${search}<span>搜索</span><kbd>Ctrl+K</kbd></button><button class="b def">${cal}<span>日程</span></button>`;
+  const row2 = `<button class="b def ghost-ph">默认</button><button class="b ghost">取消</button><button class="b pri">创建</button><button class="b def" disabled>禁用</button>`;
+  document.getElementById('grid').innerHTML = options.map(([cls, name, desc], i) => `
+    <section class="opt ${cls}">
+      <h3><b>${i === 0 ? '—' : i}</b>${name}</h3>
+      <p class="desc">${desc}</p>
+      <div><p class="cap">应用页面底色</p><div class="panel">${row}</div></div>
+      <div><p class="cap">与主按钮、文字按钮同行</p><div class="panel">${row2.replace('ghost-ph', '')}</div></div>
+      <div><p class="cap">彩色衬底（看透明与阴影）</p><div class="panel stage">${row}</div></div>
+    </section>`).join('');
+  const root = document.documentElement, btn = document.getElementById('theme');
+  btn.addEventListener('click', () => {
+    const dark = root.dataset.theme !== 'dark';
+    root.dataset.theme = dark ? 'dark' : 'light';
+    btn.textContent = dark ? '切换浅色' : '切换深色';
+  });
+</script>
+</body>
+</html>
