@@ -356,7 +356,7 @@ test('整理建议支持改名：只能给出新名称，不能同时指向目�
   assert.equal(bad.suggestions[0].accepted, false);
 });
 
-test('拆分建议：每组至少 2 条、条目属于该概念且不重叠，原概念至少留 1 条', () => {
+test('拆分建议：每组至少 1 条、条目属于该概念且不重叠，原概念至少留 1 条', () => {
   const state = createState();
   const target = note('R15');
   applyResponse(state, target, response('R15', target.expected.map(expected => create('张量', '多维数组', expected.span))));
@@ -370,7 +370,8 @@ test('拆分建议：每组至少 2 条、条目属于该概念且不重叠，�
   const [graded] = gradeReview(state, [ok]);
   assert.equal(graded.grade, 'ideal');
   assert.match(describeSplit(graded.splitParts), /^广播（/);
-  assert.equal(suggest([{ name: '广播', sense: 's', itemIds: [ids[3]] }]).accepted, false);
+  // 单条也可以成组（例如笔记里暂时只有 1 条的机制），避免模型为凑数把不相干的条目并成一组。
+  assert.equal(suggest([{ name: '广播', sense: 's', itemIds: [ids[3]] }]).accepted, true);
   assert.equal(suggest([{ name: '全部', sense: 's', itemIds: ids }]).accepted, false);
   // 与前一组重叠的组被单独丢弃，合格的组保留。
   const partial = suggest([{ name: 'a', sense: 's', itemIds: [ids[0], ids[1]] }, { name: 'b', sense: 's', itemIds: [ids[1], ids[2]] }]);

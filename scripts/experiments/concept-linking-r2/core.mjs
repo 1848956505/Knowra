@@ -73,7 +73,7 @@ export const REVIEW_PROMPT = [
   'action=demote：不值得单独成为概念，建议把它的条目改挂到 targetId 指向的概念下；目标必须是这些条目真正描述的那个概念。',
   'action=merge：它与 targetId 指向的概念其实是同一个概念，或者同一主题被拆成了几个概念，建议合并。',
   'action=rename：值得保留，但名称不是该领域的常用叫法，例如照抄了笔记小标题、把两样东西并列（“A 与 B”“X/Y 的积”）或写成了一句描述；在 newName 给出规范名称。',
-  'action=split：它的条目里混有一组或几组条目，讲的是另一个本身就满足三条标准的概念（例如一种机制、运算或方法，而不只是一两句用法）。在 split 中列出每组的 name、sense 和 itemIds，建议把这些条目移出去组成新概念；没列出的条目仍留在原概念下。每组至少 2 条条目、最多 6 组，组与组之间不能重复，原概念自己的定义等条目要留下；只为一两句用法拆分不算理由。',
+  'action=split：它的条目里混有一组或几组条目，讲的是另一个本身就满足三条标准的概念（例如一种机制、运算或方法，而不只是一两句用法）。在 split 中列出每组的 name、sense 和 itemIds，建议把这些条目移出去组成新概念；没列出的条目仍留在原概念下。最多 6 组，组与组之间不能重复，原概念自己的定义等条目要留下。每组必须是同一个概念，组名就是这个概念的规范名称：不要为了凑数把不相干的条目放进一组，组名也不要写成“A 与 B”。一个机制或运算即使笔记里暂时只有 1 条，也可以单独成组；只是一两句用法的不要拆。',
   '含义或语境不同的概念，即使名称相同、话题相关或一个用到另一个，也不要建议 demote 或 merge；拿不准时选 keep。错误的合并比多一个概念代价更大。',
   'demote 和 merge 的 targetId 只能是该概念 candidates 中的 id；keep、rename、split 时 targetId 为 null。只有 rename 时 newName 为不超过 40 字的新名称，其余为 null。只有 split 时 split 为数组（每项字段严格为 name, sense, itemIds，itemIds 取自该概念 items 的 id），其余为 null。',
   '只返回一个 JSON 对象，不用 Markdown。字段严格为 requestId, suggestions；suggestions 每项字段严格为 conceptId, action, targetId, newName, split, reason，reason 不超过 100 字。每个新概念恰好一条。'
@@ -213,9 +213,10 @@ export function reviewRequests(state, batchSize = 8) {
 const REVIEW_ACTIONS = new Set(['keep', 'demote', 'merge', 'rename', 'split']);
 
 /**
- * 拆分建议逐组校验：每组需要 name、sense 和至少 2 条属于该概念、且未被前面各组占用的条目。
+ * 拆分建议逐组校验：每组需要 name、sense 和至少 1 条属于该概念、且未被前面各组占用的条目。
  * 不合格的组单独丢弃（记录数量），不连累整条建议；至少剩 1 组、原概念至少留 1 条才算有效。
  * 真实笔记里“张量”有 16 条，模型曾因分组过多整条被拒，因此上限放宽到 6 组。
+ * 曾要求每组至少 2 条，结果模型为凑数把“拼接”和“广播”放进同一组，因此改为至少 1 条。
  */
 export const MAX_SPLIT_PARTS = 6;
 export function sanitizeSplit(concept, split) {
@@ -227,12 +228,12 @@ export function sanitizeSplit(concept, split) {
   for (const part of split) {
     const ids = Array.isArray(part?.itemIds) ? part.itemIds : [];
     const valid = parts.length < MAX_SPLIT_PARTS && hasKeys(part, ['name', 'sense', 'itemIds']) && validText(part.name, 40) && validText(part.sense, 240)
-      && ids.length >= 2 && new Set(ids).size === ids.length && ids.every(id => own.has(id) && !used.has(id));
+      && ids.length >= 1 && new Set(ids).size === ids.length && ids.every(id => own.has(id) && !used.has(id));
     if (!valid) { dropped += 1; continue; }
     ids.forEach(id => used.add(id));
     parts.push({ name: part.name, sense: part.sense, itemIds: ids });
   }
-  if (parts.length === 0) return { parts, dropped, error: '没有一组合格（每组需要 name、sense 和至少 2 条该概念自己的条目，且组间不重叠）' };
+  if (parts.length === 0) return { parts, dropped, error: '没有一组合格（每组需要 name、sense 和至少 1 条该概念自己的条目，且组间不重叠）' };
   if (used.size >= own.size) return { parts, dropped, error: '拆分后原概念至少要留下 1 条' };
   return { parts, dropped, error: null };
 }
