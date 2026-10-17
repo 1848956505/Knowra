@@ -150,6 +150,17 @@ describe('共享搜索框', () => {
   });
 });
 
+it('仅在共享清除按钮存在时标记隐藏原生清除入口', () => {
+  const { rerender } = render(<SearchBox label="搜索" />);
+  const shell = screen.getByRole('searchbox').parentElement;
+  expect(shell).not.toHaveAttribute('data-custom-clear');
+  rerender(<SearchBox label="搜索" onClear={() => undefined} />);
+  expect(shell).toHaveAttribute('data-custom-clear', 'true');
+  expect(screen.getAllByRole('button', { name: '清除搜索' })).toHaveLength(1);
+  rerender(<SearchBox label="搜索" />);
+  expect(shell).not.toHaveAttribute('data-custom-clear');
+});
+
 describe('V4-04 Checkbox', () => {
   it('toggles selected state on click', async () => {
     const user = userEvent.setup();

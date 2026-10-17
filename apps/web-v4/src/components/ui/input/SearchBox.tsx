@@ -20,7 +20,7 @@ interface SearchSurfaceProps {
 /** 搜索控件的唯一视觉外壳；业务页面不再维护搜索框 CSS。 */
 export function SearchSurface({ children, icon, size = 'field', shortcut, onClear, clearLabel = '清除搜索', clearText, disabled, invalid, surfaceProps }: SearchSurfaceProps) {
   const { onClick, ...restSurfaceProps } = surfaceProps ?? {};
-  return <div className={styles.shell} data-size={size} data-disabled={disabled || undefined} data-invalid={invalid || undefined} data-input-shadow-owner="true" {...restSurfaceProps}
+  return <div className={styles.shell} data-size={size} data-disabled={disabled || undefined} data-custom-clear={Boolean(onClear) || undefined} data-invalid={invalid || undefined} data-input-shadow-owner="true" {...restSurfaceProps}
     onClick={(event) => {
       onClick?.(event);
       if (!event.defaultPrevented && !(event.target as Element).closest('button')) event.currentTarget.querySelector('input')?.focus();
@@ -28,7 +28,11 @@ export function SearchSurface({ children, icon, size = 'field', shortcut, onClea
     {icon ? <span className={styles.icon} aria-hidden="true">{icon}</span> : null}
     {children}
     {shortcut ? <kbd className={styles.shortcut} aria-hidden="true">{shortcut}</kbd> : null}
-    {onClear ? <button className={clearText ? styles.clearText : styles.clearIcon} type="button" aria-label={clearLabel} onClick={onClear} data-testid="search-clear">
+    {onClear ? <button className={clearText ? styles.clearText : styles.clearIcon} type="button" aria-label={clearLabel} onClick={event => {
+      const input = event.currentTarget.parentElement?.querySelector('input');
+      onClear();
+      input?.focus();
+    }} data-testid="search-clear">
       {clearText ?? <CloseIcon size={12} />}
     </button> : null}
   </div>;

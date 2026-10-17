@@ -24,7 +24,7 @@ describe('浮层材质设置', () => {
     expect(JSON.parse(localStorage.getItem(NOTES_INDEX_APPEARANCE_KEY)!)).toMatchObject({ overlayMaterial: 'acrylic' });
     act(() => setNotesIndexAppearance({ mode: 'dark' }));
     await user.click(screen.getByRole('button', { name: '预览菜单' }));
-    const menu = await screen.findByRole('menu');
+    const menu = await screen.findByRole('menu', { name: '预览菜单', exact: true });
     expect(container).not.toContainElement(menu);
     expect(menu.closest('[data-overlay-material]')).toHaveAttribute('data-overlay-material', 'acrylic');
     expect(menu.closest('[data-ni-mode]')).toHaveAttribute('data-ni-mode', 'dark');
