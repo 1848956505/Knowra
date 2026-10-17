@@ -23,8 +23,9 @@ describe('浮层材质设置', () => {
     expect(screen.getByRole('button', { name: '磨砂亚克力' })).toHaveAttribute('aria-pressed', 'true');
     expect(JSON.parse(localStorage.getItem(NOTES_INDEX_APPEARANCE_KEY)!)).toMatchObject({ overlayMaterial: 'acrylic' });
     act(() => setNotesIndexAppearance({ mode: 'dark' }));
-    await user.click(screen.getByRole('button', { name: '预览菜单' }));
-    const menu = await screen.findByRole('menu');
+    const trigger = screen.getByRole('button', { name: '预览菜单' });
+    await user.click(trigger);
+    const menu = await screen.findByRole('menu', { name: '预览菜单' });
     expect(container).not.toContainElement(menu);
     expect(menu.closest('[data-overlay-material]')).toHaveAttribute('data-overlay-material', 'acrylic');
     expect(menu.closest('[data-ni-mode]')).toHaveAttribute('data-ni-mode', 'dark');
@@ -33,8 +34,23 @@ describe('浮层材质设置', () => {
     expect(submenu.closest('[data-overlay-material]')).toHaveAttribute('data-overlay-material', 'acrylic');
     expect(submenu.closest('[data-ni-mode]')).toHaveAttribute('data-ni-mode', 'dark');
     expect(screen.getByRole('menuitem', { name: '不可用选项' })).toHaveAttribute('aria-disabled', 'true');
-    await user.keyboard('{Escape}{Escape}');
-    await waitFor(() => expect(screen.getByRole('button', { name: '预览菜单' })).toHaveFocus());
+    const status = screen.getByRole('menuitem', { name: '状态' });
+    expect(status).toHaveFocus();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: '状态' })).toHaveFocus());
+    for (const key of ['{ArrowLeft}', '{Escape}']) {
+      await user.keyboard('{ArrowRight}');
+      await waitFor(() => expect(screen.getByRole('menuitem', { name: '草稿' })).toHaveFocus());
+      await user.keyboard(key);
+      await waitFor(() => expect(screen.queryByRole('menu', { name: '状态' })).not.toBeInTheDocument());
+      expect(screen.getByRole('menu', { name: '预览菜单' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: '状态' })).toHaveFocus();
+    }
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(trigger).toHaveFocus());
     await user.click(screen.getByRole('button', { name: '通透玻璃' }));
     await user.click(screen.getByRole('button', { name: '预览菜单' }));
     expect(screen.getByRole('menu').closest('[data-overlay-material]')).toHaveAttribute('data-overlay-material', 'glass');

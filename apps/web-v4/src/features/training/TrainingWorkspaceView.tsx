@@ -172,7 +172,7 @@ export function TrainingWorkspaceView() {
       actionsLabel="训练资产操作" actions={canWrite ? <Button variant="accent" size="workspace" onPress={() => kind === 'learningObjective' ? setObjectiveReview({}) : setForm({ kind })}><PlusIcon size={17} />新建{LABELS[kind]}</Button> : null} />
     <WorkspacePanelToolbar className={styles.toolbar} role="toolbar" aria-label="训练资产筛选">
       <SegmentedControl density="compact" className={styles.filterGroup} aria-label="训练资产类型">{KINDS.map(value => <SegmentedButton key={value} aria-pressed={kind === value} onPress={() => { setKind(value); setQuery(''); }}>{LABELS[value]}</SegmentedButton>)}</SegmentedControl>
-      <SearchBox label={`搜索${LABELS[kind]}`} icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} placeholder={`搜索${LABELS[kind]}…`} />
+      <SearchBox label={`搜索${LABELS[kind]}`} icon={<SearchIcon size={17} />} value={query} onChange={event => setQuery(event.target.value)} onClear={query ? () => setQuery('') : undefined} placeholder={`搜索${LABELS[kind]}…`} />
       <SegmentedControl density="compact" className={styles.filterGroup} aria-label="生命周期状态"><SegmentedButton aria-pressed={view === 'active'} onPress={() => setView('active')}>使用中</SegmentedButton><SegmentedButton aria-pressed={view === 'archived'} onPress={() => setView('archived')}>已归档</SegmentedButton><SegmentedButton aria-pressed={view === 'trash'} onPress={() => setView('trash')}>回收站</SegmentedButton></SegmentedControl>
     </WorkspacePanelToolbar>
     <WorkspacePanelBody className={`${styles.body} ${kind === 'question' ? styles.questionBody : ''}`}>
