@@ -20,6 +20,9 @@ export interface PointMenuProps {
   onOpenChange(open: boolean): void;
   /** 浮层定位容器的额外类名，用于调整层级或关闭入场动画。 */
   popoverClassName?: string;
+  /** 可选工作区边界，避免菜单伸入应用底部导航。 */
+  boundaryElement?: Element;
+  maxHeight?: number;
   children: ReactNode;
 }
 
@@ -27,7 +30,7 @@ export interface PointMenuProps {
  * 此容器不是 MenuTrigger，不会注入菜单选择后的关闭回调。
  * 内部 Menu（含子菜单）须显式接 onClose，或由既有 onAction 清除 point。
  */
-export function PointMenu({ point, onOpenChange, popoverClassName, children }: PointMenuProps) {
+export function PointMenu({ point, onOpenChange, popoverClassName, boundaryElement, maxHeight, children }: PointMenuProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   // 只在新坐标打开时规范化锚点；打开后的定位/resize仍由 RAC 管理。
   const viewport = useMemo(readViewport, [point]);
@@ -40,7 +43,7 @@ export function PointMenu({ point, onOpenChange, popoverClassName, children }: P
   const top = clamp(point?.y ?? 0, viewport.top, viewport.height);
   return <>
     <span ref={anchorRef} className={styles.anchor} aria-hidden="true" style={{ left, top }} />
-    <MenuPopover triggerRef={anchorRef} isOpen={Boolean(point)} onOpenChange={onOpenChange} offset={0} containerPadding={VIEWPORT_PADDING} className={popoverClassName}>
+    <MenuPopover triggerRef={anchorRef} isOpen={Boolean(point)} onOpenChange={onOpenChange} offset={0} boundaryElement={boundaryElement} maxHeight={maxHeight} containerPadding={VIEWPORT_PADDING} className={popoverClassName}>
       {children}
     </MenuPopover>
   </>;

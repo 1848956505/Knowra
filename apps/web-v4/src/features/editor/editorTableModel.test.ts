@@ -160,3 +160,18 @@ it('多行多列选区的快捷插入位于所选范围下方或右侧并保留�
     }
   }
 });
+
+ it('拒绝合并单元格的行移动，防止跨行数据错列', () => {
+  const p = (text: string) => schema.node('paragraph', null, schema.text(text));
+  const cell = (text: string, rowspan = 1) => schema.node('table_cell', { rowspan }, p(text));
+  const table = schema.node('table', null, [
+    schema.node('table_header_row', null, ['A', 'B'].map(text => schema.node('table_header', null, p(text)))),
+    schema.node('table_row', null, [cell('a', 2), cell('b')]),
+    schema.node('table_row', null, [cell('d')]),
+    schema.node('table_row', null, [cell('e'), cell('f')])
+  ]);
+  const doc = schema.node('doc', null, [table]);
+  const state = EditorState.create({ doc, selection: TextSelection.create(doc, 15) });
+  expect(moveTableRow(1, 3)(state)).toBe(false);
+  expect(moveTableColumn(0, 1)(state)).toBe(false);
+});

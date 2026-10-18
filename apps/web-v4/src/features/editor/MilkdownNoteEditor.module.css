@@ -411,3 +411,13 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* 44px触控手柄需要真实表外空间：手机纸张仅22px内边距，额外28px
+   加上视口4px安全边距后仍可容纳手柄与表格间2px空隙。只在编辑态预留。 */
+@media (max-width: 767px), (any-pointer: coarse) {
+  .milkdownEditor :global(.ProseMirror[contenteditable='true']) table {
+    width: calc(100% - 56px);
+    margin-inline: 28px;
+    margin-top: 48px;
+  }
+}

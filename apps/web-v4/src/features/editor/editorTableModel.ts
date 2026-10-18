@@ -37,13 +37,23 @@ function moved<T>(items: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** Markdown 行列移动只接受规则矩阵；合并单元格不能拆散后重新配对数据。 */
+function isRegularTable(table: Node, map: TableMap) {
+  let regular = !map.problems?.length;
+  table.forEach(row => {
+    if (row.childCount !== map.width) regular = false;
+    row.forEach(cell => { if (cell.attrs.colspan !== 1 || cell.attrs.rowspan !== 1) regular = false; });
+  });
+  return regular;
+}
+
 /** 把数据行从 from 移到 to（均为行下标，表头行 0 固定）。选区落在移动后的整行。 */
 export function moveTableRow(from: number, to: number): Command {
   return (state, dispatch) => {
     if (!isInTable(state)) return false;
     const rect = selectedRect(state);
     const { table, map, tableStart } = rect;
-    if (from === to || from < 1 || to < 1 || from >= map.height || to >= map.height) return false;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || !isRegularTable(table, map) || from === to || from < 1 || to < 1 || from >= map.height || to >= map.height) return false;
     const rows: Node[] = [];
     table.forEach(row => rows.push(row));
     if (rows.length !== map.height) return false;
@@ -65,7 +75,7 @@ export function moveTableColumn(from: number, to: number): Command {
     if (!isInTable(state)) return false;
     const rect = selectedRect(state);
     const { table, map, tableStart } = rect;
-    if (from === to || from < 0 || to < 0 || from >= map.width || to >= map.width) return false;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || !isRegularTable(table, map) || from === to || from < 0 || to < 0 || from >= map.width || to >= map.width) return false;
     const rows: Node[] = [];
     let regular = true;
     table.forEach(row => {
