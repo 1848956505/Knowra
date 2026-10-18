@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     # 只改实验脚本、实验工作流和讨论记录时不跑全量 CI；实验工作流会先跑自己的无费用测试。
     # 实验自己的测试由实验工作流运行；只要同时改了其他文件，CI 照常运行。
@@ -12,7 +13,6 @@ on:
   push:
     branches:
       - main
-      - "codex/**"
     paths-ignore:
       - "scripts/experiments/**"
       - "scripts/test/concept-linking-r2.test.js"
@@ -33,15 +33,57 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
       - name: Build and verify isolated synthetic containers
         run: bash scripts/smoke-isolated-compose.sh
-  verify:
-    name: Node 24 · build and test
+  checks:
+    name: Node 24 · fast checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Check changed-file whitespace
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --check "origin/$BASE_REF...HEAD"
+          elif [[ "$EVENT_NAME" == "push" && -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "$BEFORE_SHA...$GITHUB_SHA"
+          else
+            git diff-tree --check --root --no-commit-id -r HEAD
+          fi
+      - name: Check V4 architecture boundaries
+        run: npm run check:boundaries -w @study-accelerator/web-v4
+      - name: Check CI coverage and failure gates
+        run: node --test scripts/test/ci-workflow.test.js
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+  suites:
+    name: Node 24 · ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      # 任一套件失败仍收集其他套件结果；不并发同一套件里的数据库测试。
+      fail-fast: false
+      matrix:
+        suite: [api, web, desktop, chromium]
     services:
       postgres:
         image: postgres:17
@@ -61,7 +103,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -80,17 +122,6 @@ jobs:
           npm run prisma:generate
           npm run prisma:migrate:deploy
 
-      - name: Check changed-file whitespace
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            git diff --check "origin/${{ github.base_ref }}...HEAD"
-          elif [[ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
-            git diff --check "${{ github.event.before }}...${{ github.sha }}"
-          else
-            git diff-tree --check --no-commit-id -r HEAD
-          fi
-
       - name: Build production V4 frontend
         run: NODE_ENV=production npm run build:web
 
@@ -106,16 +137,17 @@ jobs:
           test -f apps/web-v4/dist/index.html
           test -z "$(find apps/web-v4/dist -type f -name '*.map' -print -quit)"
 
-      - name: Run test suites
-        run: npm test
+      - name: Install Chromium and system dependencies
+        if: matrix.suite == 'chromium'
+        run: npx playwright install --with-deps chromium
 
-      - name: Verify local runtime in Chromium
-        run: |
-          npx playwright install --with-deps chromium
-          npm run test:e2e -w @study-accelerator/desktop-runtime
+      - name: Run isolated test suite
+        env:
+          CI_SUITE: ${{ matrix.suite }}
+        run: node scripts/ci.mjs suite "$CI_SUITE"
 
       - name: Save synthetic task workspace screenshots
-        if: always()
+        if: always() && matrix.suite == 'chromium'
         uses: actions/upload-artifact@v4
         with:
           name: task-workspace-journey-${{ github.sha }}
@@ -123,17 +155,37 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Audit production dependencies
-        # Prisma is future scaffolding and reaches its CLI through an optional
-        # peer dependency. Audit the dependencies shipped by the active runtime.
-        run: npm run audit:prod
-
+  verify:
+    # 保留原 required check 名称；失败、取消或跳过任一前置作业都不能变绿。
+    name: Node 24 · build and test
+    if: always()
+    needs: [checks, suites, isolated-image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Require every test job to succeed
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/ci.mjs gate
+      # 分支只跑 PR；无 PR 时可手动全量验证并生成候选包。
+      - name: Install release dependencies
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: npm ci --ignore-scripts
+      - name: Build verified release snapshot
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: NODE_ENV=production npm run build:web
       - name: Package Linux release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: bash scripts/package-ci-release.sh "$GITHUB_SHA" "$RUNNER_TEMP/knowra-release"
-
       - name: Save release for Codex deployment
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: knowra-linux-release-${{ github.sha }}
