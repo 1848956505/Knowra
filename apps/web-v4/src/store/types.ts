@@ -132,13 +132,14 @@ export interface WorkspaceSlice {
   emptyRecycleBin(): Promise<number>;
 }
 
-export type WorkDomain = 'materials' | 'knowledge' | 'training' | 'learning' | 'profile';
+export type WorkDomain = 'materials' | 'knowledge' | 'training' | 'learning' | 'profile' | 'task-workspaces';
 
 export const WORK_DOMAINS: readonly WorkDomain[] = [
   'materials',
   'knowledge',
   'training',
   'learning',
+  'task-workspaces',
   'profile'
 ] as const;
 

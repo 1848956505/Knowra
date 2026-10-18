@@ -29,6 +29,7 @@ export function prepareRestoredDirectory(root, backupDirectory, options) {
     restored.syncTransaction(db => {
       db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)').run('datasetId', randomUUID());
       restored.aiRepository?.rotateEpoch();
+      restored.taskWorkspaceStore?.rotateEpoch();
       db.prepare('INSERT OR REPLACE INTO metadata VALUES (?, ?)').run('sync:clientPaused', 'true');
     });
   } finally { restored.close(); }

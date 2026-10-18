@@ -27,6 +27,8 @@ import { workspaceCapabilities } from '../store/workspaceCapabilities';
 import { SettingsView } from '../features/settings/SettingsView';
 import type { AppPreferences } from '../features/settings/preferences';
 
+const TaskWorkspacesView = lazy(async () => ({ default: (await import('../features/task-workspaces/TaskWorkspacesView')).TaskWorkspacesView }));
+
 const AssistantView = lazy(async () => {
   const module = await import('../features/assistant/AssistantView');
   return { default: module.AssistantView };
@@ -48,6 +50,7 @@ export interface DomainDescriptor {
 }
 
 export const DOMAIN_INFO: Record<WorkDomain, DomainDescriptor> = {
+  'task-workspaces': { title: '任务工作区', description: '协作文档、任务执行与人工验收。' },
   materials: { title: '资料工作区', description: '按目录组织 Markdown 笔记，用标签串联主题。' },
   knowledge: { title: '知识库', description: '整理知识候选、人工确认并追溯原文来源。' },
   training: { title: '试题库', description: '学习目标、考试配置、考点与题目的管理。' },
@@ -102,6 +105,7 @@ export function AppRoutes(props: AppRoutesProps) {
       <AssistantView pathname={props.pathname} onOpenNote={props.onOpenNote} />
     </Suspense>
   </ErrorBoundary>;
+  if (props.routeDomain === 'task-workspaces') return <ErrorBoundary fallbackRender={({ resetErrorBoundary }) => <section aria-label="任务工作区加载失败"><p role="alert">任务工作区暂时不可用，私人笔记不受影响。</p><Button onPress={resetErrorBoundary}>重试任务工作区</Button></section>}><Suspense fallback={<LoadingState label="正在加载任务工作区…" />}><TaskWorkspacesView /></Suspense></ErrorBoundary>;
   if (props.routeDomain === 'knowledge') return <KnowledgeStage pathname={props.pathname} onOpenNote={props.onOpenNote} />;
   if (props.routeDomain === 'training') return <TrainingWorkspaceView />;
   if (props.routeDomain !== 'materials') return <PlaceholderStage domain={props.routeDomain} />;

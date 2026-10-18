@@ -1,0 +1,96 @@
+name: Knowledge Concept linking (synthetic DeepSeek)
+
+# 合并此工作流后只自动执行一次；之后仅可手动触发。
+# 严禁 PR 运行/读取 Secret，严禁任意私人笔记路径输入。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-concept-linking.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowra-concept-linking-synthetic
+  cancel-in-progress: false
+
+jobs:
+  concept-linking:
+    name: Validate Concept IDs and KnowledgeItem links
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Run synthetic, no-cost regression tests
+        run: node --test scripts/test/concept-linking.test.js
+
+      - name: Execute seven bounded DeepSeek calls (public synthetic notes only)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo "DEEPSEEK repository secret not configured; no model calls made."
+            exit 1
+          fi
+          node scripts/experiments/concept-linking/run.mjs \
+            --max-tokens 1536 \
+            --out "$RUNNER_TEMP/knowra-concept-linking"
+
+      - name: Confirm all seven model responses finished
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const p = process.env.RUNNER_TEMP + "/knowra-concept-linking/result.json";
+            const obj = JSON.parse(readFileSync(p, "utf8"));
+            if (obj.runs.length !== 7 || obj.runs.some(r => !r.modelOk)) {
+              console.error("One or more model requests did not finish; inspect nonsecret run status.");
+              process.exit(1);
+            }
+            console.log("7/7 model calls returned structured JSON. Link quality is a separate experimental finding.");
+          '
+
+      - name: Publish public-synthetic evaluation summary
+        shell: bash
+        if: always()
+        run: |
+          if [[ -f "$RUNNER_TEMP/knowra-concept-linking/report.md" ]]; then
+            {
+              echo "## 知境 Concept 身份融合实验（公开合成笔记）"
+              echo
+              echo "不读真实笔记、不写正式知识库；首轮仅 7 次模型请求，不能推广为准确率。"
+              echo
+              sed -n '/^## 摘要$/,/^## 图谱快照$/p' "$RUNNER_TEMP/knowra-concept-linking/report.md" | sed '$d'
+              echo
+              echo "完整模拟图与每条知识来源见 7 天保留的 Artifact。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "实验报告未生成，不能据此判断模型融合能力。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # 仅输出汇总表和合成笔记测试分数，永不输出 API Key、模型原始响应。
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve synthetic-only results for review
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: knowra-concept-linking-synthetic-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/knowra-concept-linking/report.md
+            ${{ runner.temp }}/knowra-concept-linking/result.json
+          if-no-files-found: ignore
+          retention-days: 7

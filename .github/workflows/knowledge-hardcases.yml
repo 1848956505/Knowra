@@ -1,0 +1,93 @@
+name: Knowledge model hardcases (synthetic DeepSeek)
+
+# 一次合入 main 时自动触发；以后只手动启动。
+# 不对 PR、任意其他分支或定时事件开放 GitHub Secret。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-hardcases.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowra-knowledge-hardcases-synthetic
+  cancel-in-progress: false
+
+jobs:
+  hardcases:
+    name: 多概念、冲突、AI无笔记来源
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout without persistent credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Regression without external API
+        run: node --test scripts/test/knowledge-hardcases.test.js
+
+      - name: Run ten fixed public synthetic DeepSeek requests
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo "Missing DEEPSEEK Secret; no calls executed."
+            exit 1
+          fi
+          node scripts/experiments/knowledge-hardcases/run.mjs \
+            --max-tokens 1600 \
+            --out "$RUNNER_TEMP/knowra-hardcases"
+
+      - name: Validate completed provider requests
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const obj=JSON.parse(readFileSync(process.env.RUNNER_TEMP+"/knowra-hardcases/result.json","utf8"));
+            if(obj.runs.length!==10||obj.runs.some(r=>!r.modelOk)){
+              console.error("One or more provider requests failed. See public-synthetic experiment report.");
+              process.exit(1);
+            }
+            console.log("10/10 provider requests completed; semantic quality is evaluated separately.");
+          '
+
+      - name: Publish aggregate results (no secret, public samples only)
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/knowra-hardcases/report.md" ]]; then
+            {
+              echo "## 知境知识模型第二轮边界实验"
+              echo "仅公开合成笔记，未读取或修改用户知识库。"
+              echo
+              sed -n '/^## 汇总$/,/^## 逐条结果/p' "$RUNNER_TEMP/knowra-hardcases/report.md" | sed '$d'
+              echo
+              echo "模型候选需要人工核查；结构合法和引用存在不能证明知识真实。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "没有可用的实验报告，不能判断模型效果。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload synthetic-only data for review (7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-hardcases-public-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/knowra-hardcases/report.md
+            ${{ runner.temp }}/knowra-hardcases/result.json
+          if-no-files-found: ignore
+          retention-days: 7

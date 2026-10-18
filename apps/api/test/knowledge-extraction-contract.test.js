@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  anchorQuote,
   KNOWLEDGE_EXTRACTION_LIMITS as LIMITS,
   prepareKnowledgeExtraction,
   validateKnowledgeExtractionResult
@@ -54,12 +55,12 @@ export const knowledgeExtractionContractTests = [
     }
   },
   {
-    name: 'AI 拒绝伪造、排除范围外、改写、错位和重复引文',
+    name: 'AI 拒绝伪造、排除范围外、改写、非整数偏移和重复引文',
     run() {
       const fixture = createKnowledgeExtractionFixture();
       for (const patch of [
         { sourceId: 'unknown-source' }, { quote: fixture.excluded }, { quote: '生成的非原文陈述' },
-        { start: -1 }, { end: 1_000_000 }, { start: 0 }, { end: 1.5 }
+        { end: 1.5 }, { start: '0' }
       ]) {
         const result = structuredClone(fixture.result);
         Object.assign(result.candidates[0].citations[0], patch);
@@ -68,6 +69,28 @@ export const knowledgeExtractionContractTests = [
       const duplicated = structuredClone(fixture.result);
       duplicated.candidates[0].citations.push(duplicated.candidates[0].citations[0]);
       assert.throws(() => validate(fixture, duplicated), code('KNOWLEDGE_EXTRACTION_CITATION_INVALID'));
+    }
+  },
+  {
+    name: 'AI 偏移数错但 quote 逐字唯一时按 quote 重新定位；出现多次且偏移不吻合时拒绝',
+    run() {
+      const fixture = createKnowledgeExtractionFixture();
+      const citation = fixture.result.candidates[0].citations[0];
+      const source = fixture.request.sources.find((entry) => entry.sourceId === citation.sourceId);
+      const expected = source.start + source.markdown.indexOf(citation.quote);
+      for (const patch of [{ start: -1 }, { end: 1_000_000 }, { start: 0 }, { start: citation.start + 3, end: citation.end + 3 }]) {
+        const result = structuredClone(fixture.result);
+        Object.assign(result.candidates[0].citations[0], patch);
+        const provenance = validate(fixture, result).candidates[0].provenance[0];
+        assert.equal(provenance.start, expected);
+        assert.equal(provenance.end, expected + citation.quote.length);
+        assert.equal(provenance.quoteText, citation.quote);
+      }
+      const markdown = '梯度是向量。梯度是向量。另一句。';
+      assert.deepEqual(anchorQuote(markdown, { start: 6, end: 12, quote: '梯度是向量。' }), { start: 6, end: 12 });
+      assert.deepEqual(anchorQuote(markdown, { start: 3, end: 9, quote: '另一句。' }), { start: 12, end: 16 });
+      assert.throws(() => anchorQuote(markdown, { start: 3, end: 9, quote: '梯度是向量。' }), code('KNOWLEDGE_EXTRACTION_CITATION_INVALID'));
+      assert.throws(() => anchorQuote(markdown, { start: 0, end: 3, quote: '不存在' }), code('KNOWLEDGE_EXTRACTION_CITATION_INVALID'));
     }
   },
   {

@@ -14,7 +14,8 @@ export function writeJsonFileAtomically(
   value,
   {
     fileSystem = fs,
-    createUniqueId = randomUUID
+    createUniqueId = randomUUID,
+    beforeCommit
   } = {}
 ) {
   const directoryPath = path.dirname(filePath);
@@ -33,7 +34,11 @@ export function writeJsonFileAtomically(
   fileSystem.mkdirSync(directoryPath, { recursive: true });
   try {
     writeAndSyncTemporaryFile(fileSystem, temporaryPath, value);
-    replaceTarget(fileSystem, temporaryPath, filePath, backupPath);
+    replaceTarget(fileSystem, temporaryPath, filePath, backupPath, () => {
+      const result = beforeCommit?.();
+      if (result === false) throw new Error('Atomic JSON commit guard rejected');
+      if (result?.then) throw new TypeError('Atomic JSON commit guard must be synchronous');
+    });
   } catch (error) {
     preserveBackup = Boolean(error?.restoreError);
     throw error;
@@ -71,8 +76,9 @@ function writeAndSyncTemporaryFile(fileSystem, temporaryPath, value) {
   }
 }
 
-function replaceTarget(fileSystem, temporaryPath, filePath, backupPath) {
+function replaceTarget(fileSystem, temporaryPath, filePath, backupPath, beforeCommit) {
   try {
+    beforeCommit();
     fileSystem.renameSync(temporaryPath, filePath);
     return;
   } catch (error) {
@@ -84,8 +90,10 @@ function replaceTarget(fileSystem, temporaryPath, filePath, backupPath) {
     }
   }
 
+  beforeCommit();
   fileSystem.renameSync(filePath, backupPath);
   try {
+    beforeCommit();
     fileSystem.renameSync(temporaryPath, filePath);
   } catch (error) {
     restoreBackup(fileSystem, backupPath, filePath, error);

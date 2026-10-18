@@ -1,0 +1,64 @@
+.root { min-width: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--surface-page); color: var(--text-primary); }
+.header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.header h1, .header h2 { margin: 0; font-size: var(--font-size-note-heading); }
+.header p { margin: var(--space-1) 0 0; color: var(--text-secondary); font-size: var(--font-size-meta); }
+.spacer { flex: 1; }
+.layout { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); flex: 1; min-height: 0; }
+.sidebar { padding: var(--space-3); overflow: auto; border-right: 1px solid var(--border-subtle); background: var(--surface-sidebar); }
+.sidebar h2 { font-size: var(--font-size-ui); margin: var(--space-4) var(--space-2) var(--space-2); }
+.sidebar button { width: 100%; justify-content: flex-start; margin-bottom: var(--space-1); }
+.sidebar [aria-current="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.main { container-type: inline-size; min-width: 0; min-height: 0; overflow: auto; padding: var(--space-5); }
+.notice { padding: var(--space-3) var(--space-5); margin: 0; color: var(--text-secondary); background: var(--surface-sunken); }
+.error { color: var(--ink-danger); }
+.board { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); align-items: start; gap: var(--space-4); }
+.column { background: var(--surface-sidebar-solid); padding: var(--space-3); border-radius: var(--radius-panel); min-height: 180px; }
+.column h2 { margin: 0 0 var(--space-3); font-size: var(--font-size-ui); color: var(--text-secondary); }
+.card { min-width: 0; margin-bottom: var(--space-3); }
+
+.meta { color: var(--text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.form { display: flex; flex-direction: column; gap: var(--space-4); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.editor { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); padding: var(--space-5); min-height: 260px; background: var(--surface-raised); }
+.detail { display: flex; flex-direction: column; gap: var(--space-4); max-width: 1000px; margin: 0 auto; }
+.snapshot { padding: var(--space-4); background: var(--surface-sidebar-solid); border-radius: var(--radius-panel); overflow-wrap: anywhere; }
+.snapshot h3 { margin: 0 0 var(--space-2); font-size: var(--font-size-ui); }
+.prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 三列各至少 220px + 两个 space-4 间距（32px），700px 留少量取整余量。 */
+@container (max-width: 700px) { .board { grid-template-columns: 1fr; } }
+@media (max-width: 1000px) { .board { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .sidebar { max-height: 160px; border-right: none; border-bottom: 1px solid var(--border-subtle); } .main { padding: var(--space-3); } }
+
+.cardTitle, .cardProgress { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; max-width: 100%; }
+.cardTitle { -webkit-line-clamp: 2; font-weight: 600; }
+.cardProgress { -webkit-line-clamp: 3; font-size: var(--font-size-ui); color: var(--text-primary); }
+.cardExecutor { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.column h2 { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.columnCount { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.cardStatus { align-self: flex-start; max-width: 100%; padding: var(--space-1) var(--space-2); border-radius: var(--radius-panel); background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
+.cardProgress { padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
+.contextTrigger { display: none; }
+.contextActions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.contextLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contextCurrent { color: var(--text-secondary); }
+@media (max-width: 1100px) and (min-width: 701px) {
+  .layout { grid-template-columns: minmax(140px, 170px) minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .header { padding: var(--space-2) var(--space-3); gap: var(--space-2); }
+  .header h1 { font-size: var(--font-size-ui); }
+  .header p { display: none; }
+  .sidebar { padding: 0 var(--space-2); max-height: 220px; }
+  .sidebar h2 { display: none; }
+  .contextTrigger { display: flex; justify-content: space-between; width: 100%; min-height: 44px; gap: var(--space-2); margin: 0; }
+  .contextBody[data-collapsed="true"], .contextActions[data-collapsed="true"] { display: none; }
+  .contextBody { padding-bottom: var(--space-2); }
+  .contextPanel { min-width: 0; }
+  .contextToolbar { min-width: 0; }
+  .contextActions { padding-block: var(--space-2); }
+  .workspaceHeader > h2, .workspaceHeader > .spacer { display: none; }
+  .workspaceHeader { justify-content: space-between; }
+  .board { gap: var(--space-3); }
+  .column { min-height: 0; }
+}

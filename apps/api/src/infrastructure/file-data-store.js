@@ -1,3 +1,5 @@
+import { createEmptyTaskWorkspaceSnapshot, createJsonTaskWorkspaceStore } from './task-workspace-json-store.js';
+import { validateTaskWorkspaceSnapshot, rebindTaskWorkspaceSnapshot } from '../modules/task-workspaces/storage-validation.js';
 import { createJsonActionStore } from '../modules/ai/action-state.js';
 import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, historyRetentionBasis } from '../modules/knowledge/domain/history-retention.js';
 import { extractionPageRows } from '../modules/ai/knowledge-extraction-task-page.js';
@@ -63,6 +65,10 @@ export function createFileDataStore(filePath, {
 
   const parsed = parsePersistedState(filePath);
   const state = validatePersistedLocalState(parsed);
+  // 独立扩展不加入普通笔记 collections、搜索或 sync；坏数据原样保留。
+  let taskWorkspaces = parsed.taskWorkspaces === undefined ? createEmptyTaskWorkspaceSnapshot() : parsed.taskWorkspaces;
+  let taskWorkspaceStoreError = null;
+  try { validateTaskWorkspaceSnapshot(taskWorkspaces); } catch (error) { taskWorkspaceStoreError = error; }
   let coreOperations = parsed.coreOperations;
   let coreOperationStoreError = null;
   try { coreOperations = validateCoreOperationState(coreOperations); }
@@ -96,11 +102,11 @@ export function createFileDataStore(filePath, {
   let committed = createSyncBaseline(state);
   let historyBasis = historyRetentionBasis(state);
   let transaction = null;
-  if (parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
+  if (parsed.taskWorkspaces === undefined || parsed.schemaVersion !== LOCAL_DATA_SCHEMA_VERSION || ['knowledgeItems', 'knowledgeEvidence', 'knowledgeArtifactProvenance'].some(collection => JSON.stringify(parsed[collection] ?? []) !== JSON.stringify(state[collection]))) {
     const previous = Object.fromEntries(LOCAL_DATA_COLLECTIONS.map(collection => [collection, cloneJsonData(parsed[collection] ?? [])]));
     journal = appendChanges(journal, previous, state);
     writeJson(filePath, { ...createPersistedLocalDocument(state), sync: journal, aiRuntime, coreOperations, knowledgeExtractionCommits,
-      aiKnowledgeExtractionTasks: extractionTasks });
+      aiKnowledgeExtractionTasks: extractionTasks, taskWorkspaces });
   }
 
   function flush() {
@@ -111,22 +117,24 @@ export function createFileDataStore(filePath, {
     persistState(state);
   }
 
-  function runTransaction(operation) {
+  function runTransaction(operation, { beforeCommit } = {}) {
     if (typeof operation !== 'function') {
       throw new TypeError('Storage transaction operation must be a function');
     }
 
     if (transaction) {
+      if (beforeCommit) (transaction.commitGuards ??= []).push(beforeCommit);
       return operation();
     }
 
     const previousState = cloneLocalState(state);
     const previousAiRuntime = cloneJsonData(aiRuntime);
+    const previousTaskWorkspaces = cloneJsonData(taskWorkspaces);
     const previousCoreOperations = cloneJsonData(coreOperations);
     const previousExtractionCommits = cloneJsonData(knowledgeExtractionCommits);
     const previousExtractionTasks = cloneJsonData(extractionTasks);
     const previousJournal = cloneJsonData(journal);
-    transaction = { dirty: false, afterCommit: [] };
+    transaction = { dirty: false, afterCommit: [], commitGuards: beforeCommit ? [beforeCommit] : [] };
     let committedCallbacks = [];
 
     try {
@@ -142,6 +150,7 @@ export function createFileDataStore(filePath, {
     } catch (error) {
       replaceState(state, previousState);
       aiRuntime = previousAiRuntime;
+      taskWorkspaces = previousTaskWorkspaces;
       coreOperations = previousCoreOperations;
       knowledgeExtractionCommits = previousExtractionCommits;
       extractionTasks = previousExtractionTasks;
@@ -204,7 +213,7 @@ export function createFileDataStore(filePath, {
       const result = operation();
       if (result && typeof result.then === 'function') throw new TypeError('快照缓存事务必须同步。');
       writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...state, sync: journal,
-        aiRuntime, coreOperations, knowledgeExtractionCommits, aiKnowledgeExtractionTasks: extractionTasks });
+        aiRuntime, coreOperations, knowledgeExtractionCommits, aiKnowledgeExtractionTasks: extractionTasks, taskWorkspaces });
       return result;
     } catch (error) {
       journal = previousJournal;
@@ -233,8 +242,12 @@ export function createFileDataStore(filePath, {
       journal.revisions[key] = tombstone.revision;
     }
     const previousAiRuntime = aiRuntime;
-    aiRuntime = { ...aiRuntime, datasetEpoch: randomUUID() };
-    try { persistState(validated.data); } catch (error) { journal = previousJournal; aiRuntime = previousAiRuntime; throw error; }
+    const previousTaskWorkspaces = taskWorkspaces;
+    try {
+      if (!taskWorkspaceStoreError) taskWorkspaces = rebindTaskWorkspaceSnapshot(taskWorkspaces, { datasetId: taskWorkspaces.datasetId, datasetEpoch: randomUUID() });
+      aiRuntime = { ...aiRuntime, datasetEpoch: randomUUID() };
+      persistState(validated.data);
+    } catch (error) { journal = previousJournal; aiRuntime = previousAiRuntime; taskWorkspaces = previousTaskWorkspaces; throw error; }
     replaceState(state, validated.data);
     return exportSnapshot();
   }
@@ -258,15 +271,25 @@ export function createFileDataStore(filePath, {
       const nextCommitted = createSyncBaseline(nextState);
       // 原子写入器同步序列化且不修改输入，写入期间保留事务回滚前像。
       writeJson(filePath, { schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState, sync: nextJournal,
+        taskWorkspaces,
         aiRuntime: aiRuntimeError ? aiRuntime : validateAiState(aiRuntime),
         coreOperations: coreOperationStoreError ? coreOperations : validateCoreOperationState(coreOperations),
         knowledgeExtractionCommits: knowledgeExtractionCommitStoreError ? knowledgeExtractionCommits
           : validateKnowledgeExtractionCommitState(knowledgeExtractionCommits),
-        aiKnowledgeExtractionTasks: knowledgeExtractionTaskStoreError ? extractionTasks : validateExtractionTaskState(extractionTasks) });
+        aiKnowledgeExtractionTasks: knowledgeExtractionTaskStoreError ? extractionTasks : validateExtractionTaskState(extractionTasks) }, {
+        beforeCommit: () => {
+          for (const guard of transaction?.commitGuards ?? []) {
+            const result = guard();
+            if (result === false) throw createAppError('TASK_WORKSPACE_FORBIDDEN', '任务工作区操作授权已失效。', 403);
+            if (result?.then) throw new TypeError('Local storage commit guard must be synchronous');
+          }
+        }
+      });
       journal = nextJournal;
       committed = nextCommitted;
       historyBasis = historyRetentionBasis(nextState);
     } catch (error) {
+      if (error?.code?.startsWith('TASK_WORKSPACE_')) throw error;
       throw createAppError(
         'STORAGE_WRITE_FAILED',
         'Failed to persist local data safely',
@@ -282,6 +305,19 @@ export function createFileDataStore(filePath, {
   }
 
   return {
+    taskWorkspaceStore: taskWorkspaceStoreError ? null : createJsonTaskWorkspaceStore({
+      readState: () => {
+        // 其他进程恢复/替换文件后，旧实例不能继续读旧 epoch 的缓存资料或回执。
+        // 保守关闭本域并要求重新打开；不改变普通笔记的读取和同步协议。
+        if (identity() !== diskIdentity) {
+          throw createAppError('TASK_WORKSPACE_CONFLICT', '任务工作区资料库已变化，请重新加载后再操作。', 409);
+        }
+        return taskWorkspaces;
+      },
+      writeState: next => { taskWorkspaces = next; flush(); },
+      transaction: runTransaction
+    }),
+    taskWorkspaceStoreError,
     getHistoryRetentionReferences,
     provenanceMigration,
     // Internal, synchronous snapshot of every retained dataset; never hide unreadable private records.

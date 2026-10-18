@@ -1,0 +1,94 @@
+name: Knowledge Identity V3 (synthetic DeepSeek)
+
+# 首次合入 main 后自动实验一次；后续只手动触发。
+# 不监听 PR；无外部资料路径入参；不允许 Pull Request 使用仓库 Secret。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-identity-v3.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowra-knowledge-identity-v3-synthetic
+  cancel-in-progress: false
+
+jobs:
+  identity-v3:
+    name: Reuse, mixed claims, AI supplement, duplicate hint
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout fixed repository snapshot without credentials
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Verify synthetic harness without API calls
+        run: node --test scripts/test/knowledge-identity-v3.test.js
+
+      - name: Five bounded DeepSeek requests from fixed public cases only
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo 'DEEPSEEK Secret is unavailable; no calls made.'
+            exit 1
+          fi
+          node scripts/experiments/knowledge-identity-v3/run.mjs \
+            --max-tokens 2400 \
+            --out "$RUNNER_TEMP/knowra-identity-v3"
+
+      - name: Confirm all model requests returned structured output
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const d=JSON.parse(readFileSync(process.env.RUNNER_TEMP+"/knowra-identity-v3/result.json", "utf8"));
+            if(d.runs.length!==5 || d.runs.some(x=>!x.modelOk)){
+              console.error("Model requests incomplete; candidate quality cannot be fully compared.");
+              process.exit(1);
+            }
+            console.log("All five DeepSeek requests completed; link quality is evaluated separately.");
+          '
+
+      - name: Publish limited public-synthetic aggregate
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/knowra-identity-v3/report.md" ]]; then
+            {
+              echo "## 知境第三轮知识模型边界实验"
+              echo
+              echo "仅公开合成测试样本：五次 DeepSeek 请求，未修改任何知境正式知识。"
+              echo
+              sed -n '/^## 汇总$/,/^## 逐例证据/p' "$RUNNER_TEMP/knowra-identity-v3/report.md" | sed '$d'
+              echo
+              echo "本测试结果不能代表用户私人笔记的普遍准确率；语义仍需人工核查。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "没有完整实验报告，不能判断模型融合效果。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Save synthetic-only evidence (7 days)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowra-identity-v3-synthetic-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/knowra-identity-v3/report.md
+            ${{ runner.temp }}/knowra-identity-v3/result.json
+          if-no-files-found: ignore
+          retention-days: 7

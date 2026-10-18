@@ -1,3 +1,4 @@
+import { taskAdapterResult } from './task-adapter-result.mjs';
 /**
  * 适配器的业务逻辑，与具体 MCP 库无关：把运行端的片段结果整理成 MCP 工具结果，把错误整理成工具错误（isError）。
  * 适配器没有自己的工具表，工具清单、参数结构与全部校验都来自运行端。
@@ -17,6 +18,8 @@ export function createAdapterHandlers({ client }) {
     async callTool(name, args) {
       try {
         const result = await client.call(name, args ?? {});
+        const taskResult = taskAdapterResult(name, result);
+        if (taskResult) return taskResult;
         // 只返回文本内容：同时带 structuredContent 会让最终消息翻倍，超出运行端按最终消息计算的大小上限。
         return { content: [{ type: 'text', text: textOf(result) }] };
       } catch (error) { return failure(error); }

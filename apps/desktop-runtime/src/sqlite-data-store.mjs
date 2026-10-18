@@ -1,3 +1,4 @@
+import { createSqliteTaskWorkspaceStore } from './task-workspaces/sqlite-store.mjs';
 import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { reclaimFreeSpace } from './sqlite-space-reclaim.mjs';
 import { readPrivateHistoryReferences, createUnsyncedHistoryDiscardGate } from './note-version-discard-gate.mjs';
@@ -248,6 +249,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       restore(validated.data);
       persist();
       aiRepository?.rotateEpoch();
+      taskWorkspaceStore?.rotateEpoch();
       beforeCommit();
       db.exec('COMMIT');
       committed = cloneLocalState(validated.data);
@@ -286,6 +288,9 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
   let knowledgeExtractionTaskStore = null, knowledgeExtractionTaskStoreError = null;
   try { knowledgeExtractionTaskStore = createSqliteKnowledgeExtractionTaskStore(db, filePath, runTransaction); }
   catch (error) { knowledgeExtractionTaskStoreError = error; }
+  let taskWorkspaceStore = null, taskWorkspaceStoreError = null;
+  try { taskWorkspaceStore = createSqliteTaskWorkspaceStore(db, { beforeCommit }); }
+  catch (error) { taskWorkspaceStoreError = error; }
   historyReady = true;
   // 历史清理与队列压缩只释放页不缩小文件；启动时一次性整理，失败不影响使用。
   reclaimFreeSpace(db, filePath);
@@ -295,6 +300,8 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       ? null : readPrivateHistoryReferences(db),
     deletionFacts: deletionFactsReader(db),
     provenanceMigration,
+    taskWorkspaceStore,
+    taskWorkspaceStoreError,
     knowledgeExtractionTaskStore,
     knowledgeExtractionTaskStoreError,
     knowledgeExtractionCommitStore,
