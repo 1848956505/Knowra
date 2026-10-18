@@ -2322,3 +2322,56 @@ async function tokenColor(scope: Locator, token: string): Promise<string> {
     return color;
   }, token);
 }
+
+test('V4-07 表格快捷插入明确区分行列，连续操作可独立撤销', async ({ page }, testInfo) => {
+  await mockEditorWorkspace(page, [], [], '| 名称 | 数量 |\n| --- | --- |\n| 苹果 | 2 |\n| 梨 | 3 |');
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto('/#/materials/notes/note-1');
+  const table = page.locator('.ProseMirror table');
+  await table.locator('td').first().click();
+  const controls = page.getByRole('toolbar', { name: '表格操作工具栏' });
+  await expect(controls.getByRole('button')).toHaveCount(3);
+  await page.screenshot({ path: testInfo.outputPath('table-controls-desktop.png') });
+  await controls.getByRole('button', { name: '在当前表格行下方插入行', exact: true }).click();
+  await expect(table.locator('tr')).toHaveCount(4);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await controls.getByRole('button', { name: '在当前表格列右侧插入列', exact: true }).click();
+  await expect(table.locator('th')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(table.locator('th')).toHaveCount(2);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(table.locator('tr')).toHaveCount(3);
+});
+
+test('V4-07 手机表格收起快捷项但完整分组菜单保持可见和可操作', async ({ page }, testInfo) => {
+  await mockEditorWorkspace(page, [], [], '| 名称 | 数量 |\n| --- | --- |\n| 苹果 | 2 |\n| 梨 | 3 |');
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  const table = page.locator('.ProseMirror table');
+  await table.locator('td').first().click();
+  const controls = page.getByRole('toolbar', { name: '表格操作工具栏' });
+  await expect(controls.getByRole('button', { name: '在当前表格行下方插入行', exact: true })).toBeHidden();
+  const trigger = controls.getByRole('button', { name: '表格操作', exact: true });
+  const box = await trigger.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(8);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(382);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await page.screenshot({ path: testInfo.outputPath('table-controls-mobile.png') });
+  await trigger.click();
+  const menu = page.getByRole('menu', { name: '表格操作', exact: true });
+  await expect(menu.getByRole('menuitem')).toHaveCount(13);
+  await expect(menu.getByRole('separator')).toHaveCount(3);
+  await expect(menu).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('table-menu-mobile.png') });
+  await menu.getByRole('menuitem', { name: '在右侧插入列', exact: true }).click();
+  await expect(table.locator('th')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await trigger.click();
+  const deleteTable = menu.getByRole('menuitem', { name: '删除整个表格', exact: true });
+  await deleteTable.scrollIntoViewIfNeeded();
+  await expect(deleteTable).toBeInViewport();
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+});

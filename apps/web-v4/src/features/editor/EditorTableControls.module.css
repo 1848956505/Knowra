@@ -1,6 +1,14 @@
-.toolbar { position: fixed; z-index: 8; display: flex; align-items: center; gap: var(--space-2); max-width: calc(100vw - 16px); padding: 4px 8px; border: 0; border-radius: var(--radius-popover); background: var(--surface-page); color: var(--text-secondary); font: var(--font-size-meta)/1.5 var(--font-ui); box-shadow: var(--shadow-popover); }
+.toolbar { position: fixed; z-index: 8; display: flex; align-items: center; gap: var(--space-2); max-width: min(400px, calc(100vw - 16px)); box-sizing: border-box; padding: 4px 8px; border: 0; border-radius: var(--radius-popover); background: var(--surface-page); color: var(--text-secondary); font: var(--font-size-meta)/1.5 var(--font-ui); box-shadow: var(--shadow-popover); }
+
+.count { flex: 0 0 auto; white-space: nowrap; }
+.shortcuts { display: flex; align-items: center; gap: var(--space-1); }
+.toolbar > button { flex: 0 0 auto; }
+
+/* 小屏保留完整菜单入口，快捷操作也始终能在菜单中找到。 */
+@media (max-width: 479px) {
+  .shortcuts { display: none; }
+}
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .toolbar { overflow-x: auto; }
   .toolbar button { flex: 0 0 auto; min-height: var(--touch-target); }
 }
