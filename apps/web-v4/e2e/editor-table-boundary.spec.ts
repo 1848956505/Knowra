@@ -65,6 +65,8 @@ test('HTML 粘贴的文末长表格下方有真实可点击入口，重复点击
   await expect(editor.locator('tr')).toHaveCount(13);
   await expect(editor.locator(':scope > p')).toHaveCount(0);
   await editor.locator('tr:last-child').scrollIntoViewIfNeeded();
+  // 表格手柄叠层按动画帧跟随滚动，等它落定后再做命中测试。
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const point = await editor.evaluate(element => {
     const rect = element.getBoundingClientRect();
     const table = element.querySelector('table')!.getBoundingClientRect();

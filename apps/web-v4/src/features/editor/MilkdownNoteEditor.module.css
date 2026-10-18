@@ -207,6 +207,12 @@
   text-align: left;
   vertical-align: middle;
 }
+/* 列宽是本机视图状态（见 editorTableColumnWidths）；窄屏保持自动列宽，避免固定比例挤压正文。 */
+@media (min-width: 768px) {
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] { table-layout: fixed; }
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] th { width: var(--col-width); }
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] :is(th, td) { overflow-wrap: anywhere; }
+}
 .milkdownEditor :global(.ProseMirror) th { background: var(--surface-hover); color: var(--text-primary); font-weight: 600; }
 .milkdownEditor :global(.ProseMirror) tbody tr:nth-child(odd) { background: var(--surface-hover); }
 .milkdownEditor :global(.ProseMirror) :is(th, td) p { margin: 0; }
@@ -404,4 +410,14 @@
   font: 12px/1.5 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* 44px触控手柄需要真实表外空间：手机纸张仅22px内边距，额外28px
+   加上视口4px安全边距后仍可容纳手柄与表格间2px空隙。只在编辑态预留。 */
+@media (max-width: 767px), (any-pointer: coarse) {
+  .milkdownEditor :global(.ProseMirror[contenteditable='true']) table {
+    width: calc(100% - 56px);
+    margin-inline: 28px;
+    margin-top: 48px;
+  }
 }
