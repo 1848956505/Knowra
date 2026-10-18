@@ -39,8 +39,8 @@ describe('表格操作分组与快捷入口', () => {
     const { trigger } = setup();
     const toolbar = screen.getByRole('toolbar', { name: '表格操作工具栏' });
     expect(within(toolbar).getAllByRole('button')).toHaveLength(3);
-    expect(screen.getByRole('button', { name: '在当前表格行下方插入行' })).toHaveTextContent('下方插行');
-    expect(screen.getByRole('button', { name: '在当前表格列右侧插入列' })).toHaveTextContent('右侧插列');
+    expect(screen.getByRole('button', { name: '在当前表格行下方插入行' })).toHaveTextContent('下方插入行');
+    expect(screen.getByRole('button', { name: '在当前表格列右侧插入列' })).toHaveTextContent('右侧插入列');
     await user.click(trigger);
     const menu = screen.getByRole('menu');
     expect(within(menu).getAllByRole('menuitem')).toHaveLength(13);

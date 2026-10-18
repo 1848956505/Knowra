@@ -22,8 +22,8 @@ const groups: Array<{ label: string; danger?: boolean; items: Array<{ action: Ta
   ] }
 ];
 const shortcuts: Array<{ action: TableAction; label: string; description: string }> = [
-  { action: 'row-after', label: '下方插行', description: '在当前表格行下方插入行' },
-  { action: 'column-after', label: '右侧插列', description: '在当前表格列右侧插入列' }
+  { action: 'row-after', label: '下方插入行', description: '在当前表格行下方插入行' },
+  { action: 'column-after', label: '右侧插入列', description: '在当前表格列右侧插入列' }
 ];
 type ActionContext = { view: EditorView; state: EditorView['state'] } | null;
 
@@ -102,7 +102,7 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
     <MenuTrigger onOpenChange={open => {
       if (open) menuContext.current = captureContext();
     }}>
-      <Button size="compact" variant="ghost" aria-label="表格操作">更多操作</Button>
+      <Button size="compact" variant="ghost" aria-label="表格操作">表格操作</Button>
       <MenuPopover placement="bottom start"><Menu ariaLabel="表格行列操作">
         {groups.map(({ label: groupLabel, danger, items }, index) => <Fragment key={groupLabel}>
           {index > 0 ? <MenuSeparator /> : null}
