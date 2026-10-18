@@ -27,6 +27,7 @@
 .empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:72px 24px; text-align:center; color:var(--ni-ink-3); font:400 13px/1.7 var(--font-ui); }
 .empty strong { font-size:14px; font-weight:550; color:var(--ni-ink); }
 .empty p { margin:0; }
+.empty > svg { margin-bottom:6px; }
 .emptyArt { width:66px; height:66px; display:grid; place-items:center; border:1px solid var(--ni-line); border-radius:16px; background:var(--ni-surf); color:var(--ni-accent); margin-bottom:10px; }
 .bulkBar { position:absolute; z-index:5; left:50%; bottom:42px; transform:translateX(-50%); display:flex; align-items:center; gap:8px; max-width:calc(100% - 24px); padding:6px 12px; border-radius:var(--ni-control-radius); background:var(--ni-surf); box-shadow:0 0 0 1px var(--ni-line-2),0 8px 32px #0002; font-size:12px; white-space:nowrap; }
 .bulkBar strong { font-size:12px; font-weight:500; }

@@ -1,0 +1,7 @@
+.art { display: block; max-width: 100%; height: auto; --art-accent: var(--ni-accent, var(--accent-solid, #f26b1d)); }
+.page { fill: var(--ni-surf, #fff); stroke: var(--ni-line-2, rgba(24, 30, 48, .14)); stroke-width: 1.5; }
+.line { fill: var(--ni-fill-3, rgba(24, 30, 48, .07)); }
+.bar { fill: var(--ni-ink-4, #b4b9c6); }
+.badge { fill: color-mix(in srgb, var(--art-accent) 12%, var(--ni-surf, #fff)); stroke: color-mix(in srgb, var(--art-accent) 28%, transparent); stroke-width: 1.5; }
+.glyph { stroke: var(--art-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.dot { fill: color-mix(in srgb, var(--art-accent) 45%, transparent); }

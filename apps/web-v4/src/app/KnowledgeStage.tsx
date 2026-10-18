@@ -19,6 +19,7 @@ export function KnowledgeStage({ pathname, onOpenNote }: { pathname: string; onO
     refreshKey={state.knowledgeGeneration}
     readOnlyReason={canWrite ? undefined : '当前资料库为只读模式，请重试加载后再修改知识。'}
     onSelectItem={id => navigate(`/knowledge?item=${encodeURIComponent(id)}`)}
+    onCloseItem={() => navigate('/knowledge')}
     onOpenNote={onOpenNote}
     onList={state.listKnowledgeItems}
     onGet={state.getKnowledgeItem}

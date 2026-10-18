@@ -1,3 +1,4 @@
+import { knowledgeCreateButton } from './helpers/knowledge-index.mjs';
 import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -85,7 +86,7 @@ test('真实页面：标注来源审核与过期保护；桌面离线新建、�
   if (process.env.KNOWRA_E2E_OUTPUT) { fs.mkdirSync(process.env.KNOWRA_E2E_OUTPUT, { recursive: true }); await page.screenshot({ path: path.join(process.env.KNOWRA_E2E_OUTPUT, 'knowledge-workflow.png'), animations: 'disabled' }); }
   await page.goto(`${runtime.launchUrl}`);
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
-  await page.getByRole('button', { name: '新建知识候选', exact: true }).click();
+  await knowledgeCreateButton(page).click();
   const localDialog = page.getByRole('dialog', { name: '新建知识候选', exact: true });
   await localDialog.getByLabel('标题', { exact: true }).fill('离线知识');
   await localDialog.getByLabel('核心陈述').fill('没有云端连接也能保存知识候选。');
