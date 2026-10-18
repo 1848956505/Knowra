@@ -65,6 +65,8 @@ export interface KnowraBlockInsertion {
 export function knowraCheck(text: string): string;
 export function parseKnowraMarks(markdown: unknown): KnowraMarks;
 export function stripKnowraMarks(markdown: unknown): string;
+export function stripKnowraMarksMapped(markdown: unknown): { markdown: string; toClean(offset: number): number };
 export function formatKnowraMarkOpen(id: string, attrs?: Record<string, string | null | undefined>): string;
 export function formatKnowraMarker(id: string, attrs?: Record<string, string | null | undefined>, options?: { exclude?: boolean }): string;
-export function insertKnowraMarks(markdown: string, marks?: { inline?: KnowraInlineInsertion[]; blocks?: KnowraBlockInsertion[] }): string;
+/** snap：边界落在转义、行内代码或实体中间时向外吸附，而不是报错。 */
+export function insertKnowraMarks(markdown: string, marks?: { inline?: KnowraInlineInsertion[]; blocks?: KnowraBlockInsertion[]; snap?: boolean; onInvalid?: (item: KnowraInlineInsertion | KnowraBlockInsertion, message: string) => void }): string;

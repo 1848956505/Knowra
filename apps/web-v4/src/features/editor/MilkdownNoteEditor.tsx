@@ -63,6 +63,7 @@ import {
   internalLinkSchema
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
+import { createKnowraMarksCodec, knowraMarkSchema } from './editorKnowraMarks';
 import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml, withoutIdentity } from './editorBlockIdentity';
 import { annotationShadowBehavior, applyBlockIdentity, captureIdentitySnapshot, type AnnotationIdentitySnapshot } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
@@ -511,6 +512,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(createBlockIdentityBehavior((state) => new Set(annotationPluginKey.getState(state)?.annotations.map((annotation) => annotation.id) ?? [])))
         .use(annotationShadowBehavior)
         .use(annotationSerializerGuard)
+        .use(knowraMarkSchema)
+        .use(createKnowraMarksCodec())
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
         .use(editorInputBehavior)

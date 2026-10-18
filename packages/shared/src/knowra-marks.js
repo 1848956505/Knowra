@@ -11,6 +11,7 @@ const FENCE_CLOSE = /^\s*(`{3,}|~{3,})\s*$/;
 const ATX_HEADING = /^\s{0,3}#{1,6}(\s|$)/;
 const THEMATIC_BREAK = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
 const DELIMITERS = new Set(['*', '_', '~', '=']);
+const ASCII_PUNCTUATION = /^[!-/:-@[-`{-~]$/;
 const VOID_ELEMENTS = new Set(['br', 'img', 'hr', 'input', 'wbr', 'col', 'embed', 'source', 'track', 'area', 'base', 'link', 'meta', 'param']);
 
 /** 覆盖文字的短校验值（FNV-1a 32 位，36 进制），用于发现编辑器外对代码块的改写。 */
@@ -132,7 +133,8 @@ function scanTextLine(markdown, line, state, sink) {
       continue;
     }
     const char = markdown[index];
-    if (char === '\\' && index + 1 < line.end) { sink.protect(index, index + 2); index += 2; continue; }
+    // CommonMark 只把反斜杠加 ASCII 标点当作转义，`\\eta` 里的反斜杠是普通字符。
+    if (char === '\\' && index + 1 < line.end && ASCII_PUNCTUATION.test(markdown[index + 1])) { sink.protect(index, index + 2, 'escape'); index += 2; continue; }
     if (char === '`') {
       const length = backtickRun(markdown, index, line.end);
       let close = index + length;
@@ -140,10 +142,10 @@ function scanTextLine(markdown, line, state, sink) {
         const next = markdown.indexOf('`', close);
         if (next < 0 || next >= line.end) { close = -1; break; }
         const run = backtickRun(markdown, next, line.end);
-        if (run === length) break;
+        if (run === length) { close = next; break; }
         close = next + run;
       }
-      if (close >= 0 && close < line.end) { sink.protect(index, close + length); index = close + length; } else index += length;
+      if (close >= 0 && close < line.end) { sink.protect(index, close + length, 'code'); index = close + length; } else index += length;
       continue;
     }
     if (markdown.startsWith('<!--', index)) {
@@ -184,7 +186,7 @@ function scanTextLine(markdown, line, state, sink) {
     }
     if (char === '&') {
       const entity = /^&(?:#\d{1,7}|#x[0-9a-f]{1,6}|[a-z][a-z0-9]{1,31});/i.exec(markdown.slice(index, line.end));
-      if (entity) { sink.protect(index, index + entity[0].length); index += entity[0].length; continue; }
+      if (entity) { sink.protect(index, index + entity[0].length, 'entity'); index += entity[0].length; continue; }
     }
     if (DELIMITERS.has(char)) {
       let end = index + 1;
@@ -214,7 +216,7 @@ function scan(markdown) {
     const spans = [];
     const elements = [];
     scanTextLine(markdown, line, state, {
-      protect: (start, end) => spans.push([start, end]),
+      protect: (start, end, kind = 'syntax') => spans.push([start, end, kind]),
       element: (start, end) => elements.push([start, end]),
       inline: mark => inline.push({ ...mark, line: index, roles: rolesOf(mark.attrs) }),
       marker: marker => markers.push({ ...marker, line: index }),
@@ -285,9 +287,7 @@ export function parseKnowraMarks(markdown) {
   return { format: KNOWRA_MARKS_FORMAT, inline, blocks, problems };
 }
 
-/** 去掉全部有效的 Knowra 标记，其余文字逐字不变。不合法的标记当作普通文字保留。 */
-export function stripKnowraMarks(markdown) {
-  const text = typeof markdown === 'string' ? markdown : '';
+function removalsOf(text) {
   const { lines, inline, markers } = scan(text);
   const removals = [];
   for (const mark of inline) removals.push([mark.start, mark.contentStart], [mark.contentEnd, mark.end]);
@@ -297,14 +297,41 @@ export function stripKnowraMarks(markdown) {
     else removals.push([text[run.start - 1] === ' ' && run.start > line.start ? run.start - 1 : run.start, run.end]);
   }
   removals.sort((left, right) => left[0] - right[0]);
+  const merged = [];
+  for (const [start, end] of removals) {
+    const last = merged.at(-1);
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+
+/** 去掉全部有效的 Knowra 标记，其余文字逐字不变。不合法的标记当作普通文字保留。 */
+export function stripKnowraMarks(markdown) {
+  return stripKnowraMarksMapped(markdown).markdown;
+}
+
+/** 同 stripKnowraMarks，另返回把原文偏移换算到去除后偏移的函数；落在被删除标记内部的偏移归到该标记的起点。 */
+export function stripKnowraMarksMapped(markdown) {
+  const text = typeof markdown === 'string' ? markdown : '';
+  const removals = removalsOf(text);
   let output = '';
   let cursor = 0;
   for (const [start, end] of removals) {
-    if (start < cursor) { cursor = Math.max(cursor, end); continue; }
     output += text.slice(cursor, start);
     cursor = end;
   }
-  return output + text.slice(cursor);
+  output += text.slice(cursor);
+  const toClean = offset => {
+    let removed = 0;
+    for (const [start, end] of removals) {
+      if (offset <= start) break;
+      if (offset < end) return start - removed;
+      removed += end - start;
+    }
+    return offset - removed;
+  };
+  return { markdown: output, toClean };
 }
 
 export function formatKnowraMarkOpen(id, attrs = {}) {
@@ -332,6 +359,12 @@ export function formatKnowraMarker(id, attrs = {}, { exclude = false } = {}) {
 }
 
 const insideSpan = (spans, offset) => spans.some(([start, end]) => offset > start && offset < end);
+const SNAPPABLE = new Set(['escape', 'code', 'entity']);
+/** 边界落在转义、行内代码或实体中间时向外移到其边缘（起点向前、终点向后）。 */
+function snapOutward(spans, offset, edge) {
+  const span = spans.find(([start, end, kind]) => SNAPPABLE.has(kind) && offset > start && offset < end);
+  return span ? (edge === 'start' ? span[0] : span[1]) : offset;
+}
 
 /**
  * 在不含 Knowra 标记的正文中插入标记，供迁移和测试使用；结果满足 `stripKnowraMarks(结果) === 原文`。
@@ -340,7 +373,7 @@ const insideSpan = (spans, offset) => spans.some(([start, end]) => offset > star
  * - blocks：`{ id, line, attrs, exclude, code: { from, to } }`。代码块、公式块、表格、HTML 块和分隔线写在前一行，其余写在行尾；
  *   `code` 只用于围栏代码块开头行，自动写入 `s=code`、`r` 和 `h`。
  */
-export function insertKnowraMarks(markdown, { inline = [], blocks = [] } = {}) {
+export function insertKnowraMarks(markdown, { inline = [], blocks = [], snap = false, onInvalid = null } = {}) {
   const { lines, fences, protectedSpans, inline: existing, markers } = scan(markdown);
   if (existing.length || markers.some(marker => marker.valid)) throw new Error('Markdown already contains Knowra marks');
   const lineOf = offset => lines.findIndex(line => offset >= line.start && offset <= line.end);
@@ -348,20 +381,36 @@ export function insertKnowraMarks(markdown, { inline = [], blocks = [] } = {}) {
   let sequence = 0;
   const add = (position, priority, text) => operations.push({ position, priority, sequence: sequence += 1, text });
 
+  // onInvalid 存在时，不合法的单条标记跳过并报告，其余照常插入。
+  const guarded = (item, run) => {
+    if (!onInvalid) return run();
+    try { return run(); } catch (error) { onInvalid(item, error instanceof Error ? error.message : String(error)); return undefined; }
+  };
   const byLine = new Map();
-  inline.forEach((item, order) => {
-    const { id, from, to } = item;
+  inline.forEach((item, order) => guarded(item, () => {
+    const { id } = item;
+    let { from, to } = item;
     if (!ID.test(id)) throw new Error(`Invalid Knowra mark id: ${id}`);
     if (!(Number.isInteger(from) && Number.isInteger(to) && from >= 0 && from < to && to <= markdown.length)) throw new Error(`Invalid range for ${id}`);
     const index = lineOf(from);
     const line = lines[index];
     if (line.kind !== 'text' || to > line.end) throw new Error(`Inline mark ${id} must stay within one text line`);
     const { spans = [], elements = [] } = protectedSpans.get(index) ?? {};
+    if (snap) { from = snapOutward(spans, from, 'start'); to = snapOutward(spans, to, 'end'); }
+    // 紧跟在普通反斜杠后面的 `<` 会被当成转义，标签失效：起点前移包住反斜杠，终点前收排除它。
+    const literalBackslashBefore = offset => markdown[offset - 1] === '\\' && !spans.some(([start, end, kind]) => kind === 'escape' && (end === offset || start === offset - 1));
+    if (snap) {
+      while (literalBackslashBefore(from)) from -= 1;
+      while (to > from + 1 && literalBackslashBefore(to)) to -= 1;
+      // 只标了一个反斜杠：前收会变空，改为往后多包一个字符。
+      if (literalBackslashBefore(to) && to < line.end) to += 1;
+    }
+    if (literalBackslashBefore(from) || literalBackslashBefore(to)) throw new Error(`Inline mark ${id} would follow a literal backslash`);
     if (insideSpan(spans, from) || insideSpan(spans, to)) throw new Error(`Inline mark ${id} splits protected Markdown syntax`);
     if (elements.some(([start, end]) => (from > start && from < end) !== (to > start && to < end))) throw new Error(`Inline mark ${id} crosses an HTML element`);
     if (!byLine.has(index)) byLine.set(index, []);
-    byLine.get(index).push({ ...item, order });
-  });
+    byLine.get(index).push({ ...item, from, to, order });
+  }));
   for (const items of byLine.values()) {
     const boundaries = [...new Set(items.flatMap(item => [item.from, item.to]))].sort((left, right) => left - right);
     let stack = [];
@@ -380,7 +429,7 @@ export function insertKnowraMarks(markdown, { inline = [], blocks = [] } = {}) {
   }
 
   const lineEnd = new Map();
-  for (const item of blocks) {
+  for (const item of blocks) guarded(item, () => {
     const line = lines[item.line];
     if (!line || line.kind === 'code' || line.kind === 'fenceClose') throw new Error(`Invalid block line for ${item.id}`);
     const text = markdown.slice(line.start, line.end);
@@ -396,10 +445,10 @@ export function insertKnowraMarks(markdown, { inline = [], blocks = [] } = {}) {
     }
     const marker = formatKnowraMarker(item.id, attrs, { exclude: item.exclude });
     const before = line.kind !== 'text' || /^\s*[|<]/.test(text) || THEMATIC_BREAK.test(text);
-    if (before) { add(line.start, 0, `${text.match(/^\s*/)[0]}${marker}\n`); continue; }
+    if (before) { add(line.start, 0, `${text.match(/^\s*/)[0]}${marker}\n`); return; }
     if (!lineEnd.has(item.line)) lineEnd.set(item.line, []);
     lineEnd.get(item.line).push(marker);
-  }
+  });
   for (const [index, list] of lineEnd) {
     const line = lines[index];
     add(line.start + lineSuffixStart(markdown.slice(line.start, line.end)), 3, ` ${list.join('')}`);

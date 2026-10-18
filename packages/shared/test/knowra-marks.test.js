@@ -5,7 +5,8 @@ import {
   insertKnowraMarks,
   knowraCheck,
   parseKnowraMarks,
-  stripKnowraMarks
+  stripKnowraMarks,
+  stripKnowraMarksMapped
 } from '../src/knowra-marks.js';
 
 const ids = marks => marks.map(mark => mark.id);
@@ -197,4 +198,49 @@ test('随机文档：插入后去除总能逐字还原，解析能找回全部 I
     assert.deepEqual(new Set(ids(parsed.inline)), new Set(inline.map(item => item.id)));
     assert.deepEqual(new Set(ids(parsed.blocks)), new Set(blocks.map(item => item.id)));
   }
+});
+
+test('去除时返回偏移换算：标记内部的偏移归到标记起点', () => {
+  const markdown = '甲<mark data-k="a">乙</mark>丙 <!--k b s=blocks-->';
+  const { markdown: clean, toClean } = stripKnowraMarksMapped(markdown);
+  assert.equal(clean, '甲乙丙');
+  assert.equal(toClean(markdown.indexOf('乙')), 1);
+  assert.equal(toClean(markdown.indexOf('丙')), 2);
+  assert.equal(toClean(markdown.indexOf('data-k')), 1);
+  assert.equal(toClean(markdown.length), 3);
+});
+
+test('snap：边界落在转义、行内代码或实体中间时向外吸附', () => {
+  const source = '需要1 \\* 1卷积，`zeros_like` 和 &amp;';
+  const star = source.indexOf('*');
+  assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'a', from: star, to: star + 3 }] }), /protected/);
+  const marked = insertKnowraMarks(source, { snap: true, inline: [
+    { id: 'a', from: star, to: star + 3 },
+    { id: 'b', from: source.indexOf('zeros'), to: source.indexOf('_like') },
+    { id: 'c', from: source.indexOf('amp'), to: source.length }
+  ] });
+  assert.equal(marked, '需要1 <mark data-k="a">\\* 1</mark>卷积，<mark data-k="b">`zeros_like`</mark> 和 <mark data-k="c">&amp;</mark>');
+  assert.equal(stripKnowraMarks(marked), source);
+});
+
+test('onInvalid：跳过不合法的单条标记并报告，其余照常插入', () => {
+  const skipped = [];
+  const marked = insertKnowraMarks('甲乙\n丙', {
+    inline: [{ id: 'ok', from: 0, to: 1 }, { id: 'bad', from: 0, to: 4 }],
+    blocks: [{ id: 'blk', line: 9, attrs: { s: 'blocks' } }],
+    onInvalid: (item, message) => skipped.push([item.id, message])
+  });
+  assert.equal(marked, '<mark data-k="ok">甲</mark>乙\n丙');
+  assert.deepEqual(skipped.map(([id]) => id), ['bad', 'blk']);
+});
+
+test('只有反斜杠加 ASCII 标点才是转义：\\eta 中间可以作为边界', () => {
+  const source = '(\\eta) 与 \\*';
+  assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'a', from: 2, to: 5 }] }), /literal backslash/);
+  const snapped = insertKnowraMarks(source, { snap: true, inline: [{ id: 'a', from: 2, to: 5 }, { id: 'b', from: 0, to: 2 }] });
+  assert.equal(snapped, '<mark data-k="b">(</mark><mark data-k="a">\\eta</mark>) 与 \\*');
+  assert.deepEqual(parseKnowraMarks(snapped).problems, []);
+  assert.equal(insertKnowraMarks(source, { snap: true, inline: [{ id: 'c', from: 1, to: 2 }] }), '(<mark data-k="c">\\e</mark>ta) 与 \\*');
+  assert.equal(stripKnowraMarks(snapped), source);
+  assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'b', from: source.length - 1, to: source.length }] }), /protected/);
 });
