@@ -33,7 +33,7 @@ for (const direction of ['上方', '下方']) {
       await cells.nth(index).click({ button: 'right' });
       const menu = page.getByRole('menu', { name: '编辑器右键快捷功能', exact: true });
       await menu.getByRole('menuitem', { name: '插入', exact: true }).hover();
-      await page.getByRole('menu', { name: '插入内容', exact: true })
+      await page.getByRole('menu', { name: '插入', exact: true })
         .getByRole('menuitem', { name: `在${direction}插入段落`, exact: true }).click();
       await expect(menu).toBeHidden();
       await expect(editor.locator('table')).toHaveCount(1);
@@ -103,7 +103,7 @@ test('HTML 粘贴表格末行左格右键插下段落后仍能输入保存', asy
   await cell.click({ button: 'right' });
   const menu = page.getByRole('menu', { name: '编辑器右键快捷功能', exact: true });
   await menu.getByRole('menuitem', { name: '插入', exact: true }).hover();
-  await page.getByRole('menu', { name: '插入内容', exact: true }).getByRole('menuitem', { name: '在下方插入段落', exact: true }).click();
+  await page.getByRole('menu', { name: '插入', exact: true }).getByRole('menuitem', { name: '在下方插入段落', exact: true }).click();
   await expect(menu).toBeHidden();
   await expect(editor.locator('table')).toHaveCount(1);
   await expect(editor.locator('th, td')).toHaveText(original);
