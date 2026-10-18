@@ -1,3 +1,4 @@
+import { insertParagraphOutsideBlock } from './editorParagraphInsertion';
 import { indentCode, unwrapCodeLines, removeEmptyCode } from './editorCodeCommands';
 import { type Editor, editorViewCtx, schemaCtx } from '@milkdown/kit/core';
 import { lift, setBlockType, wrapIn } from '@milkdown/kit/prose/commands';
@@ -188,19 +189,7 @@ export function runTableNavigationCommand(editor: Editor, direction: 'next' | 'p
 
 export function insertParagraphNearSelection(editor: Editor, direction: 'above' | 'below'): boolean {
   const view = editor.ctx.get(editorViewCtx);
-  const paragraphNodeType = getNodeFromSchema('paragraph', editor.ctx.get(schemaCtx));
-  if (!paragraphNodeType) return false;
-
-  const { $from } = view.state.selection;
-  let textblockDepth = $from.depth;
-  while (textblockDepth > 0 && !$from.node(textblockDepth).isTextblock) textblockDepth -= 1;
-  if (textblockDepth <= 0) return false;
-
-  const insertPos = direction === 'above' ? $from.before(textblockDepth) : $from.after(textblockDepth);
-  const transaction = view.state.tr.insert(insertPos, paragraphNodeType.create());
-  transaction.setSelection(TextSelection.create(transaction.doc, insertPos + 1));
-  view.dispatch(transaction.scrollIntoView());
-  return true;
+  return insertParagraphOutsideBlock(direction)(view.state, view.dispatch);
 }
 
 function isSelectionInsideHeading(state: ReturnType<typeof getEditorState>, level: number): boolean {

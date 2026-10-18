@@ -22,7 +22,7 @@ export interface EditorBoundaryInput {
 
 export type EditorBoundaryAction = 'reset-empty-heading' | 'lift-empty-structured-block' | null;
 
-export interface TrailingCodeBlockClickInput {
+export interface TrailingBlockClickInput {
   button: number;
   clientY: number;
   lastBlockBottom: number;
@@ -54,8 +54,8 @@ export function resolveEditorBoundaryAction(input: EditorBoundaryInput): EditorB
     : null;
 }
 
-export function shouldInsertParagraphAfterTrailingCodeBlock(
-  input: TrailingCodeBlockClickInput
+export function shouldInsertParagraphAfterTrailingBlock(
+  input: TrailingBlockClickInput
 ): boolean {
   return input.editable
     && input.button === 0
@@ -63,7 +63,7 @@ export function shouldInsertParagraphAfterTrailingCodeBlock(
     && !input.metaKey
     && !input.altKey
     && !input.shiftKey
-    && input.lastNodeType === 'code_block'
+    && (input.lastNodeType === 'code_block' || input.lastNodeType === 'table')
     && input.clientY > input.lastBlockBottom;
 }
 
@@ -93,7 +93,7 @@ export const editorInputBehavior = $prose(() => new Plugin({
       mousedown(view, event) {
         const lastElement = view.dom.lastElementChild;
         if (!(event instanceof MouseEvent) || !(lastElement instanceof HTMLElement)) return false;
-        if (!shouldInsertParagraphAfterTrailingCodeBlock({
+        if (!shouldInsertParagraphAfterTrailingBlock({
           button: event.button,
           clientY: event.clientY,
           lastBlockBottom: lastElement.getBoundingClientRect().bottom,
