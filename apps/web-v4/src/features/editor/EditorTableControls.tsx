@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type RefObject } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import type { EditorView } from '@milkdown/kit/prose/view';
 import { selectedRect } from '@milkdown/kit/prose/tables';
 import { Button, Menu, MenuHeader, MenuItem, MenuPopover, MenuSection, MenuSeparator, MenuTrigger, Tooltip, TooltipTrigger } from '../../components/ui';
@@ -31,7 +31,8 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
   const menuContext = useRef<ActionContext>(null);
   const shortcutContext = useRef<ActionContext>(null);
   const [controls, setControls] = useState<(TableControlsState & { x: number; y: number }) | null>(null);
-  useEffect(() => {
+  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     const update = () => {
@@ -47,7 +48,13 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       const formatToolbar = scrollRoot?.querySelector('[aria-label="笔记格式工具栏"]')?.getBoundingClientRect();
       if (rect.bottom < (stage?.top ?? 0) || rect.top > (stage?.bottom ?? window.innerHeight)) { setControls(null); return; }
       const top = Math.max(stage?.top ?? 0, formatToolbar?.bottom ?? 0) + 8;
-      const next = { ...state, x: Math.max(8, Math.min(rect.left, window.innerWidth - 400)), y: Math.max(top, Math.min(rect.top - 40, window.innerHeight - 44)) };
+      const size = toolbar?.getBoundingClientRect();
+      const width = size?.width ?? 0;
+      const height = size?.height ?? 0;
+      const next = { ...state,
+        x: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        y: Math.max(top, Math.min(rect.top - height - 8, window.innerHeight - height - 8))
+      };
       setControls(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
     };
     // selectionchange 跟随鼠标、键盘和 CellSelection；菜单操作后也主动刷新。
@@ -57,8 +64,12 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
     host.addEventListener('pointerup', update);
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
+    // 初次挂载、缩放和触屏尺寸切换都按真实控件尺寸定位，避免覆盖表头。
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    if (toolbar) observer?.observe(toolbar);
     update();
     return () => {
+      observer?.disconnect();
       document.removeEventListener('selectionchange', update);
       host.removeEventListener(TABLE_CONTEXT_EVENT, update);
       host.removeEventListener('keyup', update);
@@ -66,7 +77,7 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [hostRef, getView]);
+  }, [hostRef, getView, toolbar]);
   const captureContext = (): ActionContext => {
     const view = getView();
     return view && !view.isDestroyed && view.editable ? { view, state: view.state } : null;
@@ -88,7 +99,7 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
     setControls(previous => previous && next ? { ...next, x: previous.x, y: previous.y } : null);
   };
   if (!controls) return null;
-  return <div className={styles.toolbar} style={{ left: controls.x, top: controls.y }} data-pdf-exclude="true" data-table-controls="true" role="toolbar" aria-label="表格操作工具栏">
+  return <div ref={setToolbar} className={styles.toolbar} style={{ left: controls.x, top: controls.y }} data-pdf-exclude="true" data-table-controls="true" role="toolbar" aria-label="表格操作工具栏">
     <span className={styles.count}>{controls.rows} 行 · {controls.columns} 列</span>
     <div className={styles.shortcuts} role="group" aria-label="表格快捷插入">
       {shortcuts.map(({ action, label, description }) => <TooltipTrigger key={action}><Button size="compact" variant="ghost" aria-label={description}

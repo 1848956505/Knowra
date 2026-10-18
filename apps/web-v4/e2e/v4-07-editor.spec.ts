@@ -2331,6 +2331,14 @@ test('V4-07 表格快捷插入明确区分行列，连续操作可独立撤销',
   await table.locator('td').first().click();
   const controls = page.getByRole('toolbar', { name: '表格操作工具栏' });
   await expect(controls.getByRole('button')).toHaveCount(3);
+  await expect.poll(async () => {
+    const rect = await controls.boundingBox();
+    const tableRect = await table.boundingBox();
+    const format = await page.getByRole('toolbar', { name: '笔记格式工具栏', exact: true }).boundingBox();
+    if (!rect || !tableRect || !format) return false;
+    const expectedTop = Math.max(format.y + format.height + 8, tableRect.y - rect.height - 8);
+    return rect.x >= 8 && rect.x + rect.width <= 1192 && Math.abs(rect.y - expectedTop) <= 1;
+  }).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('table-controls-desktop.png') });
   await controls.getByRole('button', { name: '在当前表格行下方插入行', exact: true }).click();
   await expect(table.locator('tr')).toHaveCount(4);

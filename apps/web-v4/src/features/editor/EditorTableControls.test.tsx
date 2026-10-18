@@ -31,7 +31,7 @@ function setup() {
   render(<><EditorTableControls hostRef={hostRef} getView={() => current as unknown as EditorView} /><input aria-label="外部输入" /></>);
   return { view, editor, host, replaceView: () => { current = { ...view }; }, trigger: screen.getByRole('button', { name: '表格操作' }) };
 }
-afterEach(() => { cleanup(); document.body.replaceChildren(); });
+afterEach(() => { cleanup(); document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
 describe('表格操作分组与快捷入口', () => {
   it('常驻仅两项插入和更多，完整十三项按四组呈现，删除单独置底', async () => {
@@ -120,4 +120,19 @@ describe('表格操作分组与快捷入口', () => {
     act(() => { frames.splice(0).forEach(callback => callback(0)); });
     expect(input).toHaveFocus(); expect(view.focus).not.toHaveBeenCalled();
   });
+});
+
+
+it('按真实工具栏尺寸避开表头和屏幕边缘，缩窄后重新对齐表格', () => {
+  vi.stubGlobal('innerWidth', 390);
+  let width = 360;
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return { left: 0, top: 0, right: width, bottom: 52, width, height: 52, x: 0, y: 0, toJSON: () => ({}) };
+  });
+  setup();
+  const toolbar = screen.getByRole('toolbar', { name: '表格操作工具栏' });
+  expect(toolbar).toHaveStyle({ left: '22px', top: '100px' });
+  width = 184;
+  fireEvent.resize(window);
+  expect(toolbar).toHaveStyle({ left: '100px', top: '100px' });
 });
