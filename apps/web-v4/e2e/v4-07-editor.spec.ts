@@ -108,7 +108,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await expect(editor).toHaveCSS('color', await tokenColor(editor, '--text-body'));
   expect(await editor.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Inter');
   const floatingToolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
-  await expect(floatingToolbar).toHaveCSS('margin-top', '24px');
+  await expect(page.locator('[data-editor-toolbar-stack]')).toHaveCSS('margin-top', '24px');
   for (const name of ['文件', '段落', '编辑', '格式', '视图']) {
     await expect(floatingToolbar.getByRole('button', { name, exact: true })).toBeVisible();
   }
@@ -953,7 +953,7 @@ test('V4-07 在工具栏后方输入时只滚动到正文首个可见位置', as
   await expect(target).toContainText('z');
   const position = await target.evaluate((paragraph) => {
     const stage = paragraph.closest<HTMLElement>('[data-editor-scroll-root]')!;
-    const toolbar = stage.querySelector<HTMLElement>('[role="toolbar"][aria-label="笔记格式工具栏"]')!;
+    const toolbar = stage.querySelector<HTMLElement>('[data-editor-toolbar-stack]')!;
     return { top: paragraph.getBoundingClientRect().top, toolbarBottom: toolbar.getBoundingClientRect().bottom, stageTop: stage.getBoundingClientRect().top, scrollTop: stage.scrollTop };
   });
   expect(position.top, JSON.stringify(position)).toBeGreaterThanOrEqual(Math.max(position.stageTop, position.toolbarBottom) - 4);
@@ -1182,7 +1182,8 @@ test('V4-07 长文档滚动时格式工具栏吸顶且回到顶部后恢复', as
   await page.goto('/#/materials/notes/note-1');
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const stage = page.locator('[data-editor-scroll-root]');
-  const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
+  // 外层负责占位间距和吸顶，内层继续负责格式命令。
+  const toolbar = page.locator('[data-editor-toolbar-stack]');
   await expect.poll(async () => {
     await stage.evaluate(element => { element.scrollTop = 600; });
     return toolbar.getAttribute('data-pinned');
