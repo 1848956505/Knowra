@@ -207,6 +207,12 @@
   text-align: left;
   vertical-align: middle;
 }
+/* 列宽是本机视图状态（见 editorTableColumnWidths）；窄屏保持自动列宽，避免固定比例挤压正文。 */
+@media (min-width: 768px) {
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] { table-layout: fixed; }
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] th { width: var(--col-width); }
+  .milkdownEditor :global(.ProseMirror) table[data-col-widths] :is(th, td) { overflow-wrap: anywhere; }
+}
 .milkdownEditor :global(.ProseMirror) th { background: var(--surface-hover); color: var(--text-primary); font-weight: 600; }
 .milkdownEditor :global(.ProseMirror) tbody tr:nth-child(odd) { background: var(--surface-hover); }
 .milkdownEditor :global(.ProseMirror) :is(th, td) p { margin: 0; }

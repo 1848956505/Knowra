@@ -60,6 +60,8 @@ export interface EditorCommandTarget {
   selectNoteLinkOccurrence?(locator: import('@study-accelerator/content-anchor').NoteLinkLocator): boolean;
   matchesMarkdownDocument?(markdown: string): boolean;
   run(command: EditorCommand): boolean;
+  /** 按指定行列数（含表头行）在当前光标处插入表格。 */
+  insertTable?(rows: number, columns: number): boolean;
   runEdit(action: EditorClipboardAction): Promise<EditorEditResult>;
   find(query: string, currentIndex: number, direction: EditorFindDirection): EditorFindResult;
   replaceCurrent(query: string, replacement: string, currentIndex: number): EditorFindResult;

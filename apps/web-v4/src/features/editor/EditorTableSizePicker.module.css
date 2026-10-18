@@ -1,0 +1,10 @@
+.picker { display: grid; gap: var(--space-2); padding: var(--space-2); }
+.grid { display: grid; gap: 3px; }
+.cell { width: 22px; height: 22px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-page); }
+.cell[data-active] { border-color: var(--accent-text); background: var(--surface-hover); }
+.cell[data-focus-visible] { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+.caption { margin: 0; color: var(--text-secondary); font: var(--font-size-meta)/1.5 var(--font-ui); text-align: center; }
+
+@media (max-width: 767px), (any-pointer: coarse) {
+  .cell { width: 32px; height: 32px; }
+}

@@ -310,6 +310,10 @@ export function NoteEditorView({
     if (!editorRef.current?.run(command)) return;
     window.requestAnimationFrame(() => editorRef.current?.focus());
   };
+  const insertTable = (rows: number, columns: number) => {
+    if (!editorRef.current?.insertTable?.(rows, columns)) return;
+    window.requestAnimationFrame(() => editorRef.current?.focus());
+  };
   const handleEditAction = async (action: EditorEditAction) => {
     if (action === 'repair-document') {
       setRepairDialogOpen(true);
@@ -595,6 +599,7 @@ export function NoteEditorView({
         inspectorOpen={inspectorOpen}
         view={view}
         onRunCommand={runCommand}
+        onInsertTable={insertTable}
         onEditAction={(action) => { void handleEditAction(action); }}
         onViewAction={onViewAction}
         onFileAction={(action) => {

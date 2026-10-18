@@ -1,6 +1,7 @@
 import { closeHistory } from '@milkdown/kit/prose/history';
+import { Fragment, type Node } from '@milkdown/kit/prose/model';
 import type { EditorState, Command } from '@milkdown/kit/prose/state';
-import { CellSelection, addColumnBefore, addColumnAfter, deleteColumn, deleteRow, deleteTable, isInTable, selectedRect } from '@milkdown/kit/prose/tables';
+import { CellSelection, TableMap, addColumnBefore, addColumnAfter, deleteColumn, deleteRow, deleteTable, isInTable, selectedRect } from '@milkdown/kit/prose/tables';
 
 export type TableAction = 'row-before' | 'row-after' | 'column-before' | 'column-after' | 'delete-row' | 'delete-column' | 'delete-table' | 'select-row' | 'select-column' | 'select-table' | 'align-left' | 'align-center' | 'align-right';
 export interface TableControlsState {
@@ -18,6 +19,72 @@ export function getTableControlsState(state: EditorState): TableControlsState | 
   return { rows: map.height, columns: map.width, row: top, column: left,
     canDeleteRow: top > 0 && map.height - (bottom - top) >= 2,
     canDeleteColumn: map.width > right - left };
+}
+
+export const TABLE_MAX_ROWS = 8;
+export const TABLE_MAX_COLUMNS = 8;
+export const TABLE_DEFAULT_SIZE = { row: 3, col: 3 } as const;
+
+/** 插入表格的行列数（含表头行）限制在 2..TABLE_MAX_ROWS / 1..TABLE_MAX_COLUMNS。 */
+export function clampTableSize(row: number, col: number) {
+  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(Number.isFinite(value) ? value : min)));
+  return { row: clamp(row, 2, TABLE_MAX_ROWS), col: clamp(col, 1, TABLE_MAX_COLUMNS) };
+}
+
+function moved<T>(items: T[], from: number, to: number): T[] {
+  const next = items.slice();
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
+}
+
+/** 把数据行从 from 移到 to（均为行下标，表头行 0 固定）。选区落在移动后的整行。 */
+export function moveTableRow(from: number, to: number): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const rect = selectedRect(state);
+    const { table, map, tableStart } = rect;
+    if (from === to || from < 1 || to < 1 || from >= map.height || to >= map.height) return false;
+    const rows: Node[] = [];
+    table.forEach(row => rows.push(row));
+    if (rows.length !== map.height) return false;
+    const next = table.copy(Fragment.from(moved(rows, from, to)));
+    if (dispatch) {
+      const tr = state.tr.replaceWith(tableStart - 1, tableStart - 1 + table.nodeSize, next);
+      const nextMap = TableMap.get(next);
+      const cell = (column: number) => tr.doc.resolve(tableStart + nextMap.map[to * nextMap.width + column]);
+      tr.setSelection(CellSelection.rowSelection(cell(0), cell(nextMap.width - 1)));
+      dispatch(closeHistory(tr.scrollIntoView()));
+    }
+    return true;
+  };
+}
+
+/** 把整列从 from 移到 to；对齐属性随单元格一起移动。选区落在移动后的整列。 */
+export function moveTableColumn(from: number, to: number): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    const rect = selectedRect(state);
+    const { table, map, tableStart } = rect;
+    if (from === to || from < 0 || to < 0 || from >= map.width || to >= map.width) return false;
+    const rows: Node[] = [];
+    let regular = true;
+    table.forEach(row => {
+      if (row.childCount !== map.width) regular = false;
+      const cells: Node[] = [];
+      row.forEach(cell => cells.push(cell));
+      rows.push(row.copy(Fragment.from(moved(cells, from, to))));
+    });
+    if (!regular) return false; // 含合并单元格的异常表格不做列移动。
+    const next = table.copy(Fragment.from(rows));
+    if (dispatch) {
+      const tr = state.tr.replaceWith(tableStart - 1, tableStart - 1 + table.nodeSize, next);
+      const nextMap = TableMap.get(next);
+      const cell = (row: number) => tr.doc.resolve(tableStart + nextMap.map[row * nextMap.width + to]);
+      tr.setSelection(CellSelection.colSelection(cell(0), cell(nextMap.height - 1)));
+      dispatch(closeHistory(tr.scrollIntoView()));
+    }
+    return true;
+  };
 }
 
 export function tableControlCommand(action: TableAction): Command {
