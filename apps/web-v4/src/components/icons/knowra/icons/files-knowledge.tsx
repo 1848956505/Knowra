@@ -31,6 +31,23 @@ export const FolderIcon = createIcon("FolderIcon", (
   </>
 ));
 
+/** 文件夹方案 05：实心前盖与半透明背板，用于侧栏文件夹树。 */
+export const SolidFolderIcon = createIcon("SolidFolderIcon", (
+  <>
+    <path d="M3.5 7.3V6a2 2 0 0 1 2-2h4.1l2 2.3h6.9a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill={ACCENT} stroke="none" opacity=".48"/>
+    <path d="M3.5 9a1 1 0 0 1 1-1h15a1 1 0 0 1 1 1v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill={ACCENT} stroke="none"/>
+    <path d="M6 10h12" stroke="var(--surface-page, #fff)" opacity=".46" strokeWidth="1.1"/>
+  </>
+));
+
+export const SolidExpandedFolderIcon = createIcon("SolidExpandedFolderIcon", (
+  <>
+    <path d="M3.5 7.3V6a2 2 0 0 1 2-2h4.1l2 2.3h6.9a2 2 0 0 1 2 2v9.2a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z" fill={ACCENT} stroke="none" opacity=".48"/>
+    <path d="M5.1 10h15.4a1 1 0 0 1 1 1.3l-2.1 6.8a2 2 0 0 1-1.9 1.4H6.4a1.7 1.7 0 0 1-1.7-1.4L3.4 11.8A1.5 1.5 0 0 1 5.1 10Z" fill={ACCENT} stroke="var(--surface-page, #fff)" strokeWidth=".8"/>
+    <path d="M7 12h11" stroke="var(--surface-page, #fff)" opacity=".55" strokeWidth="1.1"/>
+  </>
+));
+
 export const TagIcon = createIcon("TagIcon", (
   <>
     <path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><path d="M7 7h.01" strokeWidth="2.2"/>

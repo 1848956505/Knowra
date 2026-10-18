@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { SearchField } from '../input/SearchField';
+import { SearchBox } from '../input/SearchBox';
 import * as icons from '../../icons/knowra';
 import styles from './IconLibraryView.module.css';
 
@@ -87,13 +87,16 @@ export function IconLibraryView() {
           <strong>图标库</strong>
           <span>{count} / {totalIcons}</span>
         </div>
-        <SearchField
-          className={styles.search}
-          label="搜索图标"
-          placeholder="搜索图标名称…"
-          value={query}
-          onChange={setQuery}
-        />
+        <div className={styles.search}>
+          <SearchBox
+            size="field"
+            label="搜索图标"
+            placeholder="搜索图标名称…"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            onClear={query ? () => setQuery('') : undefined}
+          />
+        </div>
       </div>
 
       {groups.length ? groups.map((group) => <section key={group.id} className={styles.section} aria-labelledby={`icon-group-${group.id}`}>

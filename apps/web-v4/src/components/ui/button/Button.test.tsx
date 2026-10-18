@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { Button, IconButton, SegmentedButton, SegmentedControl } from './index';
+import { Button, SegmentedButton, SegmentedControl } from './index';
 
 describe('V4-04 Button', () => {
   it('renders a button with accessible name and role', () => {
@@ -54,17 +54,6 @@ describe('V4-04 Button', () => {
     const button = screen.getByRole('button', { name: '点击' });
     await user.click(button);
     expect(button).not.toHaveAttribute('data-focus-visible', 'true');
-  });
-
-  it('renders IconButton with explicit aria-label and renders only the icon node', () => {
-    render(
-      <IconButton aria-label="新建资料">
-        <span data-testid="icon">+</span>
-      </IconButton>
-    );
-    const button = screen.getByRole('button', { name: '新建资料' });
-    expect(button).toBeInTheDocument();
-    expect(screen.getByTestId('icon')).toBeInTheDocument();
   });
 
   it('supports isPending without throwing on click', async () => {

@@ -1,4 +1,4 @@
-import { Button, GhostIconButton } from '../../components/ui';
+import { Button, IconButton } from '../../components/ui';
 import { MathText } from '../../components/math/MathText';
 import { CloseIcon, FolderIcon, NoteIcon, PanelIcon } from '../../components/icons/knowra';
 import { folderLocation, displayNoteStatus } from './notesIndexNavigation';
@@ -14,7 +14,7 @@ export function NotesIndexPreview({ c }: { c: NotesIndexController }) {
     : item && typeof item.note.summary === 'string' && item.note.summary ? <MathText text={item.note.summary} inlineOnly /> : '暂无摘要，打开笔记查看完整内容。';
   return <aside className={styles.peek} aria-label="笔记预览">
     <header className={styles.peekHeader}><h2>预览</h2>
-      <GhostIconButton aria-label="关闭预览栏" onPress={() => c.setPeekOpen(false)}><CloseIcon size={18} /></GhostIconButton></header>
+      <IconButton aria-label="关闭预览栏" onPress={() => c.setPeekOpen(false)}><CloseIcon size={18} /></IconButton></header>
     {item ? <div className={styles.peekBody}>
       <div className={styles.peekHeading}>
         <span>{item.kind === 'folder' ? <FolderIcon size={13} /> : <NoteIcon size={13} />}{folderLocation(item.kind === 'folder' ? item.folder.parentId : item.note.folderId, c.serverData.foldersById)}</span>
@@ -34,7 +34,7 @@ export function NotesIndexPreview({ c }: { c: NotesIndexController }) {
         <p className={styles.peekSummary}>{summary}</p>
       </section>
       <section className={styles.peekSection}>
-        {item.kind === 'note' && item.note.deleted ? <p className={styles.optionHint}>笔记已在回收站，请先恢复。</p> : <Button size="compact" variant="accent"
+        {item.kind === 'note' && item.note.deleted ? <p className={styles.optionHint}>笔记已在回收站，请先恢复。</p> : <Button size="compact" variant="primary"
           onPress={() => item.kind === 'folder' ? c.selectFolder(item.folder.id) : c.openNote(item.note.id)}>打开{item.kind === 'folder' ? '文件夹' : '笔记'}</Button>}
       </section>
     </div> : <div className={styles.peekEmpty}><PanelIcon size={26} /><strong>选择一项以预览</strong><p>开启预览后，单击笔记或目录查看信息，使用“打开”继续。</p></div>}

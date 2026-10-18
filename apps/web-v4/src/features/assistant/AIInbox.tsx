@@ -190,7 +190,7 @@ export function AIInbox({ spaceId, refreshKey, onOpenNote, isOpen, onOpenChange,
             <Button variant="ghost" isDisabled={busy} onPress={() => void perform(() => noteActionApi.reject(selected.actionId))}>拒绝成果</Button>
           </> : null}
           </div></details>
-          {canAdopt && !editing ? <Button variant="accent" className={inboxStyles.adoptButton} isDisabled={busy} onPress={() => void adopt()}>{selected.status === 'applying' ? '对账并重试原成果' : '确认采纳到笔记'}</Button> : null}
+          {canAdopt && !editing ? <Button variant="primary" className={inboxStyles.adoptButton} isDisabled={busy} onPress={() => void adopt()}>{selected.status === 'applying' ? '对账并重试原成果' : '确认采纳到笔记'}</Button> : null}
         </> : null}
       </div>
     </aside> : null}

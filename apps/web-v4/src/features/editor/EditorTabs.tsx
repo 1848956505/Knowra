@@ -1,7 +1,7 @@
 import { MathText } from '../../components/math/MathText';
 import { useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import type { Note } from '@study-accelerator/web-core';
-import { GhostIconButton, PressableButton } from '../../components/ui/button';
+import { IconButton, PressableButton } from '../../components/ui/button';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay';
 import { ChevronDownIcon, CloseIcon, PlusIcon, NoteIcon } from '../../components/icons/knowra';
 import { cx } from '../../components/ui/classnames';
@@ -116,21 +116,21 @@ export function EditorTabs(props: EditorTabsProps) {
                   <span className={styles.tabLabel}>{note.title ? <MathText text={note.title} inlineOnly /> : '无标题笔记'}</span>
                 </PressableButton>
               </TabContextMenu>
-              <button type="button" className={styles.tabClose} aria-label={`关闭${note.title || '无标题笔记'}`} onClick={() => closeNote(note.id)}>
+              <PressableButton type="button" className={styles.tabClose} aria-label={`关闭${note.title || '无标题笔记'}`} onPress={() => closeNote(note.id)}>
                 <CloseIcon size={12} />
-              </button>
+              </PressableButton>
             </div>
           );
         })}
       </div>
       {overflowing ? <MenuTrigger>
-        <GhostIconButton
+        <IconButton
           className={styles.tabAction}
           aria-label="查看全部标签页"
           title="查看全部标签页"
         >
           <ChevronDownIcon size={16} />
-        </GhostIconButton>
+        </IconButton>
         <MenuPopover placement="bottom end">
           <Menu ariaLabel="全部标签页">
             {props.notes.map((note, index) => (
@@ -141,7 +141,7 @@ export function EditorTabs(props: EditorTabsProps) {
           </Menu>
         </MenuPopover>
       </MenuTrigger> : null}
-      <GhostIconButton
+      <IconButton
         className={styles.tabAction}
         aria-label="新建笔记"
         title={props.canWrite ? '新建笔记' : '后端离线时无法新建'}
@@ -149,7 +149,7 @@ export function EditorTabs(props: EditorTabsProps) {
         onPress={props.onCreateNote}
       >
         <PlusIcon size={18} />
-      </GhostIconButton>
+      </IconButton>
     </div>
   );
 }

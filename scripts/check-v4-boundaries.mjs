@@ -7,6 +7,7 @@ const v4Root = path.join(workspaceRoot, 'apps', 'web-v4');
 const v4Source = path.join(v4Root, 'src');
 const webCoreSource = path.join(workspaceRoot, 'packages', 'web-core', 'src');
 const violations = [];
+const warnings = [];
 
 // Extensionless imports must resolve consistently on case-insensitive filesystems.
 for (const root of [v4Source, webCoreSource]) {
@@ -37,6 +38,11 @@ for (const filePath of collectSourceFiles(v4Source)) {
     ) {
       violations.push(`${relativeFile}: react-aria-components is restricted to src/components/ui`);
     }
+  }
+
+  // 按钮类别约束为提醒而非失败：业务代码应使用 components/ui/button 的四类按钮；确有例外时在评审中说明。
+  if (!isWithin(filePath, path.join(v4Source, 'components', 'ui')) && /<button[\s>]/.test(source)) {
+    warnings.push(`${relativeFile}: 原生 <button>，请优先使用 Button / IconButton / PressableButton / SegmentedButton`);
   }
 
   for (const bannedApi of ['dangerouslySetInnerHTML', '.innerHTML', 'document.querySelector']) {
@@ -71,6 +77,10 @@ if (fs.existsSync(webCoreSource)) {
       }
     }
   }
+}
+
+if (warnings.length > 0) {
+  console.warn(`按钮类别提醒 (${warnings.length}，不影响通过):\n- ${warnings.join('\n- ')}`);
 }
 
 if (violations.length > 0) {

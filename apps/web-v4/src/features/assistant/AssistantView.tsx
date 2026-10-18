@@ -1,9 +1,11 @@
 import { NoteActions } from './NoteActions';
 import { ConversationTrace } from './ConversationTrace';
+import { PressableButton } from '../../components/ui/button/PressableButton';
 import { ConversationAttachmentPicker } from './ConversationAttachmentPicker';
 import { AIInbox } from './AIInbox';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '../../components/ui/button/Button';
+import { IconButton } from '../../components/ui/button/IconButton';
 import { SegmentedButton, SegmentedControl } from '../../components/ui/button/SegmentedControl';
 import { Badge } from '../../components/ui/status/Badge';
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/ui/overlay/Menu';
@@ -423,11 +425,11 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
             </PopoverDialog>
           </Popover>
         </PopoverTrigger>
-        <Button size="workspace" variant="accent" onPress={() => {
+        <Button size="workspace" variant="primary" onPress={() => {
           pendingSend.current = null; setDraft(''); setInboxOpen(false); navigate('/assistant?new=1');
         }}><PlusIcon size={17} />新对话</Button>
         <MenuTrigger>
-          <Button size="workspace" iconOnly aria-label="更多操作"><MoreHorizontalIcon size={16} /></Button>
+          <IconButton size={30} aria-label="更多操作"><MoreHorizontalIcon size={16} /></IconButton>
           <MenuPopover><Menu ariaLabel="更多操作" onAction={key => {
             if (key === 'records') setManagementOpen(open => !open);
             else if (key === 'settings') navigate('/settings');
@@ -463,12 +465,12 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           options={(serverData.spaces ?? []).map(item => ({ id: item.id, label: item.name ?? '未命名空间' }))} /></div>
         <div className={styles.historyList}>{conversations.length ? historyGroups.map(group => <section key={group.label} className={styles.historyGroup}>
           <h2>{group.label}</h2>
-          {group.items.map(item => <button key={item.conversationId} type="button"
+          {group.items.map(item => <PressableButton key={item.conversationId} type="button"
             className={styles.historyItem} aria-current={item.conversationId === selectedId && !inboxOpen ? 'true' : undefined}
-            onClick={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
+            onPress={() => { setInboxOpen(false); chooseConversation(item.conversationId); }}>
             <span>{titles[item.conversationId] ?? `会话 · ${formatTime(item.createdAt)}`}</span>
             {item.readOnly ? <small>只读</small> : <time dateTime={item.createdAt}>{group.label === '今天' ? formatClock(item.createdAt) : formatDay(item.createdAt)}</time>}
-          </button>)}
+          </PressableButton>)}
         </section>) : <p className={styles.muted}>还没有会话。</p>}</div>
       </aside>
       <div className={styles.content}>
@@ -505,16 +507,16 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                     onPress={() => void openSource(ref, message.messageId)}><b>{index + 1}</b>来源 {index + 1} · {noteName(ref.noteId)}</Button>)}
                 </div> : !message.sourceFree ? <p className={styles.muted}>此回答未列出可核对引用。</p> : null}
                 <div className={styles.messageActions}>
-                  <Button variant="ghost" size="compact" iconOnly aria-label="复制回答" onPress={() => { void navigator.clipboard?.writeText(message.content).then(() => setNotice('已复制回答。'), () => setNotice('浏览器不允许复制，请手动选择文字。')); }}><CopyIcon size={15} /></Button>
+                  <IconButton size={30} aria-label="复制回答" onPress={() => { void navigator.clipboard?.writeText(message.content).then(() => setNotice('已复制回答。'), () => setNotice('浏览器不允许复制，请手动选择文字。')); }}><CopyIcon size={15} /></IconButton>
                   {!selected?.readOnly ? <Button variant="ghost" size="compact" onPress={() => setRecordMessage(message)}><NoteIcon size={15} />记录为笔记</Button> : null}
                 <ConversationTrace turnId={message.turnId} turn={turn} turnStatusLabel={turn ? statusName[turn.status] : undefined}
                   onLoad={showTrace} onReviewCandidates={() => navigate('/knowledge')} />
                 </div>
-                {artifacts.filter(action => action.requestId === message.turnId).map(action => <button
-                  key={action.actionId} type="button" className={styles.artifactCard} onClick={() => openInbox(action.actionId)}>
+                {artifacts.filter(action => action.requestId === message.turnId).map(action => <PressableButton
+                  key={action.actionId} type="button" className={styles.artifactCard} onPress={() => openInbox(action.actionId)}>
                   <NoteIcon size={19} /><span>{action.plan.items.map(item => item.after.title).join('、')}<small>成果草稿 · 点击审阅</small></span>
                   <Badge tone={activeActionStatuses.includes(action.status) ? 'warning' : 'neutral'}>{activeActionStatuses.includes(action.status) ? '待审阅' : '已处理'}</Badge>
-                </button>)}
+                </PressableButton>)}
               </> : null}
               {sourceView?.messageId === message.messageId ? <section className={styles.sourceDetail} aria-label="引用原文定位">
                 <h3>{noteName(sourceView.ref.noteId)} · 历史版本</h3>
@@ -555,7 +557,7 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
           <div className={styles.composerInner}>
             {selected?.readOnly ? <div className={styles.readOnlyComposer}>
               <span>这是历史会话，只能回看。</span>
-              <Button variant="accent" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
+              <Button variant="primary" size="compact" onPress={() => navigate('/assistant?new=1')}>新对话</Button>
             </div> : <>
               {initialNoteId && notes.some(note => note.id === initialNoteId) ? <p className={styles.composerHint}>来自笔记「{noteName(initialNoteId)}」；授权后才能读取。</p> : null}
               {extractNote && (proposalsFlag === 'off' || proposalsFlag === 'unknown') ? <p className={styles.composerHint} role="status">
@@ -587,10 +589,10 @@ function ConversationAssistantView({ pathname, onOpenNote }: AssistantViewProps)
                   <ConversationAttachmentPicker key={spaceId ?? 'no-space'} isDisabled={!spaceId} conversationId={selectedId} ensureConversation={ensureAttachmentConversation} />
                   <span className={styles.composerSpacer} />
                   {draft.length > 3000 ? <span className={styles.charCount} data-over={draft.length > 3800 || undefined}>{draft.length} / 3800</span> : null}
-                  <Button variant="accent" size="compact" iconOnly aria-label={pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}
+                  <IconButton size={30} tone="primary" aria-label={pending ? '处理中…' : pendingSend.current ? '重试发送' : '发送消息'}
                     isDisabled={!draft.trim() || draft.length > 3800 || pending || loading || reviewingOtherDraft || !status?.generationAvailable
                     || blocked(latestTurn) || scopeChoice !== 'plain' && !chosenPolicy}
-                    onPress={() => void send()}><span className={styles.sendIcon}><ArrowRightIcon size={16} /></span></Button>
+                    onPress={() => void send()}><span className={styles.sendIcon}><ArrowRightIcon size={16} /></span></IconButton>
                 </div>
               </div>
               <p className={styles.composerHint}>{chosenPolicy ? '仅相关且获授权的笔记片段可能发送给 DeepSeek。' : '附件仅存于当前对话，尚不能用于内容问答；需授权后才能读取笔记。'}</p>

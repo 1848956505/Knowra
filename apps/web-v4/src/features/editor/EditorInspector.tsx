@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GhostIconButton } from '../../components/ui/button';
+import { IconButton } from '../../components/ui/button';
 import { Tabs, type TabsItem } from '../../components/ui/collection';
 import { CloseIcon } from '../../components/icons/knowra';
 import { extractInspectorOutline, getDocumentStats, resolveInspectorRelations, resolveNoteTags } from './editorInspectorModel';
@@ -72,9 +72,9 @@ export function EditorInspector(props: EditorInspectorProps) {
     >
       <header className={styles.header}>
         <h2>文档检查器</h2>
-        <GhostIconButton aria-label="关闭文档检查器" onPress={props.onClose}>
+        <IconButton aria-label="关闭文档检查器" onPress={props.onClose}>
           <CloseIcon size={18} />
-        </GhostIconButton>
+        </IconButton>
       </header>
       <Tabs
         className={styles.tabs}

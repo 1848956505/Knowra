@@ -73,13 +73,13 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <FormatButton label="插入图片" optional disabled={!props.canEditContent || props.canInsertImage === false} onPress={props.onInsertImage}><ImageIcon size={16} /></FormatButton>
       <span className={`${styles.toolbarSpacer} ${styles.compactHide}`} />
       <span className={`${styles.separator} ${styles.compactHide}`} aria-hidden="true" />
-      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} disabled={!props.canWrite || props.favoritePending} onClick={props.onToggleFavorite}><StarIcon size={16} /></button>
+      <PressableButton type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label={props.favorite ? '取消收藏当前笔记' : '收藏当前笔记'} aria-pressed={props.favorite} isDisabled={!props.canWrite || props.favoritePending} onPress={props.onToggleFavorite}><StarIcon size={16} /></PressableButton>
       <MenuTrigger>
         <PressableButton className={`${styles.plainButton} ${styles.compactHide}`} aria-label="打开插入菜单"><PlusIcon size={16} /></PressableButton>
         <MenuPopover placement="bottom end"><Menu ariaLabel="插入菜单"><MenuItem id="table" isDisabled={!props.canEditContent} onAction={command('table')}>插入 3×3 表格</MenuItem><MenuItem id="image" isDisabled={!props.canEditContent || props.canInsertImage === false} onAction={props.onInsertImage}>插入图片</MenuItem></Menu></MenuPopover>
       </MenuTrigger>
-      <button type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onClick={props.onToggleInspector}><PanelIcon size={16} /></button>
-      <button type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" disabled><MoreVerticalIcon size={16} /></button>
+      <PressableButton type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onPress={props.onToggleInspector}><PanelIcon size={16} /></PressableButton>
+      <PressableButton type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" isDisabled><MoreVerticalIcon size={16} /></PressableButton>
       </div>
     </div>
   );
@@ -88,5 +88,5 @@ export function EditorToolbar(props: EditorToolbarProps) {
 function FormatButton({ label, optional = false, disabled = false, title, onPress, children }: {
   label: string; optional?: boolean; disabled?: boolean; title?: string; onPress?(): void; children: ReactNode;
 }) {
-  return <button type="button" className={optional ? styles.optionalTool : undefined} aria-label={label} title={title || label} disabled={disabled} onClick={onPress}>{children}</button>;
+  return <PressableButton type="button" className={optional ? styles.optionalTool : undefined} aria-label={label} title={title || label} isDisabled={disabled} onPress={onPress}>{children}</PressableButton>;
 }

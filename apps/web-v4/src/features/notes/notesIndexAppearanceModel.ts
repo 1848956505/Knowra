@@ -4,11 +4,27 @@ export interface NotesIndexAppearance {
   mode: 'light' | 'dark';
   theme: 'orange';
   shape: 'pill';
+  overlayMaterial: 'glass' | 'acrylic';
+  buttonStyle: ButtonStyle;
+  defaultButtonStyle: DefaultButtonStyle;
+  dialogStyle: DialogStyle;
 }
+
+/** 主按钮（Button primary）外观：纸感、白玻璃。 */
+export const BUTTON_STYLES = ['paper', 'frost'] as const;
+export type ButtonStyle = typeof BUTTON_STYLES[number];
+
+/** 默认按钮（Button default）外观：无边软影、乳白玻璃。 */
+export const DEFAULT_BUTTON_STYLES = ['soft', 'glass'] as const;
+export type DefaultButtonStyle = typeof DEFAULT_BUTTON_STYLES[number];
+
+/** 对话框面板外观：浮起卡片、内嵌托盘。 */
+export const DIALOG_STYLES = ['float', 'tray'] as const;
+export type DialogStyle = typeof DIALOG_STYLES[number];
 
 export const NOTES_INDEX_APPEARANCE_KEY = 'knowra:notes-index-appearance:v1';
 export const DEFAULT_NOTES_INDEX_APPEARANCE: Readonly<NotesIndexAppearance> = {
-  mode: 'light', theme: 'orange', shape: 'pill'
+  mode: 'light', theme: 'orange', shape: 'pill', overlayMaterial: 'glass', buttonStyle: 'paper', defaultButtonStyle: 'soft', dialogStyle: 'float'
 };
 const listeners = new Set<() => void>();
 let snapshot = readAppearance();
@@ -18,9 +34,13 @@ export function parseNotesIndexAppearance(value: unknown): NotesIndexAppearance 
   const candidate = value && typeof value === 'object' ? value as Partial<NotesIndexAppearance> : {};
   return {
     mode: candidate.mode === 'dark' ? 'dark' : 'light',
-    // 原型对比选项已定稿；兼容旧存储的明暗模式，统一胶囊和橙色，装饰恒为完整。
+    // 保留旧外观存储格式及明暗偏好；pill 仅作为兼容值，实际形状由组件用途决定。
     theme: 'orange',
-    shape: 'pill'
+    shape: 'pill',
+    overlayMaterial: candidate.overlayMaterial === 'acrylic' ? 'acrylic' : 'glass',
+    buttonStyle: BUTTON_STYLES.includes(candidate.buttonStyle as ButtonStyle) ? candidate.buttonStyle as ButtonStyle : 'paper',
+    defaultButtonStyle: DEFAULT_BUTTON_STYLES.includes(candidate.defaultButtonStyle as DefaultButtonStyle) ? candidate.defaultButtonStyle as DefaultButtonStyle : 'soft',
+    dialogStyle: DIALOG_STYLES.includes(candidate.dialogStyle as DialogStyle) ? candidate.dialogStyle as DialogStyle : 'float'
   };
 }
 

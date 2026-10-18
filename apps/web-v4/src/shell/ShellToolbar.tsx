@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { GhostIconButton } from '../components/ui/button';
+import { IconButton } from '../components/ui/button';
 import { Popover, PopoverDialog, PopoverTrigger } from '../components/ui/overlay';
 import { ArrowRightIcon, FocusIcon, PanelIcon, SidebarIcon, MoreHorizontalIcon } from '../components/icons/knowra';
 import { useLocation } from '../app/router';
@@ -10,29 +10,29 @@ import styles from './ShellToolbar.module.css';
 export function ShellToolbar({ status, children }: { status: StatusBarProps; children?: ReactNode }) {
   const navigation = useLocation();
   return <div className={styles.toolbar}>
-    {status.panels?.filter(panel => panel.id === 'sidebar').map(panel => <span key={panel.id} className={styles.sidebarToggleSlot}><GhostIconButton
+    {status.panels?.filter(panel => panel.id === 'sidebar').map(panel => <span key={panel.id} className={styles.sidebarToggleSlot}><IconButton
       aria-label={`切换${panel.label}`} title={panel.label} aria-pressed={panel.active} onPress={panel.onToggle}>
       <SidebarIcon size={17} />
-    </GhostIconButton></span>)}
+    </IconButton></span>)}
     <div className={styles.history} role="group" aria-label="浏览历史">
-      <GhostIconButton size={28} aria-label="后退" title="后退" disabled={!navigation.canGoBack || !navigation.back} onPress={navigation.back}>
+      <IconButton size={28} aria-label="后退" title="后退" disabled={!navigation.canGoBack || !navigation.back} onPress={navigation.back}>
         <span className={styles.backArrow}><ArrowRightIcon size={16} /></span>
-      </GhostIconButton>
-      <GhostIconButton size={28} aria-label="前进" title="前进" disabled={!navigation.canGoForward || !navigation.forward} onPress={navigation.forward}>
+      </IconButton>
+      <IconButton size={28} aria-label="前进" title="前进" disabled={!navigation.canGoForward || !navigation.forward} onPress={navigation.forward}>
         <ArrowRightIcon size={16} />
-      </GhostIconButton>
+      </IconButton>
     </div>
     {children}
     <div className={styles.actions} aria-label="工作区操作">
       {status.persistenceMode === 'desktop-local' ? status.dataModeNote : null}
-      {status.panels?.filter(panel => panel.id !== 'sidebar').map(panel => <GhostIconButton key={panel.id}
+      {status.panels?.filter(panel => panel.id !== 'sidebar').map(panel => <IconButton key={panel.id}
         aria-label={`切换${panel.label}`} title={panel.label} aria-pressed={panel.active} onPress={panel.onToggle}>
         {panel.id === 'inspector' ? <PanelIcon size={17} /> : <FocusIcon size={17} />}
-      </GhostIconButton>)}
+      </IconButton>)}
       <PopoverTrigger>
-        <GhostIconButton aria-label="工作区状态" title={status.saveState === 'error' ? '保存失败，查看状态' : '工作区状态'}>
+        <IconButton aria-label="工作区状态" title={status.saveState === 'error' ? '保存失败，查看状态' : '工作区状态'}>
           <span className={styles.statusIndicator} data-error={status.saveState === 'error' || undefined}><MoreHorizontalIcon size={17} /></span>
-        </GhostIconButton>
+        </IconButton>
         <Popover placement="bottom end">
           <PopoverDialog aria-label="工作区状态">
             <StatusBar {...status} dataModeNote={status.persistenceMode === 'desktop-local' && status.dataModeNote ? <span>本地资料 · 同步操作位于顶栏</span> : status.dataModeNote} panels={[]} presentation="detail" />

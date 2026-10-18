@@ -1,5 +1,5 @@
 import { ScopedAppearanceProvider } from '../../components/ui/overlay';
-import { Button, Checkbox, EmptyArt } from '../../components/ui';
+import { Button, Checkbox, EmptyArt, PressableButton } from '../../components/ui';
 import { ChevronDownIcon, PlusIcon } from '../../components/icons/knowra';
 import { WorkspacePanel, WorkspacePanelBody } from '../../components/workspace/WorkspacePanel';
 import type { PathSegment } from '../../shell/path';
@@ -69,14 +69,14 @@ export function NotesIndexView({ onOpenNote }: { path: PathSegment[]; onOpenNote
             <Button variant="ghost" onPress={() => { c.clearFilters(); c.setTypeFilter('all'); if (c.notesIndex.query) c.store.setNotesQuery(''); }}>清除搜索与筛选</Button></>
             : <><EmptyArt variant="note" /><strong>{c.isRecycleView ? '回收站是空的' : '这里还没有内容'}</strong>
               <p>{c.isRecycleView ? '删除的笔记会先放在这里。' : '新建一篇笔记或文件夹，也可以从 Markdown 导入。'}</p>
-              {c.canWrite && !c.isRecycleView ? <Button variant="accent" onPress={() => c.treeOperations.openCreate('note', c.navigation.selectedFolderId)}><PlusIcon size={16} />新建笔记</Button> : null}</>}
+              {c.canWrite && !c.isRecycleView ? <Button variant="primary" onPress={() => c.treeOperations.openCreate('note', c.navigation.selectedFolderId)}><PlusIcon size={16} />新建笔记</Button> : null}</>}
         </div>
           : c.groups.map(section => <section key={section.id} aria-label={section.label}>
-            {c.group !== 'none' ? <button type="button" className={styles.groupHeading} aria-expanded={!c.collapsed.has(section.id)}
-              onClick={() => c.setCollapsed(current => { const next = new Set(current); if (next.has(section.id)) next.delete(section.id); else next.add(section.id); return next; })}>
+            {c.group !== 'none' ? <PressableButton type="button" className={styles.groupHeading} aria-expanded={!c.collapsed.has(section.id)}
+              onPress={() => c.setCollapsed(current => { const next = new Set(current); if (next.has(section.id)) next.delete(section.id); else next.add(section.id); return next; })}>
               <ChevronDownIcon size={13} /><strong>{section.label}</strong><span>{section.total ?? section.items.length}</span>
               <small>{section.detail}</small>
-            </button> : null}
+            </PressableButton> : null}
             {!c.collapsed.has(section.id) ? c.view === 'list'
               ? <NotesTable {...itemProps} items={section.items} foldersById={c.serverData.foldersById} selectedNoteIds={c.selectedNoteIds} />
               : <div className={c.view === 'card' ? itemStyles.cardGrid : itemStyles.grid} data-view={c.view} aria-label={c.view === 'card' ? '笔记卡片视图' : '笔记图标视图'}>

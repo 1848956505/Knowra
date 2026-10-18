@@ -33,7 +33,7 @@
   --ni-sw-off:rgba(24,30,48,.18); --ni-scroll:rgba(24,30,48,.15); --ni-hair:rgba(24,30,48,.13);
   --ni-sheen:rgba(255,255,255,.32); --ni-hl-c:#fff; --ni-sel-hover:color-mix(in srgb,var(--ni-accent) 12%,var(--ni-page));
   --ni-danger:#c23a3a; --ni-danger-soft:#fbeeee; --ni-danger-ring:#e5a3a3;
-  --ni-sh-page:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(24,30,48,.07),0 1px 2px rgba(24,30,48,.05),0 6px 18px -6px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14);
+  --ni-sh-page:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(24,30,48,.07),var(--shadow-panel-contact),0 6px 18px -6px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14);
   --ni-sh-pop:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px var(--ni-ring),0 2px 4px rgba(24,30,48,.05),0 10px 24px -8px rgba(24,30,48,.14),0 28px 64px -14px rgba(24,30,48,.28);
   --ni-sh-card:0 0 0 1px rgba(24,30,48,.07),0 1px 2px rgba(24,30,48,.04);
   --ni-ui:"Inter","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
@@ -69,6 +69,18 @@
 }
 
 .theme[data-ni-mode="dark"] {
+  --shadow-panel-contact: 0 2px 6px -2px rgb(0 0 0 / 32%);
+  --surface-action-crystal: linear-gradient(145deg, rgb(65 71 81 / 48%), rgb(36 39 46 / 40%));
+  --border-action-crystal: rgb(113 119 129 / 60%);
+  --icon-action-crystal: #ffa56d;
+  --shadow-action-crystal: inset 0 1px 1px #42464e, inset 0 -1px 0 #858f9f12, 0 0 0 1px #858f9f20, 0 4px 10px -4px rgb(0 0 0 / 53%);
+  --shadow-action-crystal-hover: inset 0 1px 1px #42464e, 0 0 0 1px #858f9f35, 0 6px 15px -5px rgb(0 0 0 / 53%);
+  --shadow-action-crystal-pressed: inset 0 2px 4px rgb(0 0 0 / 53%), 0 0 0 1px #858f9f20;
+  --surface-action-satin: linear-gradient(145deg, #b8743d, #a3592d 55%, #8c4321);
+  --border-action-satin: #bb672f;
+  --shadow-action-satin: inset 0 1px 0 #ffbf8650, 0 3px 7px #0005;
+  --shadow-action-satin-hover: inset 0 1px 0 #ffbf8670, 0 0 0 2px #d48b4930, 0 4px 10px #0007;
+  --shadow-action-satin-pressed: inset 0 2px 4px #4e271b80;
 color-scheme:dark;
   --ink-rgb:236 236 238; --ink-bg-rgb:24 25 29;
   --ni-chrome:#0b0c0f; --ni-page:#18191d;
@@ -78,7 +90,7 @@ color-scheme:dark;
   --ni-hover:rgba(255,255,255,.055); --ni-press:rgba(255,255,255,.09);
   --ni-selected:rgba(255,255,255,.09);
   /* 深色下主按钮降亮度、去外发光，避免刺眼。 */
-  --button-accent-bg:color-mix(in srgb,var(--ni-accent) 72%,#17181c); --button-accent-hover:color-mix(in srgb,var(--ni-accent) 82%,#17181c); --button-accent-ink:rgba(255,255,255,.92);
+  --button-primary-bg:color-mix(in srgb,var(--ni-accent) 72%,#17181c); --button-primary-hover:color-mix(in srgb,var(--ni-accent) 82%,#17181c); --button-primary-ink:rgba(255,255,255,.92);
   /* 上下文侧栏左上角的白色柔光（参考 Linear 深色）。 */
   --ni-ctx-glow:radial-gradient(340px 280px at 0% 0%,rgba(255,255,255,.075),transparent 70%);
   /* 工作区面板：同一光源（左上）的白色柔光与顶边渐变高光。 */
@@ -187,7 +199,7 @@ color-scheme:dark;
   --shadow-control: 0 0 0 1px var(--ni-line), 0 1px 2px var(--ni-ring);
   --shadow-page: var(--ni-sh-page);
   --shadow-popover: var(--ni-sh-pop);
-  --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px var(--ni-ctx-border), 0 12px 28px -16px var(--ni-ring);
+  --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px var(--ni-ctx-border), var(--shadow-panel-contact), 0 12px 28px -16px var(--ni-ring);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--ni-accent) 28%, transparent);
   --focus-soft: 0 0 0 1px color-mix(in srgb, var(--ni-accent) 34%, transparent), 0 0 0 3px color-mix(in srgb, var(--ni-accent) 14%, transparent);
   --ink-bg: var(--ni-page);
@@ -216,14 +228,9 @@ color-scheme:dark;
   --shadow-input-focus: var(--focus-ring);
   --ink-danger: var(--ni-danger);
   --ink-danger-soft: var(--ni-danger-soft);
-  --radius-control: var(--ni-control-radius);
-  --radius-tab: var(--ni-control-radius);
-  --ni-control-radius: 999px;
-  --ni-icon-radius: 50%;
   font-family: var(--font-ui);
   color: var(--ni-ink);
 }
-.theme[data-ni-shape="rounded"] { --ni-control-radius: 7px; --ni-icon-radius: 7px; }
 .controls {
   --index-size-28: 20px;
   --index-size-9: 7px;
@@ -247,8 +254,6 @@ color-scheme:dark;
   --ink-violet: var(--ni-ink-2); --ink-violet-soft: var(--ni-fill-2);
 }
 
-/* 特定控件的形状令牌与局部语义圆角一致；图标按钮保留圆形比例。 */
-.theme { --segmented-radius:var(--ni-control-radius); --search-radius:var(--ni-control-radius); --icon-button-radius:var(--ni-icon-radius); }
 .theme { --surface-chrome-glow:var(--ni-grain),radial-gradient(460px 320px at 6% 4%,var(--ni-sheen),transparent 70%),radial-gradient(640px 560px at -4% 104%,var(--ni-ambient),transparent 66%); }
 .controls { -webkit-app-region:no-drag; app-region:no-drag; }
 @media (max-width:767px) { .controls { gap:2px; max-width:50vw; overflow-x:auto; scrollbar-width:none; } }

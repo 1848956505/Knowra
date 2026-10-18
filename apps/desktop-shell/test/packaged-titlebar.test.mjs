@@ -51,10 +51,29 @@ test('Mac V5 顶栏跨模块保留笔记标签与原生窗口拖动区域', { ti
   const tabs = titlebar.getByRole('tablist', { name: '打开的笔记' });
   const assertNativeTitlebar = async () => {
     await expect(titlebar).toBeVisible();
-    assert.equal(Math.round((await titlebar.boundingBox()).height), 46);
+    // 紧凑顶栏的设计高度为 42px；同时检查真实控件边界，避免仅改高度掩盖裁切。
+    assert.equal(Math.round((await titlebar.boundingBox()).height), 42);
     assert(await titlebar.evaluate(element => parseFloat(getComputedStyle(element).paddingLeft) >= 92), '顶栏为原生窗口按钮保留至少 92px 空间');
     assert.equal(await titlebar.evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'drag');
     assert.equal(await titlebar.locator('[aria-label="工作区操作"]').evaluate(element => getComputedStyle(element).getPropertyValue('-webkit-app-region')), 'no-drag');
+    const controls = await titlebar.evaluate(element => {
+      const bar = element.getBoundingClientRect();
+      return [...element.querySelectorAll('[aria-label="浏览历史"] button, [aria-label="工作区操作"] button')].map(button => {
+        const bounds = button.getBoundingClientRect();
+        const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        return {
+          label: button.getAttribute('aria-label'),
+          withinTitlebar: bounds.width > 0 && bounds.height > 0 && bounds.top >= bar.top && bounds.bottom <= bar.bottom
+            && bounds.left >= bar.left + 92 && bounds.right <= bar.right,
+          receivesPointer: button.disabled || button === hit || button.contains(hit)
+        };
+      });
+    });
+    assert(controls.length > 0, '顶栏保留历史导航和工作区操作');
+    for (const control of controls) {
+      assert(control.withinTitlebar, `${control.label} 完整位于紧凑顶栏内，且不侵入原生窗口按钮区`);
+      assert(control.receivesPointer, `${control.label} 中心命中可点击控件`);
+    }
   };
   await expect(tabs.getByRole('tab', { name: '标题栏验收笔记' })).toBeVisible();
   await expect(page.getByLabel('笔记编辑页面骨架')).toHaveAttribute('data-window-tabs', 'true');

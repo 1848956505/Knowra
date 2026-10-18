@@ -40,7 +40,7 @@ export function SpaceManagerView() {
     <WorkspacePanelHeader title="空间管理" code="SPACE" titleId="space-manager-title"
       breadcrumb={<PathTrail path={[{ id: 'materials', label: '笔记库', onNavigate: () => navigate('/materials') }, { id: 'spaces', label: '空间管理', current: true }]} variant="top" />}
       breadcrumbTitle="笔记库 / 空间管理" actionsLabel="空间操作"
-      actions={<Button size="workspace" variant="accent" isDisabled={!canManage || pending} onPress={() => setCreateOpen(true)}>新建空间</Button>} />
+      actions={<Button size="workspace" variant="primary" isDisabled={!canManage || pending} onPress={() => setCreateOpen(true)}>新建空间</Button>} />
     <WorkspacePanelBody className={styles.body}>
       {!canManage ? <p role="status" className={styles.notice}>当前模式可查看和切换空间。创建、迁移及永久删除请在网页版完成。</p> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}

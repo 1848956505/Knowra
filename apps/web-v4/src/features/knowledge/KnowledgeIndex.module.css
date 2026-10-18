@@ -10,9 +10,6 @@
 .desktopTools .searchSlot:not(:focus-within):has(input:placeholder-shown) > div { min-width: 0; width: 100%; justify-content: center; padding: 0; gap: 0; border-color: transparent; background: transparent; box-shadow: none; color: var(--ni-ink-2, var(--text-secondary)); }
 .desktopTools .searchSlot:not(:focus-within):has(input:placeholder-shown) input { flex: 0 0 0; width: 0; opacity: 0; }
 .desktopTools .searchSlot:not(:focus-within) kbd { display: none; }
-.createGlow { --glow: var(--ni-accent, var(--accent)); color: var(--glow); box-shadow: 0 0 18px 2px color-mix(in srgb, var(--glow) 16%, transparent), 0 0 42px 6px color-mix(in srgb, var(--glow) 9%, transparent), 0 1px 2px rgba(24, 30, 48, .06); transition: box-shadow .45s ease; }
-.createGlow:hover:not(:disabled) { box-shadow: 0 0 22px 3px color-mix(in srgb, var(--glow) 24%, transparent), 0 0 52px 10px color-mix(in srgb, var(--glow) 13%, transparent), 0 1px 2px rgba(24, 30, 48, .06); }
-.createGlow:disabled { box-shadow: none; }
 .compactTools { display: flex; align-items: center; gap: 2px; min-width: 0; }
 .compactHeader.compactHeader { flex-wrap: nowrap; gap: 8px; padding: 4px 12px; }
 .compactHeader nav { order: 0; flex: 1 1 auto; flex-basis: auto; min-width: 0; padding-left: 0; }
@@ -64,7 +61,7 @@
 .status[data-status='archived'], .status[data-status='trash'] { --status-color: var(--ni-ink-4); }
 
 .cardGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 14px 20px 6px; }
-.card { width: 100%; height: 100%; min-height: 128px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; border: 0; border-radius: 14px; background: var(--ni-surf); box-shadow: var(--ni-sh-card); color: var(--ni-ink); text-align: left; font: 400 13px/1.5 var(--font-ui); cursor: pointer; }
+.card { width: 100%; height: 100%; min-height: 128px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px; border: 0; border-radius: var(--radius-panel); background: var(--ni-surf); box-shadow: var(--ni-sh-card); color: var(--ni-ink); text-align: left; font: 400 13px/1.5 var(--font-ui); cursor: pointer; }
 .card:hover { background: var(--ni-hover); }
 .card[aria-current='true'] { box-shadow: 0 0 0 1.5px var(--ni-accent-line), var(--ni-sh-card); }
 .cardTop { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; }

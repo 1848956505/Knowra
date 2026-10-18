@@ -1,47 +1,72 @@
-// V4-04 IconButton
-//
-// 等宽方形图标按钮；复用 Button 的硬阴影 + 焦点环。**所有 5 个 variant 都被支持**：
-// ghost / default 图标按钮在成熟产品里极其常见——菜单触发器、关闭按钮、「更多」、
-// 下拉、排序、过滤等弱化操作都是它的主场。
-//
-// 必须通过 aria-label 提供无障碍名称。
-//
-// 5 个 variant 的语义（与 Button 同步）：
-// - `default` ：中性动作。视觉：白底 + 墨边 + 墨图标。
-// - `primary` ：当前页最关键的核心动作。视觉：黑底 + 白图标。
-// - `accent`  ：引导用户创建 / 引入。视觉：蓝底 + 白图标。
-// - `danger`  ：破坏性。视觉：白底 + 红边 + 红图标。
-// - `ghost`   ：弱化（菜单触发器、关闭按钮、「更多」等首选）。视觉：无底 + 墨图标，
-//              hover 时才出底色与硬阴影。
+// 图标按钮：tone=ghost 透明（密集工具栏/行内）、floating 通透玻璃圆形（新建/编辑入口）、primary 柔橙实心（主操作）。
+// 通过背景与光影反馈状态，不移动控件；保留键盘焦点与触屏点击区域。
 
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { Button as RAButton, type ButtonProps as RAButtonProps } from 'react-aria-components';
 import { cx } from '../classnames';
-import type { ButtonVariant } from '../tokens';
-import styles from './Button.module.css';
+import styles from './IconButton.module.css';
 
-export interface IconButtonProps extends Omit<RAButtonProps, 'className' | 'isPending'> {
-  variant?: ButtonVariant;
+export interface IconButtonProps
+  extends Omit<RAButtonProps, 'children' | 'aria-label' | 'className'> {
+  /**
+   * 必填：a11y 标签。按钮内容只有图标，必须有 aria-label 才能被屏读器识别。
+   * （HTML 原生 aria-label 是 string|undefined，这里收紧为 string 强制填写。）
+   */
+  'aria-label': string;
+  /** 必填：图标 SVG。业务代码统一从 `components/icons/knowra` 选择。 */
   children: ReactNode;
-  isPending?: boolean;
+  /**
+   * 容器尺寸（px），决定方块边长。常见值：
+   * - 30：侧栏头部、Tab 端点；
+   * - 28：顶部浏览历史；
+   * - 40：与左轨 ModuleRail 内部网格对齐；
+   * - 24：紧凑列表行内嵌。
+   * @default 30
+   */
+  size?: 24 | 28 | 30 | 40;
+  tone?: 'ghost' | 'floating' | 'primary';
+  /** 与 Button 一致的禁用入口。 */
+  isDisabled?: boolean;
+  /** 兼容原生按钮调用方式；内部映射为 React Aria 的 isDisabled。 */
+  disabled?: boolean;
   className?: string;
+  title?: string;
 }
 
-const variantClass: Record<ButtonVariant, string> = {
-  default: cx(styles.btn, styles.icon),
-  primary: cx(styles.btn, styles.primary, styles.icon),
-  accent: cx(styles.btn, styles.accent, styles.icon),
-  danger: cx(styles.btn, styles.danger, styles.icon),
-  ghost: cx(styles.btn, styles.ghost, styles.icon)
-};
-
-export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { variant = 'default', className, isPending, children, ...rest },
-  ref
-) {
-  return (
-    <RAButton ref={ref} className={cx(variantClass[variant], className)} isPending={isPending} {...rest}>
-      {children}
-    </RAButton>
-  );
-});
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  function IconButton(
+    {
+      'aria-label': ariaLabel,
+      children,
+      size = 30,
+      tone = 'ghost',
+      disabled,
+      isDisabled,
+      className,
+      title,
+      type,
+      ...rest
+    },
+    ref
+  ) {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    useImperativeHandle(ref, () => buttonRef.current as HTMLButtonElement);
+    useEffect(() => {
+      if (!buttonRef.current) return;
+      if (title) buttonRef.current.title = title;
+      else buttonRef.current.removeAttribute('title');
+    }, [title]);
+    return (
+      <RAButton
+        ref={buttonRef}
+        type={type ?? 'button'}
+        className={cx(styles.base, styles[`size${size}`], tone !== 'ghost' && styles[tone], className)}
+        isDisabled={disabled ?? isDisabled}
+        aria-label={ariaLabel}
+        {...rest}
+      >
+        {children}
+      </RAButton>
+    );
+  }
+);

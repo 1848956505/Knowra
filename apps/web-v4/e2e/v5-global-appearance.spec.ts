@@ -27,7 +27,7 @@ test('全局定稿外观跨页面和浮层生效，明暗切换在刷新后保�
     await expect(page.getByRole('button', { name: '切换浅色模式' })).toBeVisible();
     await expect(page.locator('#feature-stage')).toHaveCSS('background-color', 'rgb(24, 25, 29)');
     const radius = await shell.evaluate(element => getComputedStyle(element).getPropertyValue('--radius-control').trim());
-    expect(radius).toBe('999px');
+    expect(radius).toBe('7px');
   }
   await page.reload();
   await expect(shell).toHaveAttribute('data-ni-mode', 'dark');
@@ -186,3 +186,42 @@ test('强制色保留页签和表单焦点，错误字段继续报告校验错�
   await expect(invalid).toHaveAttribute('aria-invalid', 'true');
   await expect(invalid).toHaveAccessibleDescription(/路径已被占用/);
 });
+
+for (const mode of ['light', 'dark']) {
+  for (const [buttonStyle, defaultButtonStyle] of [['paper', 'soft'], ['frost', 'glass']]) {
+    test(`${mode} ${buttonStyle}/${defaultButtonStyle}：按钮材质不覆盖禁用反馈`, async ({ page }) => {
+      await mockEditorWorkspace(page, []);
+      await page.addInitScript(appearance => {
+        localStorage.setItem('knowra:notes-index-appearance:v1', JSON.stringify(appearance));
+      }, { mode, buttonStyle, defaultButtonStyle });
+      await page.goto('/#/showcase');
+      const shell = page.locator('[data-ni-mode]:has(> #feature-stage)');
+      await expect(shell).toHaveAttribute('data-button-style', buttonStyle);
+      await expect(shell).toHaveAttribute('data-default-button-style', defaultButtonStyle);
+      for (const name of ['默认', '保存']) {
+        const button = page.getByRole('button', { name, exact: true, disabled: true });
+        await expect(button).toBeDisabled();
+        await expect(button).toHaveCSS('box-shadow', 'none');
+        await expect(button).toHaveCSS('opacity', '0.65');
+        await expect(button).toHaveCSS('cursor', 'not-allowed');
+        const colors = await button.evaluate(element => {
+          const computed = getComputedStyle(element);
+          const probe = document.createElement('span');
+          probe.style.cssText = 'color:var(--text-muted);background:var(--surface-hover);border:1px solid var(--border-subtle)';
+          element.append(probe);
+          const neutral = getComputedStyle(probe);
+          const result = {
+            actual: [computed.color, computed.backgroundColor, computed.borderTopColor],
+            expected: [neutral.color, neutral.backgroundColor, neutral.borderTopColor]
+          };
+          probe.remove();
+          return result;
+        });
+        expect(colors.actual).toEqual(colors.expected);
+      }
+      // 同一外观下启用按钮仍保留材质投影，防止用全局移除样式掩盖问题。
+      await expect(page.getByRole('button', { name: '默认胶囊', exact: true })).not.toHaveCSS('box-shadow', 'none');
+      await expect(page.getByRole('button', { name: '发布', exact: true })).not.toHaveCSS('box-shadow', 'none');
+    });
+  }
+}

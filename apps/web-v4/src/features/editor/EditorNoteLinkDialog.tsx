@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CommandNoteSearchHit, CommandNoteSearcher } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogFooter, SearchField, TextField } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogFooter, SearchBox, TextField } from '../../components/ui';
 import type { NoteLinkEditSession } from './editorNoteLinks';
 import styles from './EditorNoteLinkDialog.module.css';
 
@@ -38,7 +38,7 @@ export function EditorNoteLinkDialog({ session, spaceId, search, folderPath, can
     onOpenChange={open => { if (!open && !pending) onClose(); }}>
     <DialogBody>
       <TextField label="显示文字" value={label} onChange={setLabel} isDisabled={pending || !canWrite} />
-      <SearchField label="搜索当前空间笔记" value={query} onChange={setQuery} maxLength={200} isDisabled={pending} />
+      <SearchBox label="搜索当前空间笔记" size="field" value={query} onChange={event => setQuery(event.target.value)} onClear={query ? () => setQuery('') : undefined} maxLength={200} disabled={pending} />
       <p role="status">{loading ? '正在搜索…' : hits.length ? '选择目标笔记；仅搜索当前空间' : '没有匹配笔记'}</p>
       <div className={styles.results} aria-label="目标笔记">
         {hits.map(hit => <Button key={hit.id} variant={target === hit.id ? 'primary' : 'ghost'}

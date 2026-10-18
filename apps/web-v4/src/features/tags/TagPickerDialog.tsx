@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Tag } from '@study-accelerator/web-core';
-import { Button, GhostIconButton, Popover, PopoverDialog } from '../../components/ui';
+import { Button, IconButton, Popover, PopoverDialog } from '../../components/ui';
 import { ChevronLeftIcon, CloseIcon, SettingsIcon, TagIcon } from '../../components/icons/knowra';
 import { useTagPickerController, type TagPickerProps, type DialogMode } from './useTagPickerController';
 import { SelectTagsView, ManageTagsView, TagForm, DeleteTagView } from './TagPickerViews';
@@ -21,10 +21,10 @@ export function TagPickerDialog(props: TagPickerProps) {
       <header className={styles.header}>
         {mode === 'select'
           ? <span className={styles.headIcon} aria-hidden="true"><TagIcon size={18} /></span>
-          : <GhostIconButton disabled={pending} size={28} aria-label={mode === 'manage' ? '返回选择标签' : '返回'} onPress={goBack}><ChevronLeftIcon size={18} /></GhostIconButton>}
+          : <IconButton disabled={pending} size={28} aria-label={mode === 'manage' ? '返回选择标签' : '返回'} onPress={goBack}><ChevronLeftIcon size={18} /></IconButton>}
         <div className={styles.headText}><h2>{title}</h2><p>{dialogDescription(mode)}</p></div>
-        {mode === 'select' ? <GhostIconButton disabled={pending} size={28} aria-label="管理标签库" onPress={() => { setError(''); setMode('manage'); }}><SettingsIcon size={18} /></GhostIconButton> : null}
-        <GhostIconButton disabled={pending} size={28} aria-label="关闭" onPress={() => requestOpenChange(false)}><CloseIcon size={16} /></GhostIconButton>
+        {mode === 'select' ? <IconButton disabled={pending} size={28} aria-label="管理标签库" onPress={() => { setError(''); setMode('manage'); }}><SettingsIcon size={18} /></IconButton> : null}
+        <IconButton disabled={pending} size={28} aria-label="关闭" onPress={() => requestOpenChange(false)}><CloseIcon size={16} /></IconButton>
       </header>
       <fieldset key={mode} disabled={pending} className={styles.body}>
         {mode === 'select' ? <SelectTagsView canWrite={canWrite} query={query} selected={selected} selectedTags={selectedTags} visibleGroups={visibleGroups} exactMatch={exactMatch} notice={notice} error={error} onQueryChange={setQuery} onToggle={toggle} onCreate={() => openCreate('select')} onCreateFromQuery={() => openCreate('select', query.trim())} /> : null}
@@ -34,7 +34,7 @@ export function TagPickerDialog(props: TagPickerProps) {
       </fieldset>
       {mode !== 'manage' ? <footer className={styles.footer}>
         {mode === 'select' ? <><span className={styles.footerHint}>已选 {selected.size} 个</span><Button isDisabled={pending} variant="ghost" onPress={() => requestOpenChange(false)}>取消</Button>{canWrite ? <Button variant="primary" isPending={pending} onPress={() => void save()}>保存到笔记</Button> : null}</> : null}
-        {mode === 'form' ? <><Button isDisabled={pending} variant="ghost" onPress={goBack}>取消</Button><Button type="submit" form="tag-form" variant={editingTag ? 'primary' : 'accent'} isPending={pending} isDisabled={!name.trim() || !groupId}>{editingTag ? '保存修改' : returnMode === 'select' ? '创建并添加' : '创建标签'}</Button></> : null}
+        {mode === 'form' ? <><Button isDisabled={pending} variant="ghost" onPress={goBack}>取消</Button><Button type="submit" form="tag-form" variant={'primary'} isPending={pending} isDisabled={!name.trim() || !groupId}>{editingTag ? '保存修改' : returnMode === 'select' ? '创建并添加' : '创建标签'}</Button></> : null}
         {mode === 'delete' ? <><Button isDisabled={pending} variant="ghost" onPress={goBack}>取消</Button><Button variant="danger" isPending={pending} onPress={() => void deleteTag()}>{mergeTargetId ? '合并并删除' : deleteUsageCount ? `从 ${deleteUsageCount} 篇笔记移除并删除` : '删除标签'}</Button></> : null}
       </footer> : null}
     </PopoverDialog>

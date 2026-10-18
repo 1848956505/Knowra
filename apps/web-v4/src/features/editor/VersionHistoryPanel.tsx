@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateContentHash } from '@study-accelerator/content-anchor';
 import type { Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionPrunePreview, NoteVersionSummary } from '@study-accelerator/web-core';
-import { Button, Dialog, DialogBody, DialogClose, DialogFooter } from '../../components/ui';
+import { Button, Dialog, DialogBody, DialogClose, DialogFooter, PressableButton } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
 import styles from './EditorInspector.module.css';
 
@@ -113,10 +113,10 @@ export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, 
     finally { setPending(false); }
   }
 
-  const row = (version: NoteVersionSummary) => <button key={version.id} type="button" aria-pressed={selected?.id === version.id} onClick={() => void select(version)}>
+  const row = (version: NoteVersionSummary) => <PressableButton key={version.id} type="button" aria-pressed={selected?.id === version.id} onPress={() => void select(version)}>
     <span>{version.contentHash === currentHash ? '当前正文' : '历史正文'}</span>
     <time dateTime={version.createdAt}>{dateLabel(version.createdAt)}</time>
-  </button>;
+  </PressableButton>;
 
   return <section className={`${styles.simplePanel} ${styles.versionPanel}`} aria-label="历史记录">
     <div className={styles.versionSummary}><strong>{total} 条历史记录</strong><span>相邻修改间隔 5 分钟内归组，可展开全部快照。来源快照持续保留。</span>{onPreviewVersionPrune ? <Button onPress={() => void onPreviewVersionPrune(note.id).then(setPrunePreview).catch(reason => setError(reason instanceof Error ? reason.message : '清理预览失败'))}>清理预览</Button> : null}</div>

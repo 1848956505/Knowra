@@ -1,9 +1,9 @@
 import { MathText } from '../../../components/math/MathText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Annotation } from '@study-accelerator/web-core';
-import { Button, Checkbox, Select } from '../../../components/ui';
+import { Button, Checkbox, Select, PressableButton } from '../../../components/ui';
 import { Menu, MenuItem, MenuPopover, MenuTrigger, PointMenu, Popover, PopoverTrigger, PopoverDialog } from '../../../components/ui/overlay';
-import { GhostIconButton, SegmentedControl, SegmentedButton } from '../../../components/ui/button';
+import { IconButton, SegmentedControl, SegmentedButton } from '../../../components/ui/button';
 import { StarIcon, FilterIcon, SortArrowsIcon, MoreHorizontalIcon, CloseIcon } from '../../../components/icons/knowra';
 import { AnalysisScopeDialog } from '../AnalysisScopeDialog';
 import { KnowledgeExtractionTaskPanel } from '../KnowledgeExtractionTaskPanel';
@@ -123,24 +123,24 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
         <div className={styles.annotationTitle}><StarIcon size={15} fill="currentColor" /><strong>重点标记</strong><span>{currentAnnotations.length}</span></div>
         <div className={styles.annotationHeaderActions}>
         <PopoverTrigger isOpen={sortOpen} onOpenChange={setSortOpen}>
-          <GhostIconButton size={24} aria-label="排序重点" title="排序重点" className={sortOrder !== 'document' ? styles.annotationFilterActive : undefined}><SortArrowsIcon size={15} /></GhostIconButton>
+          <IconButton size={24} aria-label="排序重点" title="排序重点" className={sortOrder !== 'document' ? styles.annotationFilterActive : undefined}><SortArrowsIcon size={15} /></IconButton>
           <Popover placement="bottom end" offset={8} className={styles.annotationSortPopover}>
             <PopoverDialog aria-label="排序重点" className={styles.annotationSortOptions}>
               <strong>排序重点</strong>
-              <button type="button" aria-pressed={sortOrder === 'document'} onClick={() => { setSortOrder('document'); setSortOpen(false); }}>正文顺序</button>
-              <button type="button" aria-pressed={sortOrder === 'importance'} onClick={() => { setSortOrder('importance'); setSortOpen(false); }}>重要级：高到低</button>
+              <PressableButton type="button" aria-pressed={sortOrder === 'document'} onPress={() => { setSortOrder('document'); setSortOpen(false); }}>正文顺序</PressableButton>
+              <PressableButton type="button" aria-pressed={sortOrder === 'importance'} onPress={() => { setSortOrder('importance'); setSortOpen(false); }}>重要级：高到低</PressableButton>
             </PopoverDialog>
           </Popover>
         </PopoverTrigger>
         <PopoverTrigger isOpen={filtersOpen} onOpenChange={setFiltersOpen}>
-          <GhostIconButton size={24} aria-label="筛选重点" title="筛选重点" className={sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? styles.annotationFilterActive : undefined}><FilterIcon size={15} /></GhostIconButton>
+          <IconButton size={24} aria-label="筛选重点" title="筛选重点" className={sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? styles.annotationFilterActive : undefined}><FilterIcon size={15} /></IconButton>
           <Popover placement="bottom end" offset={8} className={styles.annotationFilterPopover}>
             <PopoverDialog aria-label="筛选重点" className={styles.annotationFilters}>
-              <header><strong>筛选重点</strong><GhostIconButton size={24} aria-label="关闭筛选" onPress={() => setFiltersOpen(false)}><CloseIcon size={14} /></GhostIconButton></header>
+              <header><strong>筛选重点</strong><IconButton size={24} aria-label="关闭筛选" onPress={() => setFiltersOpen(false)}><CloseIcon size={14} /></IconButton></header>
               <Select label="章节" options={[{ id: 'all', label: '全部章节' }, ...sections.map((section) => ({ id: section, label: section }))]} selectedKey={sectionFilter} onSelectionChange={(key) => setSectionFilter(String(key))} />
               <Select label="类型" options={[{ id: 'all', label: '全部类型' }, ...KIND_OPTIONS]} selectedKey={kindFilter} onSelectionChange={(key) => setKindFilter(String(key))} />
-              <fieldset><legend>原文状态</legend><div className={styles.annotationStatusOptions}>{STATUS_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={statusFilter === option.id} onClick={() => setStatusFilter(option.id)}>{option.label}</button>)}</div></fieldset>
-              <footer><button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>重置筛选</button><Button variant="primary" onPress={() => setFiltersOpen(false)}>完成</Button></footer>
+              <fieldset><legend>原文状态</legend><div className={styles.annotationStatusOptions}>{STATUS_FILTERS.map((option) => <PressableButton key={option.id} type="button" aria-pressed={statusFilter === option.id} onPress={() => setStatusFilter(option.id)}>{option.label}</PressableButton>)}</div></fieldset>
+              <footer><PressableButton type="button" onPress={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>重置筛选</PressableButton><Button variant="primary" onPress={() => setFiltersOpen(false)}>完成</Button></footer>
             </PopoverDialog>
           </Popover>
         </PopoverTrigger>
@@ -149,9 +149,9 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
       <SegmentedControl variant="underline" className={styles.annotationScopeFilters} aria-label="重点范围">
         {[['all', '全部'], ['selection', '选区'], ['blocks', '块'], ['section', '章节'], ['list', '列表项']].map(([id, label]) => <SegmentedButton key={id} aria-pressed={scopeFilter === id} onPress={() => setScopeFilter(id)} count={currentAnnotations.filter((item) => id === 'all' || (item.scopeType ?? 'selection') === id).length}>{label}</SegmentedButton>)}
       </SegmentedControl>
-      {sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter, kindFilter].filter((value) => value !== 'all').length} 项 <button type="button" onClick={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>清除</button></div> : null}
-      {props.overlappingAnnotationIds?.length ? <div className={styles.annotationOverlapSummary} role="status">此处有 {props.overlappingAnnotationIds.length} 条重点，已在下方标出。<button type="button" onClick={props.onClearOverlappingAnnotations}>清除定位</button></div> : null}
-      {undo && props.onRestoreAnnotation ? <p role="status" className={styles.annotationFilterSummary}>重点已移入回收站。 <button type="button" onClick={() => void run(undo.id, async () => { await props.onRestoreAnnotation?.(undo.id, undo.revision); setUndo(null); })}>撤销</button></p> : null}
+      {sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter, kindFilter].filter((value) => value !== 'all').length} 项 <PressableButton type="button" onPress={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>清除</PressableButton></div> : null}
+      {props.overlappingAnnotationIds?.length ? <div className={styles.annotationOverlapSummary} role="status">此处有 {props.overlappingAnnotationIds.length} 条重点，已在下方标出。<PressableButton type="button" onPress={props.onClearOverlappingAnnotations}>清除定位</PressableButton></div> : null}
+      {undo && props.onRestoreAnnotation ? <p role="status" className={styles.annotationFilterSummary}>重点已移入回收站。 <PressableButton type="button" onPress={() => void run(undo.id, async () => { await props.onRestoreAnnotation?.(undo.id, undo.revision); setUndo(null); })}>撤销</PressableButton></p> : null}
       <div className={styles.annotationList} ref={listRef}>
         {props.annotationsLoading ? <p className={styles.emptyPanel} role="status">正在加载正文标注…</p> : visible.length === 0 ? <p className={styles.emptyPanel}>{currentAnnotations.length ? '没有符合筛选条件的重点。' : '暂无重点，选中正文或打开块菜单即可标记。'}</p> : null}
         {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {
@@ -159,13 +159,13 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
           const pending = pendingIds.has(annotation.id);
           return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setContextMenu({ id: annotation.id, x: event.clientX || rect.left + 12, y: event.clientY || rect.top + 12 }); }} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
-            <button type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} disabled={pending} onClick={() => props.onSelectAnnotation(annotation.id)}>
+            <PressableButton type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} isDisabled={pending} onPress={() => props.onSelectAnnotation(annotation.id)}>
               <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : null}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
               <span className={styles.annotationQuote}>{annotation.quoteText ? <MathText text={annotation.quoteText} inlineOnly /> : '空内容块，后续输入继续纳入'}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
               {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
-            </button>
-            <MenuTrigger><GhostIconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></GhostIconButton>
+            </PressableButton>
+            <MenuTrigger><IconButton size={24} aria-label={`重点 ${index + 1} 更多操作`}><MoreHorizontalIcon size={15} /></IconButton>
               <MenuPopover placement="bottom end">{annotationActions(annotation)}</MenuPopover>
             </MenuTrigger>
           </article>;

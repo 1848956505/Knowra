@@ -2,6 +2,7 @@
 // 所有数字、时间、标签均来自工作区数据；训练域尚未上线时保持锁定。
 
 import { useMemo, type ReactNode } from 'react';
+import { PressableButton } from '../components/ui/button/PressableButton';
 import type { Note, Folder, Tag } from '@study-accelerator/web-core';
 import { Button } from '../components/ui/button/Button';
 import { EmptyState, LoadingState } from '../components/ui/status';
@@ -133,7 +134,7 @@ export function HomeView({
               <EmptyState
                 title="还没有资料"
                 description={isWritable ? '创建第一篇笔记，开始整理资料与知识。' : '当前为只读模式：连接资料服务后可继续操作。'}
-                primaryAction={onOpenCreate ? <Button variant="accent" onClick={onOpenCreate}>新建笔记</Button> : undefined}
+                primaryAction={onOpenCreate ? <Button variant="primary" onClick={onOpenCreate}>新建笔记</Button> : undefined}
                 secondaryAction={onOpenSearch ? <Button onClick={onOpenSearch}>打开全局搜索</Button> : undefined}
               />
             </div>
@@ -146,13 +147,13 @@ export function HomeView({
                     const title = note.title || '无标题';
                     return (
                       <li key={note.id}>
-                        <button type="button" className={styles.upNextRow} onClick={onSelectNote ? () => onSelectNote(note.id, title) : undefined} disabled={!onSelectNote}>
+                        <PressableButton type="button" className={styles.upNextRow} onPress={onSelectNote ? () => onSelectNote(note.id, title) : undefined} isDisabled={!onSelectNote}>
                           <span className={styles.upNextIcon} aria-hidden="true"><NoteIcon size={14} /></span>
                           <span className={styles.upNextTitle}><MathText text={title} inlineOnly /></span>
                           <span className={styles.upNextStatus}>{statusLabel(note)}</span>
                           <time className={styles.upNextTime} dateTime={note.updatedAt ?? note.createdAt ?? ''}>{formatRecentTime(note.updatedAt ?? note.createdAt)}</time>
                           <ArrowUpRightIcon size={14} className={styles.upNextArrow} aria-hidden="true" />
-                        </button>
+                        </PressableButton>
                       </li>
                     );
                   })}
@@ -191,13 +192,12 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
   const Icon = entry.Icon;
   const locked = !entry.available;
   return (
-    <button
+    <PressableButton
       type="button"
       className={cx(styles.workbench, entry.available ? styles.workbenchActive : styles.workbenchLocked)}
-      onClick={entry.available ? onActivate : undefined}
+      onPress={entry.available ? onActivate : undefined}
       aria-label={entry.available ? entry.label : `${entry.label}（尚未上线）`}
-      aria-disabled={locked}
-      disabled={locked}
+      isDisabled={locked}
     >
       <span className={styles.workbenchIcon} aria-hidden="true"><Icon size={20} /></span>
       <span className={styles.workbenchCopy}>
@@ -212,6 +212,6 @@ function WorkbenchCard({ entry, activeNoteCount, onActivate }: WorkbenchCardProp
         {entry.available ? (entry.id === 'materials' ? `${activeNoteCount} 篇笔记` : '知识整理') : '待联调'}
       </span>
       {entry.available ? <ArrowUpRightIcon size={16} className={styles.workbenchArrow} aria-hidden="true" /> : null}
-    </button>
+    </PressableButton>
   );
 }
