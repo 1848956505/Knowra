@@ -27,6 +27,11 @@ export function placeTableHandle(left: number, top: number, size: number, viewpo
   return { left: Math.min(Math.max(left, 4), Math.max(4, viewportWidth - size - 4)), top: Math.max(4, top) };
 }
 
+/** 菜单与手柄都避开可见格式栏，尚未吸顶时也不能上翻盖住它。 */
+export function tableHandleClip(stage: Pick<DOMRect, 'top' | 'bottom'> | undefined, toolbar: Pick<DOMRect, 'bottom'> | undefined, viewportHeight: number) {
+  return { top: Math.max(stage?.top ?? 0, toolbar?.bottom ?? 0), bottom: Math.min(stage?.bottom ?? viewportHeight, viewportHeight) };
+}
+
 /** 只读 DOM 几何：行列边界来自真实渲染，手柄不占文档布局。 */
 export function readTableHandleLayout(view: EditorView, hover: Element | null): TableHandleLayout | null {
   const state = view.state;
@@ -46,8 +51,7 @@ export function readTableHandleLayout(view: EditorView, hover: Element | null): 
   const boundaryElement = view.dom.closest<HTMLElement>('[data-editor-scroll-root]') ?? undefined;
   const stage = boundaryElement?.getBoundingClientRect();
   const stack = view.dom.closest('[data-editor-workspace]')?.querySelector('[data-editor-toolbar-stack]')?.getBoundingClientRect();
-  const clip = { top: Math.max(stage?.top ?? 0, stack && stage && stack.top <= stage.top + 1 ? stack.bottom : 0), bottom: Math.min(stage?.bottom ?? window.innerHeight, window.innerHeight) };
+  const clip = tableHandleClip(stage, stack, window.innerHeight);
   return { element: table, boundaryElement, size: tableHandleSize(), table: box(table), rows: rows.map(box), columns: Array.from(first.cells).map(box),
     row, column: (cell as HTMLTableCellElement).cellIndex, rowCount: rows.length, columnCount: first.cells.length, clip };
 }
-

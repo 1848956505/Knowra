@@ -133,7 +133,10 @@ test('手机宽度下手柄为触控尺寸，菜单留在视口内，整表菜�
   const menu = page.getByRole('menu', { name: '行操作' });
   await expect(menu).toBeVisible();
   const stage = (await page.locator('[data-editor-scroll-root]').boundingBox())!;
-  await expect.poll(async () => { const bounds = (await menu.boundingBox())!; return bounds.y + bounds.height; }).toBeLessThanOrEqual(stage.y + stage.height);
+  const toolbar = (await page.locator('[data-editor-toolbar-stack]').boundingBox())!;
+  const popover = menu.locator('xpath=ancestor::*[@data-placement][1]');
+  await expect.poll(async () => (await popover.boundingBox())!.y).toBeGreaterThanOrEqual(Math.max(stage.y, toolbar.y + toolbar.height));
+  await expect.poll(async () => { const bounds = (await popover.boundingBox())!; return bounds.y + bounds.height; }).toBeLessThanOrEqual(stage.y + stage.height);
   await page.screenshot({ path: test.info().outputPath('table-handles-mobile.png'), fullPage: true });
   const rect = (await menu.boundingBox())!;
   expect(rect.x).toBeGreaterThanOrEqual(0);
@@ -287,11 +290,16 @@ test.describe('触屏表格菜单', () => {
     await expect(menu).toBeVisible();
     const stage = (await page.locator('[data-editor-scroll-root]').boundingBox())!;
     const toolbar = (await page.locator('[data-editor-toolbar-stack]').boundingBox())!;
-    const bounds = (await menu.boundingBox())!;
-    expect(bounds.y).toBeGreaterThanOrEqual(Math.max(stage.y, toolbar.y + toolbar.height));
-    expect(bounds.y + bounds.height).toBeLessThanOrEqual(stage.y + stage.height);
+    const popover = menu.locator('xpath=ancestor::*[@data-placement][1]');
+    await expect.poll(async () => (await popover.boundingBox())!.y).toBeGreaterThanOrEqual(Math.max(stage.y, toolbar.y + toolbar.height));
+    await expect.poll(async () => { const bounds = (await popover.boundingBox())!; return bounds.y + bounds.height; }).toBeLessThanOrEqual(stage.y + stage.height);
     const remove = page.getByRole('menuitem', { name: '删除列', exact: true });
     await remove.scrollIntoViewIfNeeded();
+    await expect.poll(() => remove.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return Boolean(hit && element.contains(hit));
+    })).toBe(true);
     await page.screenshot({ path: test.info().outputPath('table-handles-touch-menu.png'), fullPage: true });
     await remove.tap();
     await expect(table.locator('tr').first().locator('th')).toHaveCount(1);

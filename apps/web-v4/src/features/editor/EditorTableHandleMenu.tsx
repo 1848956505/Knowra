@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSection, MenuSeparator, PointMenu } from '../../components/ui';
 import type { TableAction } from './editorTableModel';
 import type { TableHandleLayout } from './editorTableHandleLayout';
@@ -19,6 +19,8 @@ export function EditorTableHandleMenu({ menu, layout, close, runAction }: {
   layout: TableHandleLayout; close(): void; runAction(action: TableMenuAction): void;
 }) {
   const [boundary, setBoundary] = useState<HTMLDivElement | null>(null);
+  const availableHeight = Math.max(0, layout.clip.bottom - layout.clip.top - 24);
+  useEffect(() => { if (menu && availableHeight < 44) close(); }, [menu, availableHeight, close]);
   const bounds = layout.boundaryElement?.getBoundingClientRect();
   const lastMenu = useRef(menu);
   if (menu) lastMenu.current = menu;
@@ -26,7 +28,7 @@ export function EditorTableHandleMenu({ menu, layout, close, runAction }: {
   const menuLayout = content?.layout ?? layout;
   return (<><div ref={setBoundary} aria-hidden="true" style={{ position: 'fixed', pointerEvents: 'none', left: bounds?.left ?? 0,
     top: layout.clip.top, width: bounds?.width ?? window.innerWidth, height: Math.max(0, layout.clip.bottom - layout.clip.top) }} />
-    <PointMenu boundaryElement={boundary ?? undefined} maxHeight={Math.max(44, layout.clip.bottom - layout.clip.top - 24)} popoverClassName={styles.menuViewport} point={menu?.point ?? null} onOpenChange={open => { if (!open) close(); }}>
+    <PointMenu boundaryElement={boundary ?? undefined} maxHeight={availableHeight} popoverClassName={styles.menuViewport} point={availableHeight >= 44 ? menu?.point ?? null : null} onOpenChange={open => { if (!open) close(); }}>
       <Menu ariaLabel={content?.kind === 'row' ? '行操作' : content?.kind === 'column' ? '列操作' : '表格操作'} onClose={close}>
         {content?.kind === 'row' ? <>
           <MenuSection>
