@@ -1,3 +1,4 @@
+import { knowledgeCreateButton, selectKnowledgeStatus } from './helpers/knowledge-index.mjs';
 import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -52,7 +53,7 @@ async function fixture(t, title, withSource = false) {
   // 首次资料加载会从 loading 切换为 api；状态详情内的同步入口依赖真实资料模式。
   // 先等待真实本地工作区可写，避免在初始化期间点开随后被重挂载的面板。
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
-  await expect(page.getByRole('button', { name: '新建知识候选', exact: true })).toBeEnabled();
+  await expect(knowledgeCreateButton(page)).toBeEnabled();
   const sync = await openSync();
   await sync.getByLabel(/云端服务地址/).fill(origin);
   await sync.getByRole('button', { name: '连接并比较资料', exact: true }).click();
@@ -79,7 +80,7 @@ test('生产页面：知识撤回、回收站、SQLite重启、显式恢复与�
   await expect.poll(() => f.runtime.store.state.knowledgeEvidence[0]?.applicabilityStatus).toBe('withdrawn');
   await page.getByRole('button', { name: '移入回收站', exact: true }).click();
   await page.getByRole('dialog', { name: '移入知识回收站？' }).getByRole('button', { name: '确认移入回收站', exact: true }).click();
-  await page.getByRole('toolbar', { name: '知识库工具栏' }).getByRole('button', { name: /^回收站/ }).click();
+  await selectKnowledgeStatus(page, /^回收站/);
   await page.getByRole('button', { name: /回收站生命周期验收/ }).click();
   await expect(page.getByRole('button', { name: '从回收站恢复', exact: true })).toBeVisible();
   assert(f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt);
@@ -88,7 +89,7 @@ test('生产页面：知识撤回、回收站、SQLite重启、显式恢复与�
   await f.screenshot('knowledge-trash.png');
   await f.restart();
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
-  await page.getByRole('toolbar', { name: '知识库工具栏' }).getByRole('button', { name: /^回收站/ }).click();
+  await selectKnowledgeStatus(page, /^回收站/);
   await page.getByRole('button', { name: /回收站生命周期验收/ }).click();
   await expect(page.getByRole('article', { name: '知识详情' })).toContainText('保留的合成来源摘录');
   await expect(page.getByRole('button', { name: '从回收站恢复', exact: true })).toBeVisible();
@@ -97,7 +98,7 @@ test('生产页面：知识撤回、回收站、SQLite重启、显式恢复与�
   await expect.poll(() => f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt).toBe(null);
   assert.equal(f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).reviewStatus, 'needsRevision');
   assert.equal(f.runtime.store.state.knowledgeEvidence[0].applicabilityStatus, 'withdrawn');
-  await page.getByRole('toolbar', { name: '知识库工具栏' }).getByRole('button', { name: '全部未归档', exact: true }).click();
+  await selectKnowledgeStatus(page, /^全部未归档/);
   await page.getByRole('button', { name: /回收站生命周期验收/ }).click();
   await expect(page.getByRole('button', { name: '确认知识', exact: true })).toBeDisabled();
   await f.screenshot('knowledge-restored-withdrawn.png');
@@ -154,7 +155,7 @@ test('生产页面：云端回收站与离线旧编辑冲突跨重启保全，�
   assert(f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt);
   await closeLocalSync(page);
   await page.getByRole('navigation', { name: '工作域导航' }).getByRole('button', { name: /知识/ }).click();
-  await page.getByRole('toolbar', { name: '知识库工具栏' }).getByRole('button', { name: /^回收站/ }).click();
+  await selectKnowledgeStatus(page, /^回收站/);
   await page.getByRole('button', { name: /知识删除冲突验收/ }).click();
   await page.getByRole('button', { name: '从回收站恢复', exact: true }).click();
   await expect.poll(() => f.runtime.store.state.knowledgeItems.find(row => row.id === item.id).deletedAt).toBe(null);

@@ -118,6 +118,27 @@ describe('KnowledgeWorkspaceView', () => {
     expect(screen.getByRole('dialog', { name: '移入知识回收站？' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+  it('回收站和全部未归档通过筛选菜单选择，关闭后列表可继续操作', async () => {
+    const user = userEvent.setup();
+    const deleted = { ...candidate, id: 'deleted', title: '回收站知识', deletedAt: candidate.updatedAt };
+    const input = props({ selectedItemId: null, onList: vi.fn().mockResolvedValue([candidate, deleted]) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    const toolbar = screen.getByRole('toolbar', { name: '知识库工具栏' });
+    const list = screen.getByRole('region', { name: '知识列表内容' });
+    await within(list).findByRole('button', { name: /数据增强/ });
+    for (const [filter, title] of [[/^回收站/, /回收站知识/], [/^全部未归档/, /数据增强/]]) {
+      await user.click(within(toolbar).getByRole('button', { name: '筛选' }));
+      const menu = await screen.findByRole('menu', { name: '知识状态' });
+      const option = within(menu).getByRole('menuitemradio', { name: filter });
+      await user.click(option);
+      expect(option).toHaveAttribute('aria-checked', 'true');
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('menu', { name: '知识状态' })).not.toBeInTheDocument());
+      await user.click(within(list).getByRole('button', { name: title }));
+    }
+    expect(input.onSelectItem).toHaveBeenNthCalledWith(1, deleted.id);
+    expect(input.onSelectItem).toHaveBeenNthCalledWith(2, candidate.id);
+  });
   it('旧条目写入成功后更新列表及版本，但不覆盖新选择的详情', async () => {
     const user = userEvent.setup();
     let resolve!: (item: KnowledgeItem) => void;
@@ -277,7 +298,7 @@ describe('KnowledgeWorkspaceView', () => {
   it('桌面只读原因可见，所有知识写入都禁用', async () => {
     render(<KnowledgeWorkspaceView {...props({ canWrite: false, readOnlyReason: '桌面端知识写入与同步尚未开放。' })} />);
     expect(screen.getByText('桌面端知识写入与同步尚未开放。')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '新建知识候选' })).toBeDisabled();
+    expect(within(screen.getByRole('toolbar', { name: '知识库工具栏' })).getByRole('button', { name: '新建知识候选' })).toBeDisabled();
     expect(await screen.findByRole('button', { name: '确认知识' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '编辑' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '归档' })).toBeDisabled();

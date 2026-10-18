@@ -1,3 +1,4 @@
+import { knowledgeCreateButton } from './helpers/knowledge-index.mjs';
 import { openLocalSync, closeLocalSync } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -78,7 +79,7 @@ test('桌面人工训练：目标候选重启审阅、配置考点题目保存�
   await withPageFailureDiagnostics(page, async () => {
     await page.goto(a.launchUrl);
     await page.goto(`${a.origin}/#/knowledge`);
-    await page.getByRole('button', { name: '新建知识候选', exact: true }).click();
+    await knowledgeCreateButton(page).click();
     const knowledgeDialog = page.getByRole('dialog', { name: '新建知识候选', exact: true });
     await knowledgeDialog.getByLabel('标题', { exact: true }).fill('导数与变化率');
     await knowledgeDialog.getByLabel('核心陈述').fill('函数 x² 的导数为 2x，可用于计算瞬时变化率。');
