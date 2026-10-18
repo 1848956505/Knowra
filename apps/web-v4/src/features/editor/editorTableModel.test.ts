@@ -94,3 +94,23 @@ it('连续行列与对齐操作分别撤销重做，单元格选择不清空历�
     expect(state.doc.eq(snapshots[index])).toBe(true);
   }
 });
+
+it('多行多列选区的快捷插入位于所选范围下方或右侧并保留单元格选择', () => {
+  for (const action of ['row-after', 'column-after'] as const) {
+    let state = fixture();
+    const cells: number[] = [];
+    state.doc.descendants((node, pos) => { if (node.type.name === 'table_cell') cells.push(pos); });
+    state = state.apply(state.tr.setSelection(CellSelection.create(state.doc, cells[0], cells.at(-1))));
+    state = apply(state, action);
+    expect(state.selection).toBeInstanceOf(CellSelection);
+    const table = state.doc.child(1);
+    expect(table.textContent).toContain('苹果2梨3');
+    if (action === 'row-after') {
+      expect(table.childCount).toBe(4);
+      expect(table.lastChild?.textContent).toBe('');
+    } else {
+      expect(table.firstChild?.childCount).toBe(3);
+      table.forEach(row => expect(row.lastChild?.textContent).toBe(''));
+    }
+  }
+});

@@ -108,7 +108,7 @@ test('V4-07 正文编辑、工具栏命令和自动保存形成闭环', async ({
   await expect(editor).toHaveCSS('color', await tokenColor(editor, '--text-body'));
   expect(await editor.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Inter');
   const floatingToolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
-  await expect(floatingToolbar).toHaveCSS('margin-top', '24px');
+  await expect(page.locator('[data-editor-toolbar-stack]')).toHaveCSS('margin-top', '24px');
   for (const name of ['文件', '段落', '编辑', '格式', '视图']) {
     await expect(floatingToolbar.getByRole('button', { name, exact: true })).toBeVisible();
   }
@@ -953,7 +953,7 @@ test('V4-07 在工具栏后方输入时只滚动到正文首个可见位置', as
   await expect(target).toContainText('z');
   const position = await target.evaluate((paragraph) => {
     const stage = paragraph.closest<HTMLElement>('[data-editor-scroll-root]')!;
-    const toolbar = stage.querySelector<HTMLElement>('[role="toolbar"][aria-label="笔记格式工具栏"]')!;
+    const toolbar = stage.querySelector<HTMLElement>('[data-editor-toolbar-stack]')!;
     return { top: paragraph.getBoundingClientRect().top, toolbarBottom: toolbar.getBoundingClientRect().bottom, stageTop: stage.getBoundingClientRect().top, scrollTop: stage.scrollTop };
   });
   expect(position.top, JSON.stringify(position)).toBeGreaterThanOrEqual(Math.max(position.stageTop, position.toolbarBottom) - 4);
@@ -1182,7 +1182,8 @@ test('V4-07 长文档滚动时格式工具栏吸顶且回到顶部后恢复', as
   await page.goto('/#/materials/notes/note-1');
   await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
   const stage = page.locator('[data-editor-scroll-root]');
-  const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏' });
+  // 外层负责占位间距和吸顶，内层继续负责格式命令。
+  const toolbar = page.locator('[data-editor-toolbar-stack]');
   await expect.poll(async () => {
     await stage.evaluate(element => { element.scrollTop = 600; });
     return toolbar.getAttribute('data-pinned');
@@ -2104,10 +2105,36 @@ test('V4-07 长表滚动后操作栏避开固定格式栏', async ({ page }) => 
     const format = await page.getByRole('toolbar', { name: '笔记格式工具栏', exact: true }).boundingBox();
     const operations = await controls.boundingBox();
     return Boolean(table && format && operations && table.y < format.y && table.y + table.height > format.y + format.height
-      && operations.y >= format.y + format.height + 8);
+      && operations.y >= format.y + format.height);
   }).toBe(true);
+  const cells = page.locator('.ProseMirror td');
+  const visibleCellIndex = await cells.evaluateAll(elements => {
+    const toolbar = document.querySelector('[data-table-controls]')!.getBoundingClientRect();
+    const stage = document.querySelector('[data-editor-scroll-root]')!.getBoundingClientRect();
+    return elements.findIndex(cell => {
+      const rect = cell.getBoundingClientRect();
+      return rect.top >= toolbar.bottom + 8 && rect.bottom <= stage.bottom - 8;
+    });
+  });
+  expect(visibleCellIndex).toBeGreaterThanOrEqual(0);
+  const cell = cells.nth(visibleCellIndex);
+  const scrollBefore = await page.locator('[data-editor-scroll-root]').evaluate(stage => stage.scrollTop);
+  await cell.click();
+  await expect.poll(() => cell.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    const selection = window.getSelection()?.anchorNode;
+    return Boolean(hit && element.contains(hit) && selection && element.contains(selection));
+  })).toBe(true);
+  expect(Math.abs(await page.locator('[data-editor-scroll-root]').evaluate(stage => stage.scrollTop) - scrollBefore)).toBeLessThanOrEqual(2);
   await page.getByRole('button', { name: '表格操作', exact: true }).click();
-  await expect(page.getByRole('menuitem', { name: '在下方插入行', exact: true })).toBeVisible();
+  await page.getByRole('menuitem', { name: '在下方插入行', exact: true }).click();
+  await expect(page.locator('.ProseMirror tr')).toHaveCount(47);
+  await expectSelectedTableCellVisible(page);
+  for (let step = 0; step < 3; step++) {
+    await page.keyboard.press('ArrowUp');
+    await expectSelectedTableCellVisible(page);
+  }
 });
 
 test('V4-07 图片比例预设保留说明、附件地址并可独立撤销与重载', async ({ page }) => {
@@ -2321,4 +2348,143 @@ async function tokenColor(scope: Locator, token: string): Promise<string> {
     probe.remove();
     return color;
   }, token);
+}
+
+test('V4-07 表格快捷插入明确区分行列，连续操作可独立撤销', async ({ page }, testInfo) => {
+  await mockEditorWorkspace(page, [], [], '| 名称 | 数量 |\n| --- | --- |\n| 苹果 | 2 |\n| 梨 | 3 |');
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await page.goto('/#/materials/notes/note-1');
+  const table = page.locator('.ProseMirror table');
+  await table.locator('td').first().click();
+  const controls = page.getByRole('toolbar', { name: '表格操作工具栏' });
+  await expect(controls.getByRole('button')).toHaveCount(3);
+  await expectTableHeaderUncovered(page, table, controls);
+  await page.screenshot({ path: testInfo.outputPath('table-controls-desktop.png') });
+  await controls.getByRole('button', { name: '在当前表格行下方插入行', exact: true }).click();
+  await expect(table.locator('tr')).toHaveCount(4);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await controls.getByRole('button', { name: '在当前表格列右侧插入列', exact: true }).click();
+  await expect(table.locator('th')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(table.locator('th')).toHaveCount(2);
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(table.locator('tr')).toHaveCount(3);
+});
+
+test('V4-07 手机表格收起快捷项但完整分组菜单保持可见和可操作', async ({ page }, testInfo) => {
+  await mockEditorWorkspace(page, [], [], '| 名称 | 数量 |\n| --- | --- |\n| 苹果 | 2 |\n| 梨 | 3 |');
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  const table = page.locator('.ProseMirror table');
+  await table.locator('td').first().click();
+  const controls = page.getByRole('toolbar', { name: '表格操作工具栏' });
+  await expect(controls.getByRole('button', { name: '在当前表格行下方插入行', exact: true })).toBeHidden();
+  const trigger = controls.getByRole('button', { name: '表格操作', exact: true });
+  const box = await trigger.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(8);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(382);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await expectTableHeaderUncovered(page, table, controls);
+  await page.screenshot({ path: testInfo.outputPath('table-controls-mobile.png') });
+  await trigger.click();
+  const menu = page.getByRole('menu', { name: '表格操作', exact: true });
+  await expect(menu.getByRole('menuitem')).toHaveCount(13);
+  await expect(menu.getByRole('separator')).toHaveCount(3);
+  await expect(menu).toBeVisible();
+  await expect.poll(() => menu.evaluate(element => {
+    const popover = element.closest('[data-placement]')!;
+    const rect = popover.getBoundingClientRect();
+    const workspace = document.querySelector('[data-editor-workspace]')!.getBoundingClientRect();
+    return rect.top >= workspace.top && rect.bottom <= workspace.bottom
+      && popover.getAnimations({ subtree: true }).every(animation => animation.playState === 'finished');
+  })).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('table-menu-mobile.png') });
+  await menu.getByRole('menuitem', { name: '在右侧插入列', exact: true }).click();
+  await expect(table.locator('th')).toHaveCount(3);
+  await expect(page.locator('.ProseMirror')).toBeFocused();
+  await trigger.click();
+  const deleteTable = menu.getByRole('menuitem', { name: '删除整个表格', exact: true });
+  await deleteTable.scrollIntoViewIfNeeded();
+  await expect(deleteTable).toBeInViewport();
+  await expect.poll(() => deleteTable.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const stage = document.querySelector('[data-editor-workspace]')!.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return rect.top >= stage.top && rect.bottom <= stage.bottom && Boolean(hit && element.contains(hit));
+  })).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('table-menu-mobile-bottom.png') });
+  await deleteTable.click();
+  await expect(table).toHaveCount(0);
+  await expect(controls).toHaveCount(0);
+});
+
+
+async function expectTableHeaderUncovered(page: Page, table: Locator, controls: Locator) {
+  await expect.poll(async () => {
+    const toolbar = await controls.boundingBox();
+    const headers = await table.locator('th').evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, hit: Boolean(hit && element.contains(hit)) };
+    }));
+    if (!toolbar || headers.length === 0) return false;
+    return headers.every(rect => rect.hit && (
+      Math.min(toolbar.x + toolbar.width, rect.x + rect.width) <= Math.max(toolbar.x, rect.x)
+      || Math.min(toolbar.y + toolbar.height, rect.y + rect.height) <= Math.max(toolbar.y, rect.y)
+    ));
+  }).toBe(true);
+  const format = await page.getByRole('toolbar', { name: '笔记格式工具栏', exact: true }).boundingBox();
+  const toolbar = await controls.boundingBox();
+  expect(toolbar!.y).toBeGreaterThanOrEqual(format!.y + format!.height);
+}
+
+
+test('V4-07 长表靠近视口底部首次选中时上下文行不把光标挤出视野', async ({ page }) => {
+  const rows = Array.from({ length: 45 }, (_, index) => `| 第${index + 1}行 |`).join('\n');
+  await mockEditorWorkspace(page, [], [], `正文起点\n\n| 名称 |\n| --- |\n${rows}`);
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+  await page.locator('.ProseMirror > p').first().click();
+  await expect(page.getByRole('toolbar', { name: '表格操作工具栏' })).toHaveCount(0);
+  await page.locator('[data-editor-scroll-root]').evaluate(stage => { stage.scrollTop = 600; });
+  const cells = page.locator('.ProseMirror td');
+  const index = await cells.evaluateAll(elements => {
+    const stage = document.querySelector('[data-editor-scroll-root]')!.getBoundingClientRect();
+    const format = document.querySelector('[aria-label="笔记格式工具栏"]')!.getBoundingClientRect();
+    return elements.findLastIndex(cell => {
+      const rect = cell.getBoundingClientRect();
+      return rect.top >= format.bottom + 8 && rect.bottom <= stage.bottom - 8;
+    });
+  });
+  expect(index).toBeGreaterThanOrEqual(0);
+  const cell = cells.nth(index);
+  await cell.click();
+  await expect(page.getByRole('toolbar', { name: '表格操作工具栏' })).toBeVisible();
+  await expect.poll(() => cell.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const stage = document.querySelector('[data-editor-scroll-root]')!.getBoundingClientRect();
+    const controls = document.querySelector('[data-table-controls]')!.getBoundingClientRect();
+    const selection = window.getSelection()?.anchorNode;
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return rect.top >= controls.bottom && rect.bottom <= stage.bottom && Boolean(selection && element.contains(selection) && hit && element.contains(hit));
+  })).toBe(true);
+});
+
+
+async function expectSelectedTableCellVisible(page: Page) {
+  await expect.poll(() => page.locator('.ProseMirror').evaluate(editor => {
+    const anchor = window.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    const cell = element?.closest('td, th');
+    if (!cell || !editor.contains(cell)) return false;
+    const rect = cell.getBoundingClientRect();
+    const stage = editor.closest('[data-editor-scroll-root]')!.getBoundingClientRect();
+    const stack = document.querySelector('[data-editor-toolbar-stack]')!.getBoundingClientRect();
+    const top = stack.top <= stage.top + 1 ? stack.bottom : stage.top;
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return rect.top >= top && rect.bottom <= stage.bottom && Boolean(hit && cell.contains(hit));
+  })).toBe(true);
 }

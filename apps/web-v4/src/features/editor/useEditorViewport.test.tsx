@@ -172,3 +172,17 @@ describe('useEditorViewport', () => {
     expect(stage.scrollTop).toBe(400);
   });
 });
+
+it('上下文行改变吸顶栏高度时同步原生滚动留白，卸载清理', () => {
+  const rendered = render(<Harness noteId="a" />);
+  const stage = rendered.getByTestId('stage');
+  const toolbar = viewport.toolbarRef.current!;
+  toolbar.getBoundingClientRect = () => ({ height: 110 } as DOMRect);
+  act(() => observers[0].callback([], {} as ResizeObserver));
+  expect(stage.style.getPropertyValue('--editor-toolbar-height')).toBe('118px');
+  toolbar.getBoundingClientRect = () => ({ height: 52 } as DOMRect);
+  act(() => observers[0].callback([], {} as ResizeObserver));
+  expect(stage.style.getPropertyValue('--editor-toolbar-height')).toBe('60px');
+  rendered.unmount();
+  expect(stage.style.getPropertyValue('--editor-toolbar-height')).toBe('');
+});

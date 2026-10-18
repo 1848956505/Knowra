@@ -45,7 +45,7 @@ export function EditorPageLayout({
         <Button variant="ghost" size="compact" aria-label="打开文档检查器" aria-pressed={inspectorOpen} onPress={onToggleInspector}><PanelIcon size={16} />检查器</Button>
       </div> : null}
       {feedback}
-      <div className={styles.workspace}>
+      <div className={styles.workspace} data-editor-workspace>
         <div ref={documentStageRef} className={styles.documentStage} data-editor-scroll-root onClickCapture={onAttachmentLink} onAuxClickCapture={onAttachmentLink}>
           <article ref={paperRef} className={styles.paper} data-pdf-document="true" aria-labelledby="note-editor-title">
             {children}

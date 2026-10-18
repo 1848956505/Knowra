@@ -11,6 +11,11 @@
   letter-spacing: .01em;
 }
 
+/* 文末表格下方保留可命中的正文入口；点击时才创建段落，不改加载/保存基线。 */
+.milkdownEditor :global(.ProseMirror:has(> table:last-child)) {
+  padding-bottom: var(--space-6);
+}
+
 /* 正文通过插入光标反馈编辑焦点，避免将整篇文档绘制成输入框。 */
 .milkdownEditor :global(.ProseMirror:focus-visible) {
   outline: 0;

@@ -4,9 +4,9 @@ import { EditorState, TextSelection } from '@milkdown/kit/prose/state';
 import {
   removeLeadingEmptyParagraph,
   resolveEditorBoundaryAction,
-  shouldInsertParagraphAfterTrailingCodeBlock,
+  shouldInsertParagraphAfterTrailingBlock,
   type EditorBoundaryInput,
-  type TrailingCodeBlockClickInput
+  type TrailingBlockClickInput
 } from './editorInputBehavior';
 
 const baseInput: EditorBoundaryInput = {
@@ -69,19 +69,20 @@ describe('editorInputBehavior', () => {
     expect(resolveEditorBoundaryAction({ ...baseInput, altKey: true })).toBeNull();
   });
 
-  it('creates a paragraph only for a plain click below a trailing code block', () => {
-    const click: TrailingCodeBlockClickInput = {
+  it('creates a paragraph only for a plain click below a trailing code block or table', () => {
+    const click: TrailingBlockClickInput = {
       button: 0,
       clientY: 220,
       lastBlockBottom: 180,
       lastNodeType: 'code_block',
       editable: true
     };
-    expect(shouldInsertParagraphAfterTrailingCodeBlock(click)).toBe(true);
-    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, clientY: 170 })).toBe(false);
-    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, lastNodeType: 'paragraph' })).toBe(false);
-    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, editable: false })).toBe(false);
-    expect(shouldInsertParagraphAfterTrailingCodeBlock({ ...click, metaKey: true })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingBlock(click)).toBe(true);
+    expect(shouldInsertParagraphAfterTrailingBlock({ ...click, lastNodeType: 'table' })).toBe(true);
+    expect(shouldInsertParagraphAfterTrailingBlock({ ...click, clientY: 170 })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingBlock({ ...click, lastNodeType: 'paragraph' })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingBlock({ ...click, editable: false })).toBe(false);
+    expect(shouldInsertParagraphAfterTrailingBlock({ ...click, metaKey: true })).toBe(false);
   });
 });
 

@@ -100,6 +100,7 @@ export function useEditorViewport(noteId: string | undefined) {
       setToolbarPinned(current => current === pinned ? current : pinned);
     };
     const syncDocumentEdge = () => {
+      stage.style.setProperty('--editor-toolbar-height', `${Math.ceil(toolbar.getBoundingClientRect().height) + 8}px`);
       const paper = toolbar.closest('article');
       if (paper) {
         const edge = Math.max(0, (stage.clientWidth - paper.offsetWidth) / 2);
@@ -113,6 +114,7 @@ export function useEditorViewport(noteId: string | undefined) {
       void restoreCurrentScrollPosition();
     });
     layoutObserver?.observe(stage);
+    layoutObserver?.observe(toolbar);
     if (paperRef.current) contentObserver?.observe(paperRef.current);
     stage.addEventListener('scroll', syncPinned, { passive: true });
     stage.addEventListener('pointerdown', cancelPendingRestore, { capture: true });
@@ -123,6 +125,7 @@ export function useEditorViewport(noteId: string | undefined) {
     syncLayout();
     return () => {
       layoutObserver?.disconnect();
+      stage.style.removeProperty('--editor-toolbar-height');
       contentObserver?.disconnect();
       stage.removeEventListener('scroll', syncPinned);
       stage.removeEventListener('pointerdown', cancelPendingRestore, { capture: true });

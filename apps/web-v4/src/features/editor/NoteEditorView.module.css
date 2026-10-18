@@ -125,7 +125,7 @@
   min-height: 0;
   position: relative;
   overflow: auto;
-  scroll-padding: 48px 0 24px;
+  scroll-padding: max(48px, var(--editor-toolbar-height, 48px)) 0 24px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
   background: var(--surface-page);
@@ -140,16 +140,11 @@
 }
 .toolbarAnchor { height: 0; }
 .nativeFileInput { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.toolbar {
+.toolbarStack {
   position: sticky;
   top: 0;
   z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  min-height: 36px;
   margin: 24px 0 28px;
-  padding: var(--space-1);
   border: 0;
   border-radius: var(--radius-popover);
   /* 玻璃质感：半透明渐变 + 背景模糊，与侧栏的玻璃按钮一致；吸顶时可隐约透出下方正文。 */
@@ -157,15 +152,16 @@
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   backdrop-filter: blur(16px) saturate(140%);
   box-shadow: var(--shadow-action-glass, var(--shadow-control));
-  overflow-x: auto;
-  white-space: nowrap;
-  scrollbar-width: none;
   transition: box-shadow var(--motion-fast);
 }
-.toolbar[data-pinned] {
+.toolbar { display: flex; align-items: center; gap: 2px; min-height: 36px; padding: var(--space-1); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+/* 上下文行占真实布局高度，与格式栏一起吸顶，避免初始表头被悬浮控件遮住。 */
+.tableControlsDock { min-width: 0; padding: 4px; border-top: 1px solid var(--border-subtle); }
+.tableControlsDock:empty { display: none; }
+.toolbarStack[data-pinned] {
   /* 保持吸顶前后盒高一致，避免短横屏的滚动锚定抖动。 */
   margin-inline: calc(-1 * var(--paper-pad-x));
-  padding-inline: calc(var(--paper-pad-x) + var(--space-1));
+  padding-inline: var(--paper-pad-x);
   border-radius: 0;
   box-shadow: inset 0 1px 0 var(--ni-ctx-hl, transparent), 0 1px 0 var(--border-subtle);
   /* 吸顶后向两侧“扩散”：玻璃底、边线与模糊从两端渐隐，按钮保持在完全不透明的中段。 */
@@ -275,14 +271,14 @@
   .toolbarTools { display: contents; }
   .toolbar > .toolbarTools button { min-width: 40px; height: var(--touch-target); }
   .compactHide, .optionalTool { display: none !important; }
-  .documentStage { overscroll-behavior: contain; scroll-padding-top: 72px; }
+  .documentStage { overscroll-behavior: contain; scroll-padding-top: max(72px, var(--editor-toolbar-height, 72px)); }
 }
 @media (max-width: 767px) {
   .editor { --doc-width: 100%; --doc-edge: 0px; --paper-pad-x: 22px; }
   .tabs { padding-inline: 4px; }
   .paper { padding-block: 28px 90px; }
   .title { font-size: 26px; }
-  .toolbar { margin-block: 22px 24px; }
+  .toolbarStack { margin-block: 22px 24px; }
   .saveConflict { align-items: stretch; flex-direction: column; }
 }
 /* 标题含公式时：渲染层可见，输入框透明叠在其上，点击或 Tab 聚焦后切回源码编辑。 */
