@@ -56,6 +56,7 @@ export function deriveStatusPath({
   }
 
   const domainLabel: Record<WorkDomain, string> = {
+    'task-workspaces': '任务工作区',
     materials: '资料',
     knowledge: '知识库',
     training: '试题库',

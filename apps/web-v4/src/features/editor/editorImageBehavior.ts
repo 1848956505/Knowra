@@ -6,6 +6,7 @@ import { imageAttr, imageSchema } from '@milkdown/kit/preset/commonmark';
 import { $prose } from '@milkdown/kit/utils';
 import { fittedImageSize, imageRatioAttrs, readImageSize } from './editorImageModel';
 
+export const IMAGE_RESOURCE_POLICY_EVENT = 'knowra-image-resource-policy';
 export const IMAGE_CONTEXT_EVENT = 'knowra-image-context';
 
 const selectImage: NonNullable<EditorProps['handleClickOn']> = (view, _pos, node, nodePos, _event, direct) => {
@@ -29,7 +30,7 @@ export function imageHtmlWithRenderedSizes(html: string, view: Pick<EditorView, 
 }
 
 /** HTML 导出与富文本复制保留尺寸，title 不暴露内部比例标记。 */
-export function configureImageSize(ctx: Ctx) {
+export function configureImageSize(ctx: Ctx, resolveSource?: (source: string) => string | null) {
   ctx.update(imageSchema.key, original => schemaCtx => ({
     ...original(schemaCtx),
     attrs: { ...original(schemaCtx).attrs, clipboardWidth: { default: null } },
@@ -42,7 +43,7 @@ export function configureImageSize(ctx: Ctx) {
     toDOM: node => {
       const size = readImageSize(node.attrs);
       const width = Number(node.attrs.clipboardWidth);
-      return ['img', { ...schemaCtx.get(imageAttr.key)(node), src: node.attrs.src, alt: node.attrs.alt,
+      return ['img', { ...schemaCtx.get(imageAttr.key)(node), src: resolveSource ? resolveSource(String(node.attrs.src)) ?? undefined : node.attrs.src, alt: node.attrs.alt,
         title: size.title, 'data-knowra-image-ratio': size.ratio,
         style: `width:${width > 0 ? `${width}px` : `${size.ratio * 100}%`};max-width:100%;height:auto` }];
     }
@@ -72,7 +73,8 @@ export function imageClipboardSlice(slice: Slice, view: EditorView): Slice {
   return new Slice(transform(slice.content), slice.openStart, slice.openEnd);
 }
 
-export const editorImageBehavior = $prose(() => new Plugin({
+export function createEditorImageBehavior(resolveSource?: (source: string) => string | null) {
+  return $prose(() => new Plugin({
   props: {
     transformCopied: imageClipboardSlice,
     handleClickOn: selectImage,
@@ -99,12 +101,15 @@ export const editorImageBehavior = $prose(() => new Plugin({
           notify();
         };
         const sync = () => {
-          if (image.getAttribute('src') !== node.attrs.src) image.src = node.attrs.src;
+          const source = resolveSource ? resolveSource(String(node.attrs.src)) : node.attrs.src;
+          if (source) { if (image.getAttribute('src') !== source) image.src = source; }
+          else image.removeAttribute('src');
           image.alt = node.attrs.alt ?? '';
           image.title = readImageSize(node.attrs).title;
           resize();
         };
         image.addEventListener('load', resize);
+        if (resolveSource) view.dom.addEventListener(IMAGE_RESOURCE_POLICY_EVENT, sync);
         const observer = new ResizeObserver(resize);
         observer.observe(view.dom);
         sync();
@@ -112,7 +117,7 @@ export const editorImageBehavior = $prose(() => new Plugin({
           dom: image,
           update(next) { if (next.type !== node.type) return false; node = next; sync(); return true; },
           ignoreMutation: mutation => mutation.type !== 'selection',
-          destroy() { observer.disconnect(); image.removeEventListener('load', resize); }
+          destroy() { observer.disconnect(); image.removeEventListener('load', resize); view.dom.removeEventListener(IMAGE_RESOURCE_POLICY_EVENT, sync); }
         };
       }
     }
@@ -123,3 +128,7 @@ export const editorImageBehavior = $prose(() => new Plugin({
     }
   } })
 }));
+
+}
+
+export const editorImageBehavior = createEditorImageBehavior();

@@ -1,0 +1,109 @@
+name: Knowledge extraction A/B (synthetic DeepSeek)
+
+# 首次合入本工作流时自动运行一次，之后仅能手动重跑；
+# 不监听 pull_request，避免不受信任的 PR 使用 Repository Secret。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/knowledge-extraction-ab.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowra-synthetic-deepseek-ab
+  cancel-in-progress: false
+
+jobs:
+  synthetic-ab:
+    name: DeepSeek v1/v2 (public fixtures only)
+    if: github.repository == '1848956505/Knowra' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (no persistent credentials)
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies (no scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Validate A/B harness without API calls
+        run: node --test scripts/test/knowledge-extraction-ab.test.js
+
+      - name: Run six bounded DeepSeek requests with synthetic sources
+        shell: bash
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo 'DEEPSEEK Repository Secret unavailable; experiment not run.'
+            exit 1
+          fi
+          # No private user notes, no writable knowledge DB, no arbitrary file inputs.
+          # API key is passed only as an environment variable in this step.
+          node scripts/experiments/knowledge-extraction-ab/run.mjs \
+            --notes scripts/experiments/knowledge-extraction-ab/fixtures \
+            --existing scripts/experiments/knowledge-extraction-ab/fixtures-existing-titles.txt \
+            --variants v1,v2 \
+            --model deepseek-chat \
+            --max-tokens 2048 \
+            --out "$RUNNER_TEMP/knowra-deepseek-ab" \
+            --key-env DEEPSEEK_API_KEY
+
+      - name: Verify every provider request completed
+        shell: bash
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const data = JSON.parse(readFileSync(process.env.RUNNER_TEMP + "/knowra-deepseek-ab/raw.json", "utf8"));
+            const v1 = data.runsByVariant?.v1 || [];
+            const v2 = data.runsByVariant?.v2 || [];
+            const runs = [...v1, ...v2];
+            // An invalid candidate may be a valid experimental finding,
+            // but HTTP/provider failures invalidate a comparison run.
+            if (v1.length !== 3 || v2.length !== 3 || runs.some(r => r.error || r.check?.batchError)) {
+              console.error("A/B experiment incomplete: model call, JSON parsing or sample count failed.");
+              process.exit(1);
+            }
+            console.log("Six DeepSeek calls completed; candidate quality is reported separately.");
+          '
+
+      - name: Publish aggregate-only step summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/knowra-deepseek-ab/report.md" ]]; then
+            {
+              echo "## 知境：公开合成笔记 A/B 实验"
+              echo
+              echo "数据：3 篇仓库公开合成笔记；模型：deepseek-chat；每次最多 2048 输出 tokens。"
+              echo
+              sed -n '/^## 汇总$/,/^## 逐篇明细$/p' "$RUNNER_TEMP/knowra-deepseek-ab/report.md" | sed '$d'
+              echo
+              echo "注：标题逐字复用不等于概念语义正确；报告中的引用成功不等于知识事实正确。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "实验没有生成报告（检查依赖或调用状态），没有调用结果可供比较。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # 为只读审查工具提供同一份脱敏聚合指标；不显示模型正文或原始请求。
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload synthetic-only report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-ab-synthetic-${{ github.run_id }}
+          path: ${{ runner.temp }}/knowra-deepseek-ab/report.md
+          if-no-files-found: ignore
+          retention-days: 7

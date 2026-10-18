@@ -1,3 +1,4 @@
+import { createTaskWorkspaceService } from './modules/task-workspaces/service.js';
 import { createPostgresPurgeTaskReader } from './infrastructure/asset-purge-task-state.js';
 import { createPostgresActionStore } from './modules/ai/postgres-action-store.js';
 import { createAttachmentTransfer } from './modules/sync/attachment-transfer.js';
@@ -169,6 +170,9 @@ export async function createPostgresAppContext({
     receiptStore: extractionReceipts, store: createPostgresKnowledgeExtractionTaskStore({ client: db, ownerId: normalizedOwnerId }) }) : null;
   let closing;
   const context = {
+    // V1 不把本地域隐式回退到 JSON，也不扩充 PostgreSQL 的普通笔记协议。
+    taskWorkspaces: createTaskWorkspaceService({ store: null }),
+    taskWorkspaceContext: () => ({ actor: { kind: 'user', id: normalizedOwnerId } }),
     knowledgeExtractionCommit,
     knowledgeExtractionTasks,
     driver: 'postgres',

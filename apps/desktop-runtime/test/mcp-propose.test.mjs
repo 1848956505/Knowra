@@ -320,7 +320,9 @@ test('回执读不出来不等于没提交：结果未知时保留预留，同�
 });
 
 test('跨 UTC 日期归还配额：只归还原预留所在日期，不扣新一天的计数', async t => {
-  let current = Date.parse('2026-10-07T23:59:59.000Z'), calls = 0, releaseFirst;
+  // 配对策略由真实时钟校验有效期，跨日夹具不能固定在会过期的历史日期。
+  const day = new Date().toISOString().slice(0, 10);
+  let current = Date.parse(`${day}T23:59:59.000Z`), calls = 0, releaseFirst;
   const gate = new Promise(resolve => { releaseFirst = resolve; });
   const env = await setup(t, { limits: { maxCandidatesPerDay: 1 }, hooks: { now: () => new Date(current), commit: async (original, args) => {
     calls += 1;
@@ -328,11 +330,13 @@ test('跨 UTC 日期归还配额：只归还原预留所在日期，不扣新一
     return original(args);
   } } });
   const note = await env.note('跨日');
-  const client = env.client((await env.pair()).data);
+  const pairing = await env.pair();
+  assert.equal(pairing.status, 201, JSON.stringify(pairing));
+  const client = env.client(pairing.data);
   await readAll(client, note.id);
   const first = propose(client, note.id, P1, { idempotencyKey: 'cross-day-01' }).then(() => 'saved', error => error.code);
   await wait(200);
-  current = Date.parse('2026-10-08T00:00:05.000Z');
+  current += 6000;
   assert.equal((await propose(client, note.id, P2, { idempotencyKey: 'cross-day-02' })).meta.saved, true, '新一天的第一条');
   releaseFirst();
   assert.equal(await first, 'MCP_INTERNAL');

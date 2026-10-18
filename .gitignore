@@ -48,3 +48,6 @@ apps/android/local.properties
 apps/android/**/build/
 *.keystore
 *.jks
+
+# 旧版知识提炼 A/B 输出可能包含用户笔记原文
+/tmp-knowledge-ab/

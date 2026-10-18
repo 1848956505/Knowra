@@ -50,6 +50,7 @@ export const PRIMARY_DOMAINS: readonly RailItem[] = [
     Icon: QuestionIcon,
     available: true
   },
+  { id: 'task-workspaces', label: '任务', description: '协作文档、任务执行与人工验收。', Icon: CheckIcon, available: true },
   {
     id: 'learning',
     label: '执行',

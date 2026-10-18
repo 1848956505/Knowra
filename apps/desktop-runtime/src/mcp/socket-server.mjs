@@ -42,8 +42,9 @@ export async function startMcpSocketServer({ socketPath, pairings, gate, logger 
       }
       if (request.url === '/mcp/v1/call') {
         const match = /^Bearer (\S+)$/.exec(request.headers.authorization ?? '');
-        const body = await parseBody(request, { limitBytes: 16_384 });
+        const body = await parseBody(request, { limitBytes: 2 * 1024 * 1024 });
         const result = await gate.call({ token: match?.[1], tool: body.tool, input: body.input ?? {} });
+        gate.assertResult?.(result);
         return send(response, 200, { data: result });
       }
       throw new McpError('MCP_REQUEST_INVALID', '路径不存在。', { status: 404 });

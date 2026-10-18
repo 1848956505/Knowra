@@ -1,3 +1,5 @@
+import { createTaskWorkspaceService } from './modules/task-workspaces/service.js';
+import { handleTaskWorkspaceRoute } from './modules/task-workspaces/routes.js';
 import { handleActionRoute } from './modules/ai/action-routes.js';
 import { URL } from 'node:url';
 import http from 'node:http';
@@ -21,6 +23,8 @@ import { aiRuntimeLifecycle } from './modules/ai/runtime-lifecycle.js';
 import { isWriteMethod, writeOriginDecision } from '@study-accelerator/shared/http-origin';
 
 export function createServer({ appContext, cors = {}, logger = console }) {
+  const taskWorkspaces = appContext.taskWorkspaces ?? createTaskWorkspaceService({ store: null });
+  const taskWorkspaceContext = appContext.taskWorkspaceContext ?? (() => ({ actor: { kind: 'user', id: 'unavailable' } }));
   const allowedOrigins = cors.allowedOrigins ?? [];
   const extraction = createKnowledgeExtractionHttpService({ tasks: appContext.knowledgeExtractionTasks,
     location: appContext.aiLocation ?? 'server', logger });
@@ -63,6 +67,8 @@ export function createServer({ appContext, cors = {}, logger = console }) {
         });
         return;
       }
+
+      if (await handleTaskWorkspaceRoute({ request, response, url, service: taskWorkspaces, context: taskWorkspaceContext })) return;
 
       if (await handleStorageRoute({ request, response, url, storage })) {
         return;

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { normalizeTaskWorkspaceGrants } from './task-access.mjs';
 import path from 'node:path';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { mcpError } from './mcp-error.mjs';
@@ -46,7 +47,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       const parsed = JSON.parse(fs.readFileSync(recordsFile, 'utf8'));
       if (!Array.isArray(parsed) || !parsed.every(validRow)) return false;
       // 旧配对没有知识外发授权；任何非 true 值都按关闭处理，升级不会扩大权限。
-      rows = parsed.map(row => ({ ...row, allowKnowledgeRead: row.allowKnowledgeRead === true,
+      rows = parsed.map(row => ({ ...row, taskWorkspaceGrants: normalizeTaskWorkspaceGrants(row.taskWorkspaceGrants), allowKnowledgeRead: row.allowKnowledgeRead === true,
         knowledgeReadConfirmedAt: row.allowKnowledgeRead === true ? row.knowledgeReadConfirmedAt ?? null : null }));
     } catch (error) {
       if (error?.code !== 'ENOENT') return false;
@@ -79,6 +80,7 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
   const publicView = row => ({ pairingId: row.pairingId, label: row.label, spaceId: row.spaceId, scope: row.scope,
     excludedNoteIds: row.excludedNoteIds, createdAt: row.createdAt, expiresAt: row.expiresAt, revokedAt: row.revokedAt,
     egressConfirmedAt: row.egressConfirmedAt, lastUsedAt: row.lastUsedAt, calls: row.calls, allowPropose: row.allowPropose === true,
+    taskWorkspaceGrants: normalizeTaskWorkspaceGrants(row.taskWorkspaceGrants),
     allowKnowledgeRead: row.allowKnowledgeRead === true, knowledgeReadConfirmedAt: row.knowledgeReadConfirmedAt ?? null,
     status: row.revokedAt ? 'revoked' : Date.parse(row.expiresAt) <= now().getTime() ? 'expired' : 'active',
     pairingFile: fileFor(row.pairingId) });
@@ -88,12 +90,14 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
     sweep: () => { ensure(); sweep(); },
     list: () => { ensure(); sweep(); return rows.map(publicView); },
     get: id => { ensure(); return rows.find(row => row.pairingId === id) ?? null; },
-    create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory, allowPropose = false, allowKnowledgeRead = false }) {
+    create({ label, spaceId, scope, excludedNoteIds, policyId, policyRevision, expiresInDays, socketPath, dataDirectory, allowPropose = false, allowKnowledgeRead = false, taskWorkspaceGrants = [], taskWorkspaceDatasetId = null, taskWorkspaceDatasetEpoch = null }) {
       ensure();
+      taskWorkspaceGrants = normalizeTaskWorkspaceGrants(taskWorkspaceGrants);
       const pairingId = randomUUID();
       const token = `knp1.${pairingId}.${randomBytes(32).toString('hex')}`;
       const createdAt = now().toISOString();
       const row = { pairingId, label, spaceId, scope, excludedNoteIds, policyId, policyRevision,
+        taskWorkspaceGrants, taskWorkspaceDatasetId, taskWorkspaceDatasetEpoch, taskWorkspaceGrantRevision: 1,
         verifier: tokenVerifier(token), createdAt, expiresAt: new Date(now().getTime() + expiresInDays * DAY_MS).toISOString(),
         revokedAt: null, egressConfirmedAt: createdAt, lastUsedAt: null, calls: 0, dayKey: null, dayCalls: 0,
         // 是否允许该客户端提交待审核的知识候选：创建时单独确认，默认关闭；候选数量按日计，保护知识候选区不被刷满。
@@ -152,6 +156,18 @@ export function createPairingStore({ directory, now = () => new Date() } = {}) {
       const previous = { allowKnowledgeRead: row.allowKnowledgeRead, knowledgeReadConfirmedAt: row.knowledgeReadConfirmedAt };
       row.allowKnowledgeRead = allowKnowledgeRead;
       row.knowledgeReadConfirmedAt = allowKnowledgeRead ? now().toISOString() : null;
+      try { save(); } catch (error) { Object.assign(row, previous); throw error; }
+      return publicView(row);
+    },
+    setTaskWorkspaceGrants(id, state) {
+      ensure();
+      const row = rows.find(item => item.pairingId === id);
+      if (!row) throw mcpError('MCP_PAIRING_NOT_FOUND', '配对不存在。', { status: 404 });
+      this.assertActive(row);
+      const previous = { taskWorkspaceGrants: row.taskWorkspaceGrants, taskWorkspaceDatasetId: row.taskWorkspaceDatasetId,
+        taskWorkspaceDatasetEpoch: row.taskWorkspaceDatasetEpoch, taskWorkspaceGrantRevision: row.taskWorkspaceGrantRevision };
+      Object.assign(row, state, { taskWorkspaceGrants: normalizeTaskWorkspaceGrants(state.taskWorkspaceGrants),
+        taskWorkspaceGrantRevision: (row.taskWorkspaceGrantRevision ?? 0) + 1 });
       try { save(); } catch (error) { Object.assign(row, previous); throw error; }
       return publicView(row);
     },

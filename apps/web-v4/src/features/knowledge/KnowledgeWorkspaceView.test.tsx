@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Annotation, KnowledgeEvidence, KnowledgeItem } from '@study-accelerator/web-core';
@@ -33,6 +33,126 @@ describe('KnowledgeWorkspaceView', () => {
     expect(screen.getByRole('dialog', { name: '新建知识候选' })).toBeVisible();
     expect(screen.getByRole('textbox', { name: '标题' })).toHaveValue('');
     expect(input.onCreate).not.toHaveBeenCalled();
+  });
+
+  async function chooseStatus(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+    await user.click(screen.getByRole('button', { name: '筛选' }));
+    await user.click(within(await screen.findByRole('menu', { name: '知识状态' })).getByRole('menuitemradio', { name }));
+    await user.keyboard('{Escape}');
+  }
+  async function openRowMenu(title: string) {
+    const row = await within(screen.getByRole('region', { name: '知识列表内容' })).findByRole('button', { name: new RegExp(title) });
+    fireEvent.contextMenu(row, { clientX: 100, clientY: 100 });
+    return screen.findByRole('menu', { name: '知识操作' });
+  }
+  it.each([null, 'k2'])('未选中或选择其他条目时归档失败保留对话框，重试成功有反馈：%s', async selectedItemId => {
+    const user = userEvent.setup();
+    const onArchive = vi.fn().mockRejectedValueOnce(new Error('归档连接失败')).mockResolvedValue({ ...candidate, reviewStatus: 'archived' });
+    const input = props({ selectedItemId, onArchive, onGet: vi.fn().mockResolvedValue(archived) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    await user.click(within(await openRowMenu(candidate.title)).getByRole('menuitem', { name: '归档' }));
+    await user.click(screen.getByRole('button', { name: '确认归档' }));
+    const dialog = screen.getByRole('dialog', { name: '归档这条知识？' });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('归档连接失败');
+    expect(input.onSelectItem).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: '确认归档' }));
+    expect(await screen.findByText('知识已归档。')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onArchive).toHaveBeenNthCalledWith(2, candidate.id, { expectedUpdatedAt: candidate.updatedAt });
+    if (selectedItemId) expect(screen.getByRole('heading', { name: archived.title })).toBeInTheDocument();
+  });
+  it.each([null, 'k2'])('回收站失败保留原版本重试，选择：%s', async selectedItemId => {
+    const user = userEvent.setup();
+    const onTrash = vi.fn().mockRejectedValueOnce(new Error('回收失败')).mockResolvedValue({ ...candidate, deletedAt: candidate.updatedAt });
+    render(<KnowledgeWorkspaceView {...props({ selectedItemId, onTrash, onGet: vi.fn().mockResolvedValue(archived) })} />);
+    await user.click(within(await openRowMenu(candidate.title)).getByRole('menuitem', { name: '移入回收站' }));
+    await user.click(screen.getByRole('button', { name: '确认移入回收站' }));
+    const dialog = screen.getByRole('dialog', { name: '移入知识回收站？' });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('回收失败');
+    await user.click(within(dialog).getByRole('button', { name: '确认移入回收站' }));
+    expect(await screen.findByText('知识已移入回收站。')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(onTrash).toHaveBeenNthCalledWith(2, candidate.id, { expectedUpdatedAt: candidate.updatedAt });
+  });
+  it('归档菜单关闭重开、查看和恢复保持稳定身份，失败和成功均可见', async () => {
+    const user = userEvent.setup();
+    const onRestore = vi.fn().mockRejectedValueOnce(new Error('恢复失败')).mockResolvedValue({ ...archived, reviewStatus: 'candidate' });
+    const input = props({ selectedItemId: null, onRestore });
+    render(<KnowledgeWorkspaceView {...input} />);
+    await chooseStatus(user, /已归档/);
+    await openRowMenu(archived.title);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu', { name: '知识操作' })).not.toBeInTheDocument());
+    await user.click(within(await openRowMenu(archived.title)).getByRole('menuitem', { name: '查看详情' }));
+    expect(input.onSelectItem).toHaveBeenCalledWith(archived.id);
+    await user.click(within(await openRowMenu(archived.title)).getByRole('menuitem', { name: '恢复为候选' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('恢复失败');
+    await user.click(within(await openRowMenu(archived.title)).getByRole('menuitem', { name: '恢复为候选' }));
+    expect(await screen.findByText('已恢复为候选，请重新核对后确认。')).toBeInTheDocument();
+    await chooseStatus(user, /全部未归档/);
+    expect(within(await openRowMenu(archived.title)).getByRole('menuitem', { name: '归档' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(onRestore).toHaveBeenNthCalledWith(2, archived.id, { expectedUpdatedAt: archived.updatedAt });
+  });
+  it('只读菜单禁用所有写入，查看和 Escape 仍可用', async () => {
+    const user = userEvent.setup();
+    const input = props({ selectedItemId: null, canWrite: false });
+    render(<KnowledgeWorkspaceView {...input} />);
+    const menu = await openRowMenu(candidate.title);
+    for (const name of ['编辑', '归档', '移入回收站']) expect(within(menu).getByRole('menuitem', { name })).toHaveAttribute('aria-disabled', 'true');
+    await user.keyboard('{Escape}');
+    await chooseStatus(user, /已归档/);
+    expect(within(await openRowMenu(archived.title)).getByRole('menuitem', { name: '恢复为候选' })).toHaveAttribute('aria-disabled', 'true');
+    await user.click(screen.getByRole('menuitem', { name: '查看详情' }));
+    expect(input.onSelectItem).toHaveBeenCalledWith(archived.id);
+    expect(input.onRestore).not.toHaveBeenCalled();
+  });
+  it('失败对话框取消后重开不残留旧错误', async () => {
+    const user = userEvent.setup();
+    render(<KnowledgeWorkspaceView {...props({ selectedItemId: null, onTrash: vi.fn().mockRejectedValue(new Error('回收失败')) })} />);
+    await user.click(within(await openRowMenu(candidate.title)).getByRole('menuitem', { name: '移入回收站' }));
+    await user.click(screen.getByRole('button', { name: '确认移入回收站' }));
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: '取消' }));
+    await user.click(within(await openRowMenu(candidate.title)).getByRole('menuitem', { name: '移入回收站' }));
+    expect(screen.getByRole('dialog', { name: '移入知识回收站？' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  it('旧条目写入成功后更新列表及版本，但不覆盖新选择的详情', async () => {
+    const user = userEvent.setup();
+    let resolve!: (item: KnowledgeItem) => void;
+    const input = props({ onConfirm: vi.fn().mockReturnValue(new Promise<KnowledgeItem>(done => { resolve = done; })) });
+    const view = render(<KnowledgeWorkspaceView {...input} />);
+    await user.click(await screen.findByRole('button', { name: '确认知识' }));
+    vi.mocked(input.onGet).mockResolvedValue(archived);
+    view.rerender(<KnowledgeWorkspaceView {...input} selectedItemId="k2" />);
+    await screen.findByRole('heading', { name: archived.title });
+    const updated = { ...candidate, title: '确认后的数据增强', reviewStatus: 'confirmed' as const, updatedAt: '2026-10-02T00:00:00Z' };
+    await act(async () => resolve(updated));
+    expect(screen.getByText('已确认这条知识。')).toBeInTheDocument();
+    const detailPanel = within(screen.getByRole('region', { name: '知识详情面板' }));
+    expect(detailPanel.getByRole('heading', { name: archived.title })).toBeInTheDocument();
+    expect(detailPanel.queryByRole('heading', { name: updated.title })).not.toBeInTheDocument();
+    expect(detailPanel.queryByText('已确认这条知识。')).not.toBeInTheDocument();
+    expect(input.onSelectItem).not.toHaveBeenCalled();
+    await user.click(within(await openRowMenu(updated.title)).getByRole('menuitem', { name: '归档' }));
+    await user.click(screen.getByRole('button', { name: '确认归档' }));
+    expect(input.onArchive).toHaveBeenCalledWith(candidate.id, { expectedUpdatedAt: updated.updatedAt });
+    expect(detailPanel.getByRole('heading', { name: archived.title })).toBeInTheDocument();
+  });
+  it('旧条目的写入结果只更新目标和全局反馈，不覆盖新选择的详情', async () => {
+    const user = userEvent.setup();
+    let reject!: (cause: Error) => void;
+    const input = props({ onConfirm: vi.fn().mockReturnValue(new Promise((_resolve, fail) => { reject = fail; })) });
+    const view = render(<KnowledgeWorkspaceView {...input} />);
+    await user.click(await screen.findByRole('button', { name: '确认知识' }));
+    vi.mocked(input.onGet).mockResolvedValue(archived);
+    view.rerender(<KnowledgeWorkspaceView {...input} selectedItemId="k2" />);
+    await screen.findByRole('heading', { name: archived.title });
+    await act(async () => reject(new Error('旧条目失败')));
+    expect(screen.getByRole('alert')).toHaveTextContent('数据增强');
+    expect(within(screen.getByRole('region', { name: '知识详情面板' })).queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: archived.title })).toBeInTheDocument();
   });
 
   it('列表与详情滚动区支持键盘聚焦，选中条目仍独立标识', async () => {

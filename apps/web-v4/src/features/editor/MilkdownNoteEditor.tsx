@@ -21,6 +21,7 @@ import { Slice } from '@milkdown/kit/prose/model';
 import { TextSelection } from '@milkdown/kit/prose/state';
 import { selectTextblockEnd, selectTextblockStart } from '@milkdown/kit/prose/commands';
 import {
+  linkSchema,
   insertHrCommand,
   toggleEmphasisCommand,
   toggleInlineCodeCommand,
@@ -75,18 +76,20 @@ import {
 import { createCodeFromFence, indentCode, leaveCode, moveToCodeLineBoundary, newlineInCode, removeEmptyCode, selectCodeBlockContentsAt } from './editorCodeCommands';
 import { createCodeBlockBehavior } from './editorCodeBlock';
 import { insertMathInline, mathInlineBehavior, mathInlineInputRule, mathInlineSchema } from './editorMathInline';
-import { createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema } from './editorMathBlock';
+import { configureMathBlockDocument, mathBlockSerializerGuard, normalizeTrailingMathBlock, createMathFromFence, insertMathBlock, mathBlockBehavior, mathBlockSchema } from './editorMathBlock';
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
 import { EditorTableControls } from './EditorTableControls';
 import { EditorImageControls } from './EditorImageControls';
-import { configureImageSize, editorImageBehavior, imageHtmlWithRenderedSizes } from './editorImageBehavior';
+import { configureImageSize, createEditorImageBehavior, IMAGE_RESOURCE_POLICY_EVENT, imageHtmlWithRenderedSizes } from './editorImageBehavior';
 import { editorTableBehavior } from './editorTableBehavior';
 import { noteLinkSchema, noteLinkDomBehavior, captureNoteLinkEdit, applyNoteLinkEdit, selectNoteLinkOccurrence, type NoteLinkEditSession } from './editorNoteLinks';
 import { parseNoteLinkUrl, type NoteLinkLocator } from '@study-accelerator/content-anchor';
 
 export interface MilkdownNoteEditorProps {
+  /** Optional host boundary; omitted for ordinary private notes. */
+  resourcePolicy?: { resolveImage(source: string): string | null; disableLinks: boolean };
   onRequestNoteLink?(session: NoteLinkEditSession): void;
   onOpenNoteLink?(locator: NoteLinkLocator): void;
   noteLinkStatuses?: Record<string, 'active' | 'deleted'>;
@@ -107,7 +110,9 @@ export interface MilkdownNoteEditorProps {
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
-  function MilkdownNoteEditor({ noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, blockIdentity = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage, onRequestNoteLink, onOpenNoteLink, noteLinkStatuses }, ref) {
+  function MilkdownNoteEditor({ resourcePolicy, noteId, markdown, readOnly, allowExternalSync = true, annotations = [], focusedAnnotationId = null, blockIdentity = null, onChange, onCreateAnnotation, onSelectAnnotation, onStatus, onReady, onUploadImage, onRequestNoteLink, onOpenNoteLink, noteLinkStatuses }, ref) {
+    const resourcePolicyRef = useRef(resourcePolicy);
+    resourcePolicyRef.current = resourcePolicy;
     const hostRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<Editor | null>(null);
     const onChangeRef = useRef(onChange);
@@ -277,7 +282,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         const editor = editorRef.current;
         if (!editor || !readyRef.current) return false;
         // 编辑器文档带块 ID 与重点 mark，重新解析的文档没有；比较正文时忽略身份信息。
-        try { return withoutIdentity(editor.ctx.get(editorViewCtx).state.doc).eq(editor.ctx.get(parserCtx)(markdown)); }
+        try { return withoutIdentity(editor.ctx.get(editorViewCtx).state.doc).eq(normalizeTrailingMathBlock(editor.ctx.get(parserCtx)(markdown))); }
         catch { return false; }
       },
       async runEdit(action) {
@@ -419,7 +424,9 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       latestLocalMarkdownRef.current = incomingMarkdownRef.current;
       const editor = Editor.make()
         .config((ctx) => {
-          configureImageSize(ctx);
+          configureImageSize(ctx, resourcePolicy ? source => resourcePolicyRef.current?.resolveImage(source) ?? null : undefined);
+          if (resourcePolicy?.disableLinks) ctx.update(linkSchema.key, original => schemaCtx => ({ ...original(schemaCtx), toDOM: () => ['span', { 'data-disabled-link': '' }, 0] }));
+          configureMathBlockDocument(ctx);
           ctx.set(rootCtx, root);
           ctx.set(defaultValueCtx, incomingMarkdownRef.current);
           ctx.set(historyProviderConfig.key, { depth: 500, newGroupDelay: 750 });
@@ -463,19 +470,20 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           // A debounced Markdown listener can replay an older document over a newer draft.
         })
         .use(commonmarkPreset)
-        .use(noteLinkSchema)
-        .use(noteLinkDomBehavior(() => noteLinkCallbacks.current.noteLinkStatuses))
+        .use(resourcePolicy?.disableLinks ? [] : noteLinkSchema)
+        .use(resourcePolicy?.disableLinks ? [] : noteLinkDomBehavior(() => noteLinkCallbacks.current.noteLinkStatuses))
         .use(createCodeBlockBehavior((message) => onStatusRef.current?.(message)))
         .use(gfm)
         .use(mathRemark)
         .use(mathInlineGuardRemark)
         .use(mathBlockSchema)
         .use(mathBlockBehavior)
+        .use(mathBlockSerializerGuard)
         .use(mathInlineSchema)
         .use(mathInlineBehavior)
         .use(mathInlineInputRule)
         .use(editorTableBehavior)
-        .use(editorImageBehavior)
+        .use(createEditorImageBehavior(resourcePolicy ? source => resourcePolicyRef.current?.resolveImage(source) ?? null : undefined))
         .use(highlightRemark)
         .use(highlightSchema)
         .use(toggleHighlightCommand)
@@ -590,6 +598,9 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
 
     const getView = useCallback(() => readyRef.current ? editorRef.current?.ctx.get(editorViewCtx) ?? null : null, []);
     useEffect(decorateNoteLinks, [markdown, noteLinkStatuses]);
+    useEffect(() => {
+      if (resourcePolicy && readyRef.current) editorRef.current?.ctx.get(editorViewCtx).dom.dispatchEvent(new Event(IMAGE_RESOURCE_POLICY_EVENT));
+    }, [resourcePolicy]);
 
     return (
       <> <div
@@ -599,6 +610,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         onKeyDownCapture={handleKeyDown}
         onClickCapture={(event) => {
           const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
+          if (anchor && resourcePolicyRef.current?.disableLinks) { event.preventDefault(); event.stopPropagation(); return; }
           const parsed = anchor && parseNoteLinkUrl(anchor.getAttribute('data-note-link-url'));
           if (!parsed) return;
           event.preventDefault(); event.stopPropagation();

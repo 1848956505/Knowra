@@ -116,12 +116,50 @@ for (const viewport of viewports) {
       const mobileNav = page.getByRole('navigation', { name: '移动端模块导航' });
       if (viewport.width < 768) {
         const buttons = mobileNav.getByRole('button');
-        await expect(buttons).toHaveCount(8);
+        const names = ['资料', '知识', '试题', '任务', '执行：待办、打卡与习惯追踪。',
+          '我的：工作区与个人设置。', 'AI 助手', '设置', '打开全局搜索'];
+        await expect(buttons).toHaveCount(names.length);
+        for (const [index, name] of names.entries()) {
+          await expect(buttons.nth(index)).toHaveAccessibleName(name);
+          if (index === 4 || index === 5) await expect(buttons.nth(index)).toBeDisabled();
+          else await expect(buttons.nth(index)).toBeEnabled();
+        }
         const first = (await buttons.first().boundingBox())!;
         for (const button of await buttons.all()) {
+          // 导航自身允许横滚：9 个 44px 触摸目标在 360/390px 不能同时完整显示。
+          await button.scrollIntoViewIfNeeded();
           await expectInViewport(page, button); await expectTouchTarget(button);
           expect((await button.boundingBox())!.y).toBe(first.y);
         }
+        await expectShellContained(page);
+        const sidebarToggle = page.getByRole('button', { name: '切换侧栏', exact: true });
+        await activate(sidebarToggle);
+        const sidebar = page.getByRole('dialog', { name: '笔记导航', exact: true });
+        await expect(sidebar).toBeVisible();
+        const closeSidebar = sidebar.getByRole('button', { name: '关闭笔记导航', exact: true });
+        await expectInViewport(page, closeSidebar); await expectTouchTarget(closeSidebar);
+        await activate(closeSidebar);
+        await expect(sidebar).toBeHidden();
+        await expect(sidebarToggle).toBeFocused();
+        await page.route('**/api/task-workspaces/capabilities', route => route.fulfill({ json: { data: {
+          available: false, contractVersion: 1, datasetId: null, datasetEpoch: null,
+          images: false, reasonCode: 'SYNTHETIC_UNAVAILABLE'
+        } } }));
+        const tasks = mobileNav.getByRole('button', { name: '任务', exact: true });
+        await tasks.scrollIntoViewIfNeeded(); await activate(tasks);
+        await expect(page).toHaveURL(/#\/task-workspaces$/);
+        await expect(tasks).toHaveAttribute('aria-current', 'page');
+        await expect(page.getByRole('heading', { name: '任务工作区', exact: true })).toBeVisible();
+        await expect(page.getByRole('region', { name: '任务工作区', exact: true }).getByRole('status'))
+          .toContainText('当前宿主尚未提供任务工作区能力');
+        await expect(sidebar).toBeHidden(); await expectShellContained(page);
+        const materials = mobileNav.getByRole('button', { name: '资料', exact: true });
+        await materials.scrollIntoViewIfNeeded(); await activate(materials);
+        await expect(page).toHaveURL(/#\/materials$/);
+        await expect(materials).toHaveAttribute('aria-current', 'page');
+        await expect(sidebar).toBeHidden();
+        await activate(noteButton);
+        await expect(page.locator('[data-editor-ready="true"]')).toBeVisible();
       }
       await attachScreenshot(page, '编辑页初始态');
       const toolbar = page.getByRole('toolbar', { name: '笔记格式工具栏', exact: true });

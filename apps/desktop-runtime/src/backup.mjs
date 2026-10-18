@@ -1,3 +1,4 @@
+import { validateTaskWorkspaceBackup } from './task-workspaces/backup-validation.mjs';
 import { assertRestoreReadiness, readRestoreSnapshot } from './restore-readiness.mjs';
 import { validateSqliteDeletionFacts } from './sqlite-deletion-facts-contract.mjs';
 import { validateSqliteActionRows } from './ai-sqlite-action-store.mjs';
@@ -55,11 +56,15 @@ function verifyConversationAttachmentFiles(attachments, inventoryFiles) {
 function verifyNewConversationAttachmentBackup(databaseFile, files) {
   const db = new DatabaseSync(databaseFile, { readOnly: true });
   try {
+    let taskWorkspace;
+    try { taskWorkspace = { status: 'ready', ...validateTaskWorkspaceBackup(db, files) }; }
+    catch { taskWorkspace = { status: 'rescue-only', reasonCode: 'TASK_WORKSPACE_UNAVAILABLE' }; }
     // 保留既有旧备份/损坏AI原始资料救援语义，仅新增附件的成功发布前检查。
     if (db.prepare('PRAGMA user_version').get().user_version >= 7
       && db.prepare("SELECT 1 FROM ai_conversation_records WHERE kind = 'aiConversationAttachment' LIMIT 1").get()) {
       verifyConversationAttachmentFiles(validateSqliteConversationRows(db).conversationAttachments, files);
     }
+    return taskWorkspace;
   } finally { db.close(); }
 }
 
@@ -87,8 +92,8 @@ export function createRuntimeBackup(store, dataDirectory, { backupRoot = dataDir
       fs.writeFileSync(path.join(backupDirectory, 'recovery-drafts.json'), JSON.stringify(combined), { mode: 0o600 });
     }
     const files = inventory(backupDirectory);
-    verifyNewConversationAttachmentBackup(path.join(backupDirectory, 'local.sqlite'), files);
-    fs.writeFileSync(path.join(backupDirectory, 'manifest.json'), JSON.stringify({ version: 1, createdAt: new Date().toISOString(), purpose, datasetId: store.getStatus().datasetId, files }, null, 2), { mode: 0o600 });
+    const taskWorkspace = verifyNewConversationAttachmentBackup(path.join(backupDirectory, 'local.sqlite'), files);
+    fs.writeFileSync(path.join(backupDirectory, 'manifest.json'), JSON.stringify({ version: 1, createdAt: new Date().toISOString(), purpose, datasetId: store.getStatus().datasetId, files, taskWorkspace, ...(taskWorkspace.status === 'rescue-only' ? { restoreReady: false } : {}) }, null, 2), { mode: 0o600 });
     return backupDirectory;
   } catch (error) { fs.rmSync(backupDirectory, { recursive: true, force: true }); throw error; }
 }
@@ -101,7 +106,7 @@ export function listRuntimeBackups(dataDirectory) {
     && fs.existsSync(path.join(root, entry.name, 'manifest.json'))).map(entry => {
     try {
       const manifest = JSON.parse(readBackupFile(path.join(root, entry.name, 'manifest.json')).toString('utf8'));
-      return { id: entry.name, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: manifest.files?.length ?? 0, size: manifest.files?.reduce((sum, file) => sum + (Number(file.size) || 0), 0) ?? 0 };
+      return { id: entry.name, ...(manifest.taskWorkspace?.status === 'rescue-only' ? { restoreReady: false, error: '任务工作区不可校验，此备份仅供原始资料救援，不能直接恢复。' } : {}), createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: manifest.files?.length ?? 0, size: manifest.files?.reduce((sum, file) => sum + (Number(file.size) || 0), 0) ?? 0 };
     } catch { return { id: entry.name, createdAt: null, purpose: 'unknown', fileCount: 0, size: 0, error: '备份清单不可读，请检查此备份。' }; }
   }).sort((a, b) => b.id.localeCompare(a.id));
 }
@@ -166,6 +171,7 @@ function verifyBackupFiles(backupDirectory) {
 /** 界面激活前检查数据库版本、资料引用和附件；离线救援复制不依赖应用 schema。 */
 export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
   const { manifest, actual } = verifyBackupFiles(backupDirectory);
+  if (manifest.taskWorkspace?.status === 'rescue-only') throw new Error('任务工作区不可校验，此备份仅供原始资料救援，不能直接恢复。');
   // 旧 CLI 导出保留 WAL 模式；直接只读打开也可能在来源生成 sidecar。
   // 在私有临时副本检查，既不修改原文件，也不污染其清单。
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-backup-inspect-'));
@@ -182,6 +188,7 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
     validateSqliteDeletionFacts(db);
     const datasetId = db.prepare("SELECT value FROM metadata WHERE key='datasetId'").get()?.value;
     if (manifest.datasetId !== undefined && datasetId !== undefined && manifest.datasetId !== datasetId) throw new Error('备份清单与数据库资料集标识不一致。');
+    const taskWorkspaceInfo = validateTaskWorkspaceBackup(db, actual);
     validateSqliteCoreOperationRows(db);
     validateSqliteActionRows(db);
     let aiJobs = [], conversationAttachments = [];
@@ -216,14 +223,15 @@ export function inspectRuntimeBackup(backupDirectory, { restoreContext } = {}) {
     const draftCount = [draftRecord, ...(draftRecord.archivedDrafts ?? [])].reduce((count, record) => count + Object.keys(record.drafts).length, 0);
     // 固有格式检查始终独立可用；只有恢复入口传入当前上下文。
     if (restoreContext) assertRestoreReadiness(restoreContext, readRestoreSnapshot(db, normalized, { projectProvenance: true, initialState: state }));
-    return { valid: true, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
+    return { valid: true, ...taskWorkspaceInfo, createdAt: manifest.createdAt, purpose: manifest.purpose ?? 'legacy-unspecified', fileCount: actual.length, size: actual.reduce((sum, file) => sum + file.size, 0), noteCount: state.notes.length, attachmentCount: state.attachments.length, pendingOperations: db.prepare("SELECT COUNT(*) AS count FROM sync_outbox WHERE state != 'acknowledged'").get().count, draftCount };
   } finally { try { db?.close(); } finally { fs.rmSync(temporary, { recursive: true, force: true }); } }
 }
 
 /** 只能恢复到不存在的新目录，保留同步队列；不覆盖运行中的数据库。 */
 export function restoreRuntimeBackup(backupDirectory, destination) {
   if (fs.existsSync(destination)) throw new Error('恢复目标必须是尚不存在的新目录。');
-  const { actual } = verifyBackupFiles(backupDirectory);
+  const { manifest, actual } = verifyBackupFiles(backupDirectory);
+  if (manifest.taskWorkspace?.status === 'rescue-only') throw new Error('任务工作区不可校验，此备份仅供原始资料救援，不能直接恢复。');
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const staging = `${destination}.restore-${randomUUID()}`;
   try {

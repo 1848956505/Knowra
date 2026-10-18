@@ -100,6 +100,13 @@
   --font-size-note: 15px;
   --font-size-note-title: 34px;
   --font-size-note-heading: 19px;
+  /* 正文标题使用相对字号，随正文缩放；主题可逐级覆盖，不影响文档标题及界面标题。 */
+  --note-heading-1-size: 2.25em;
+  --note-heading-2-size: 1.75em;
+  --note-heading-3-size: 1.5em;
+  --note-heading-4-size: 1.25em;
+  --note-heading-5-size: 1em;
+  --note-heading-6-size: 1em;
   --motion-fast: 130ms;
   --motion-rail: 120ms;
   --motion-mid: 200ms;

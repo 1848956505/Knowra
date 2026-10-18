@@ -1,5 +1,10 @@
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const MUTATIONS = [
+  ['POST', /^\/api\/task-workspaces$/],
+  ['POST', /^\/api\/task-workspaces\/[^/]+\/(?:archive|documents|tasks)$/],
+  ['PATCH', /^\/api\/task-workspaces\/[^/]+\/documents\/[^/]+$/],
+  ['POST', /^\/api\/task-workspaces\/[^/]+\/documents\/[^/]+\/attachments$/],
+  ['POST', /^\/api\/task-workspaces\/[^/]+\/tasks\/[^/]+\/(?:publish|cancel|review)$/],
   ['POST', /^\/api\/knowledge\/items\/[^/]+\/learning-objectives$/],
   ['POST', /^\/api\/knowledge\/(?:learning-objectives|exam-profiles|exam-focuses|questions)$/],
   ['PATCH', /^\/api\/knowledge\/(?:learning-objectives|exam-profiles|exam-focuses|questions)\/[^/]+$/],

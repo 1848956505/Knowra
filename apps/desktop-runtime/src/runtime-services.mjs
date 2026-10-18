@@ -1,3 +1,4 @@
+import { authorizeTaskMcpContext } from './mcp/task-access.mjs';
 import { inspectAttachmentDeletion } from '../../api/src/infrastructure/attachment-deletion-preflight.js';
 import { createAppError } from '../../api/src/errors/app-error.js';
 import path from 'node:path';
@@ -21,6 +22,7 @@ export function createRuntimeServices({ dataDirectory, budgetDirectory = dataDir
     const context = createAppContext({
       dataStore: store, storageRootDir: dataDirectory,
       uploadsDir: path.join(dataDirectory, 'uploads'), ownerId: 'demo',
+      authorizeTaskWorkspace: (ctx, scope) => ctx.actor?.kind === 'user' ? ctx.actor.id === 'demo' : authorizeTaskMcpContext(ctx, scope),
       // 连续自动保存只保留检查点，避免历史版本随编辑时长无限增长。
       noteVersionCoalescing: { canDiscard: createNoteVersionDiscardGate(store) }
     });
@@ -115,6 +117,8 @@ export function createRuntimeServices({ dataDirectory, budgetDirectory = dataDir
           { code: failed.reason?.code ?? 'AI_BUDGET_UNAVAILABLE' });
       });
     return { store, sync, handleApi, recoverAi, closeAi: aiLifecycle.close, getAi: () => context.ai, getAiFeatures: () => aiFeatures,
+      getTaskService: () => store.taskWorkspaceStore ? context.taskWorkspaces : null,
+      getTaskIdentity: () => store.taskWorkspaceStore?.identity() ?? null,
       getAnnotations: () => context.modules.knowledge?.repositories?.contentAnnotationRepository ?? null };
     } catch (error) { store.close(); throw error; }
 }
