@@ -39,7 +39,7 @@ export interface EditorToolbarProps {
 export function EditorToolbar(props: EditorToolbarProps) {
   const command = (value: EditorCommand) => () => props.onRunCommand(value);
   return (
-    <div ref={props.toolbarRef} className={styles.toolbarStack} data-pdf-exclude="true" data-pinned={props.pinned || undefined}>
+    <div ref={props.toolbarRef} className={styles.toolbarStack} data-editor-toolbar-stack data-pdf-exclude="true" data-pinned={props.pinned || undefined}>
     <div className={styles.toolbar} data-pinned={props.pinned || undefined} role="toolbar" aria-label="笔记格式工具栏">
       <div className={styles.toolbarMenus} aria-label="编辑器菜单">
         <ToolbarMenu label="文件">{renderEditorFileMenu({

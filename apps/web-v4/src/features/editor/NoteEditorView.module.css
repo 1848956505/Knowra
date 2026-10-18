@@ -125,7 +125,7 @@
   min-height: 0;
   position: relative;
   overflow: auto;
-  scroll-padding: 48px 0 24px;
+  scroll-padding: max(48px, var(--editor-toolbar-height, 48px)) 0 24px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;
   background: var(--surface-page);
@@ -271,7 +271,7 @@
   .toolbarTools { display: contents; }
   .toolbar > .toolbarTools button { min-width: 40px; height: var(--touch-target); }
   .compactHide, .optionalTool { display: none !important; }
-  .documentStage { overscroll-behavior: contain; scroll-padding-top: 72px; }
+  .documentStage { overscroll-behavior: contain; scroll-padding-top: max(72px, var(--editor-toolbar-height, 72px)); }
 }
 @media (max-width: 767px) {
   .editor { --doc-width: 100%; --doc-edge: 0px; --paper-pad-x: 22px; }

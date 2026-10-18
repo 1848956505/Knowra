@@ -2129,6 +2129,11 @@ test('V4-07 长表滚动后操作栏避开固定格式栏', async ({ page }) => 
   await page.getByRole('button', { name: '表格操作', exact: true }).click();
   await page.getByRole('menuitem', { name: '在下方插入行', exact: true }).click();
   await expect(page.locator('.ProseMirror tr')).toHaveCount(47);
+  await expectSelectedTableCellVisible(page);
+  for (let step = 0; step < 3; step++) {
+    await page.keyboard.press('ArrowUp');
+    await expectSelectedTableCellVisible(page);
+  }
 });
 
 test('V4-07 图片比例预设保留说明、附件地址并可独立撤销与重载', async ({ page }) => {
@@ -2466,3 +2471,19 @@ test('V4-07 长表靠近视口底部首次选中时上下文行不把光标挤�
     return rect.top >= controls.bottom && rect.bottom <= stage.bottom && Boolean(selection && element.contains(selection) && hit && element.contains(hit));
   })).toBe(true);
 });
+
+
+async function expectSelectedTableCellVisible(page: Page) {
+  await expect.poll(() => page.locator('.ProseMirror').evaluate(editor => {
+    const anchor = window.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    const cell = element?.closest('td, th');
+    if (!cell || !editor.contains(cell)) return false;
+    const rect = cell.getBoundingClientRect();
+    const stage = editor.closest('[data-editor-scroll-root]')!.getBoundingClientRect();
+    const stack = document.querySelector('[data-editor-toolbar-stack]')!.getBoundingClientRect();
+    const top = stack.top <= stage.top + 1 ? stack.bottom : stage.top;
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    return rect.top >= top && rect.bottom <= stage.bottom && Boolean(hit && cell.contains(hit));
+  })).toBe(true);
+}
