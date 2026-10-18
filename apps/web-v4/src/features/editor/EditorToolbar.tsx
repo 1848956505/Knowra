@@ -39,7 +39,8 @@ export interface EditorToolbarProps {
 export function EditorToolbar(props: EditorToolbarProps) {
   const command = (value: EditorCommand) => () => props.onRunCommand(value);
   return (
-    <div ref={props.toolbarRef} className={styles.toolbar} data-pdf-exclude="true" data-pinned={props.pinned || undefined} role="toolbar" aria-label="笔记格式工具栏">
+    <div ref={props.toolbarRef} className={styles.toolbarStack} data-pdf-exclude="true" data-pinned={props.pinned || undefined}>
+    <div className={styles.toolbar} data-pinned={props.pinned || undefined} role="toolbar" aria-label="笔记格式工具栏">
       <div className={styles.toolbarMenus} aria-label="编辑器菜单">
         <ToolbarMenu label="文件">{renderEditorFileMenu({
           canWrite: props.canWrite,
@@ -81,6 +82,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <PressableButton type="button" className={styles.plainButton} aria-label="切换文档检查器" aria-pressed={props.inspectorOpen} onPress={props.onToggleInspector}><PanelIcon size={16} /></PressableButton>
       <PressableButton type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" isDisabled><MoreVerticalIcon size={16} /></PressableButton>
       </div>
+    </div>
+    <div className={styles.tableControlsDock} data-table-controls-dock />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import type { EditorView } from '@milkdown/kit/prose/view';
-import { selectedRect } from '@milkdown/kit/prose/tables';
 import { Button, Menu, MenuHeader, MenuItem, MenuPopover, MenuSection, MenuSeparator, MenuTrigger, Tooltip, TooltipTrigger } from '../../components/ui';
 import { getTableControlsState, tableControlCommand, type TableAction, type TableControlsState } from './editorTableModel';
 import styles from './EditorTableControls.module.css';
@@ -30,32 +30,24 @@ type ActionContext = { view: EditorView; state: EditorView['state'] } | null;
 export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<HTMLDivElement | null>; getView(): EditorView | null }) {
   const menuContext = useRef<ActionContext>(null);
   const shortcutContext = useRef<ActionContext>(null);
-  const [controls, setControls] = useState<(TableControlsState & { x: number; y: number }) | null>(null);
-  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
+  const [controls, setControls] = useState<TableControlsState | null>(null);
+  const [dock, setDock] = useState<HTMLElement | null>(null);
+  const [boundary, setBoundary] = useState<HTMLElement | null>(null);
+  const [menuHeight, setMenuHeight] = useState(320);
   useLayoutEffect(() => {
     const host = hostRef.current;
     if (!host) return;
+    const workspace = host.closest<HTMLElement>('[data-editor-workspace]');
+    const scrollRoot = host.closest<HTMLElement>('[data-editor-scroll-root]');
+    setDock(workspace?.querySelector<HTMLElement>('[data-table-controls-dock]') ?? null);
+    setBoundary(workspace);
     const update = () => {
       const view = getView();
       const state = view && !view.isDestroyed && view.editable ? getTableControlsState(view.state) : null;
-      if (!view || !state) { setControls(null); return; }
-      const { tableStart } = selectedRect(view.state);
-      const table = view.nodeDOM(tableStart - 1);
-      if (!(table instanceof Element)) { setControls(null); return; }
-      const rect = table.getBoundingClientRect();
-      const scrollRoot = view.dom.closest('[data-editor-scroll-root]');
-      const stage = scrollRoot?.getBoundingClientRect();
-      const formatToolbar = scrollRoot?.querySelector('[aria-label="笔记格式工具栏"]')?.getBoundingClientRect();
-      if (rect.bottom < (stage?.top ?? 0) || rect.top > (stage?.bottom ?? window.innerHeight)) { setControls(null); return; }
-      const top = Math.max(stage?.top ?? 0, formatToolbar?.bottom ?? 0) + 8;
-      const size = toolbar?.getBoundingClientRect();
-      const width = size?.width ?? 0;
-      const height = size?.height ?? 0;
-      const next = { ...state,
-        x: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
-        y: Math.max(top, Math.min(rect.top - height - 8, window.innerHeight - height - 8))
-      };
-      setControls(previous => JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+      setControls(previous => JSON.stringify(previous) === JSON.stringify(state) ? previous : state);
+      // 菜单占用正文可用空间，从上下文操作栏展开，不进入应用底导航。
+      const availableHeight = scrollRoot?.getBoundingClientRect().height ?? window.innerHeight;
+      setMenuHeight(Math.max(44, availableHeight - 16));
     };
     // selectionchange 跟随鼠标、键盘和 CellSelection；菜单操作后也主动刷新。
     document.addEventListener('selectionchange', update);
@@ -64,9 +56,10 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
     host.addEventListener('pointerup', update);
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
-    // 初次挂载、缩放和触屏尺寸切换都按真实控件尺寸定位，避免覆盖表头。
+    // 共同的吸顶工具栏容器提供真实占位；菜单高度随可视工作区变化。
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
-    if (toolbar) observer?.observe(toolbar);
+    if (scrollRoot) observer?.observe(scrollRoot);
+    if (workspace) observer?.observe(workspace);
     update();
     return () => {
       observer?.disconnect();
@@ -77,7 +70,7 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [hostRef, getView, toolbar]);
+  }, [hostRef, getView]);
   const captureContext = (): ActionContext => {
     const view = getView();
     return view && !view.isDestroyed && view.editable ? { view, state: view.state } : null;
@@ -96,10 +89,10 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       if (getView() === view && !view.isDestroyed && view.editable) view.focus();
     });
     const next = getTableControlsState(view.state);
-    setControls(previous => previous && next ? { ...next, x: previous.x, y: previous.y } : null);
+    setControls(next);
   };
   if (!controls) return null;
-  return <div ref={setToolbar} className={styles.toolbar} style={{ left: controls.x, top: controls.y }} data-pdf-exclude="true" data-table-controls="true" role="toolbar" aria-label="表格操作工具栏">
+  const content = <div className={styles.toolbar} data-pdf-exclude="true" data-table-controls="true" role="toolbar" aria-label="表格操作工具栏">
     <span className={styles.count}>{controls.rows} 行 · {controls.columns} 列</span>
     <div className={styles.shortcuts} role="group" aria-label="表格快捷插入">
       {shortcuts.map(({ action, label, description }) => <TooltipTrigger key={action}><Button size="compact" variant="ghost" aria-label={description}
@@ -114,7 +107,7 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       if (open) menuContext.current = captureContext();
     }}>
       <Button size="compact" variant="ghost" aria-label="表格操作">表格操作</Button>
-      <MenuPopover placement="bottom start"><Menu ariaLabel="表格行列操作">
+      <MenuPopover placement="bottom start" boundaryElement={boundary ?? undefined} maxHeight={menuHeight} className={styles.menuViewport}><Menu ariaLabel="表格行列操作">
         {groups.map(({ label: groupLabel, danger, items }, index) => <Fragment key={groupLabel}>
           {index > 0 ? <MenuSeparator /> : null}
           <MenuSection>
@@ -132,4 +125,5 @@ export function EditorTableControls({ hostRef, getView }: { hostRef: RefObject<H
       </Menu></MenuPopover>
     </MenuTrigger>
   </div>;
+  return dock ? createPortal(content, dock) : content;
 }

@@ -6,20 +6,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorTableControls } from './EditorTableControls';
 
 const model = vi.hoisted(() => ({ command: vi.fn(), controls: { rows: 3, columns: 2, row: 1, canDeleteRow: true, canDeleteColumn: true } }));
-vi.mock('@milkdown/kit/prose/tables', () => ({ selectedRect: () => ({ tableStart: 1 }) }));
 vi.mock('./editorTableModel', () => ({
-  getTableControlsState: () => model.controls,
+  getTableControlsState: () => ({ ...model.controls }),
   tableControlCommand: (action: string) => (...args: unknown[]) => model.command(action, ...args)
 }));
 function identity() { const value = { eq: (other: unknown) => other === value }; return value; }
 function setup() {
   model.command.mockClear();
   Object.assign(model.controls, { rows: 3, columns: 2, row: 1, canDeleteRow: true, canDeleteColumn: true });
+  const workspace = document.createElement('div'); workspace.dataset.editorWorkspace = '';
+  const stage = document.createElement('div'); stage.dataset.editorScrollRoot = '';
+  const dock = document.createElement('div'); dock.dataset.tableControlsDock = '';
   const host = document.createElement('div');
+  stage.append(dock, host); workspace.append(stage); document.body.append(workspace);
+  stage.getBoundingClientRect = () => ({ height: 500 } as DOMRect);
   const editor = document.createElement('div');
   editor.tabIndex = 0;
   const table = document.createElement('table');
-  editor.append(table); host.append(editor); document.body.append(host);
+  editor.append(table); host.append(editor);
   table.getBoundingClientRect = () => ({ left: 100, top: 160, bottom: 260 } as DOMRect);
   const hostRef = createRef<HTMLDivElement>(); hostRef.current = host;
   const view = {
@@ -29,7 +33,7 @@ function setup() {
   };
   let current: typeof view | null = view;
   render(<><EditorTableControls hostRef={hostRef} getView={() => current as unknown as EditorView} /><input aria-label="外部输入" /></>);
-  return { view, editor, host, replaceView: () => { current = { ...view }; }, trigger: screen.getByRole('button', { name: '表格操作' }) };
+  return { view, editor, host, dock, stage, replaceView: () => { current = { ...view }; }, trigger: screen.getByRole('button', { name: '表格操作' }) };
 }
 afterEach(() => { cleanup(); document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
@@ -123,16 +127,27 @@ describe('表格操作分组与快捷入口', () => {
 });
 
 
-it('按真实工具栏尺寸避开表头和屏幕边缘，缩窄后重新对齐表格', () => {
-  vi.stubGlobal('innerWidth', 390);
-  let width = 360;
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    return { left: 0, top: 0, right: width, bottom: 52, width, height: 52, x: 0, y: 0, toJSON: () => ({}) };
-  });
-  setup();
+it('挂载到格式栏的真实上下文槽，退出编辑模式移除占位内容', () => {
+  const { dock, view, host } = setup();
   const toolbar = screen.getByRole('toolbar', { name: '表格操作工具栏' });
-  expect(toolbar).toHaveStyle({ left: '22px', top: '100px' });
-  width = 184;
+  expect(dock).toContainElement(toolbar);
+  expect(toolbar.style.position).toBe('');
+  expect(toolbar.style.top).toBe('');
+  expect(toolbar.style.left).toBe('');
+  view.editable = false;
+  fireEvent.keyUp(host);
+  expect(dock).toBeEmptyDOMElement();
+});
+
+it('菜单高度受正文可用区域约束，窗口改变后重新计算', async () => {
+  const user = userEvent.setup();
+  const { stage, trigger } = setup();
+  await user.click(trigger);
+  const menu = screen.getByRole('menu');
+  const popover = menu.closest('[data-placement]') as HTMLElement;
+  expect(popover.className).toContain('menuViewport');
+  expect(Number.parseFloat(popover.style.maxHeight)).toBeLessThanOrEqual(484);
+  stage.getBoundingClientRect = () => ({ height: 240 } as DOMRect);
   fireEvent.resize(window);
-  expect(toolbar).toHaveStyle({ left: '100px', top: '100px' });
+  expect(Number.parseFloat(popover.style.maxHeight)).toBeLessThanOrEqual(224);
 });
