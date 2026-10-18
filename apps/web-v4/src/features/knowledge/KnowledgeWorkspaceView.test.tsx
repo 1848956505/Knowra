@@ -20,6 +20,21 @@ function props(overrides: Partial<KnowledgeWorkspaceViewProps> = {}): KnowledgeW
 }
 
 describe('KnowledgeWorkspaceView', () => {
+  it('空库加载完成后，按工具栏范围唯一定位同名新建入口并打开候选对话框', async () => {
+    const user = userEvent.setup();
+    const input = props({ selectedItemId: null, onList: vi.fn().mockResolvedValue([]) });
+    render(<KnowledgeWorkspaceView {...input} />);
+    const list = screen.getByRole('region', { name: '知识列表内容' });
+    await within(list).findByText('还没有知识');
+    expect(screen.getAllByRole('button', { name: '新建知识候选' })).toHaveLength(2);
+    expect(within(list).getByRole('button', { name: '新建知识候选' })).toBeEnabled();
+    const toolbar = screen.getByRole('toolbar', { name: '知识库工具栏' });
+    await user.click(within(toolbar).getByRole('button', { name: '新建知识候选' }));
+    expect(screen.getByRole('dialog', { name: '新建知识候选' })).toBeVisible();
+    expect(screen.getByRole('textbox', { name: '标题' })).toHaveValue('');
+    expect(input.onCreate).not.toHaveBeenCalled();
+  });
+
   async function chooseStatus(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
     await user.click(screen.getByRole('button', { name: '筛选' }));
     await user.click(within(await screen.findByRole('menu', { name: '知识状态' })).getByRole('menuitemradio', { name }));
