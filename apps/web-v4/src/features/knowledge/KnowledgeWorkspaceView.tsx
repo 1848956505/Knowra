@@ -71,6 +71,7 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
   const [refresh, setRefresh] = useState(0);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState('');
+  const [mutationFeedback, setMutationFeedback] = useState<{ error: boolean; title: string; text: string } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editDraft, setEditDraft] = useState<KnowledgeDraft | null>(null);
   const [recoveryDraft, setRecoveryDraft] = useState<KnowledgeDraft | undefined>();
@@ -166,12 +167,15 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
 
   async function mutate(item: KnowledgeItem, action: KnowledgeWorkspaceViewProps['onConfirm'], message: string) {
     if (!canWrite || pending) return;
-    setPending(true); setDetailError(''); setNotice('');
+    setPending(true); setMutationFeedback(null);
+    if (selectedRef.current === item.id) { setDetailError(''); setNotice(''); }
     try {
       const result = await action(item.id, { expectedUpdatedAt: item.updatedAt });
-      acceptItem(result); setArchiveItem(null);
-      if (selectedRef.current === item.id) setNotice(message);
-    } catch (cause) { if (selectedRef.current === item.id) setDetailError(knowledgeError(cause)); }
+      acceptItem(result); setArchiveItem(null); setTrashItem(null);
+      setMutationFeedback({ error: false, title: item.title || '未命名知识', text: message });
+    } catch (cause) {
+      setMutationFeedback({ error: true, title: item.title || '未命名知识', text: knowledgeError(cause) });
+    }
     finally { setPending(false); }
   }
 
@@ -282,9 +286,9 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     setMenu(null);
     if (key === 'view') props.onSelectItem(item.id);
     else if (key === 'edit') openEdit(item);
-    else if (key === 'archive') setArchiveItem(item);
+    else if (key === 'archive') { setMutationFeedback(null); setArchiveItem(item); }
     else if (key === 'restore') void mutate(item, props.onRestore, '已恢复为候选，请重新核对后确认。');
-    else if (key === 'trash') setTrashItem(item);
+    else if (key === 'trash') { setMutationFeedback(null); setTrashItem(item); }
     else if (key === 'untrash' && props.onRestoreDeleted) void mutate(item, props.onRestoreDeleted, '知识已从回收站恢复；审核与来源已重新校验。');
   }
   function focusSearchKey(event: KeyboardEvent<HTMLElement>) {
@@ -292,12 +296,15 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     if ((event.target as Element).closest('input, textarea, select, [contenteditable="true"], [role="menu"], [role="dialog"]')) return;
     event.preventDefault(); searchRef.current?.focus();
   }
-  const menuItem = menu?.item;
+  // 退出动画期间保留条目快照，避免菜单集合在关闭时切换身份。
+  const menuItemRef = useRef<KnowledgeItem | undefined>(undefined);
+  if (menu) menuItemRef.current = menu.item;
+  const menuItem = menuItemRef.current;
   const menuDisabled = !canWrite || pending;
   const detailContent = detailLoading ? <p className={styles.empty} role="status">正在加载详情与来源…</p> : detail ? <KnowledgeDetail {...detail} canWrite={canWrite} pending={pending}
     onEdit={() => openEdit(detail.item)} onConfirm={() => void mutate(detail.item, props.onConfirm, '已确认这条知识。')}
-    onArchive={() => setArchiveItem(detail.item)} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote}
-    onTrash={() => setTrashItem(detail.item)} onRestoreDeleted={() => props.onRestoreDeleted && void mutate(detail.item, props.onRestoreDeleted, '知识已从回收站恢复；审核与来源已重新校验。')}
+    onArchive={() => { setMutationFeedback(null); setArchiveItem(detail.item); }} onRestore={() => void mutate(detail.item, props.onRestore, '已恢复为候选，请重新核对后确认。')} onOpenNote={props.onOpenNote}
+    onTrash={() => { setMutationFeedback(null); setTrashItem(detail.item); }} onRestoreDeleted={() => props.onRestoreDeleted && void mutate(detail.item, props.onRestoreDeleted, '知识已从回收站恢复；审核与来源已重新校验。')}
     onPurgePreview={props.onPermanentDelete ? () => void openPurgePreview(detail.item) : undefined}
     onAddSource={() => setSourceDialog({})} onReplaceSource={record => setSourceDialog({ replacing: record })} onRetireSource={setRetireEvidence} onReadoptSource={record => void readopt(record)} />
     : !detailError ? <div className={`${styles.empty} ${styles.emptyDetail}`}><span className={styles.emptyIcon} aria-hidden="true"><KnowledgeIcon size={22} /></span><h2>没有可显示的知识</h2><p>该知识可能已被清理或暂不可用。</p></div> : null;
@@ -311,8 +318,9 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
         onCreate={() => { setRecoveryDraft(undefined); setCreateOpen(true); }} />} />
     <WorkspacePanelBody grid className={indexStyles.content}>
       <ExtractionDemoNotice />
-      {!canWrite || draftError || drafts.length ? <div className={indexStyles.messages}>
+      {!canWrite || draftError || drafts.length || mutationFeedback ? <div className={indexStyles.messages}>
         {!canWrite ? <p className={styles.readOnly} role="status">{readOnlyReason ?? '当前为只读模式，暂不能修改知识。'}</p> : null}
+        {mutationFeedback && !(mutationFeedback.error && (archiveItem || trashItem)) ? <p role={mutationFeedback.error ? 'alert' : 'status'} className={mutationFeedback.error ? styles.error : styles.notice}>“{mutationFeedback.title}”：<span>{mutationFeedback.text}</span></p> : null}
         {draftError ? <p role="alert" className={styles.error}>{draftError}</p> : null}
         {drafts.length ? <section className={styles.notice} aria-label="未保存的知识草稿"><strong>有 {drafts.length} 条知识草稿尚未保存</strong>
           {drafts.map(draft => <Button key={draft.candidateId} variant="ghost" onPress={() => {
@@ -352,12 +360,12 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     </WorkspacePanelBody>
     <WorkspacePanelFooter className={indexStyles.footer}><span>显示 {visible.length} / {items.length} 条知识</span><span>{status === 'trash' ? '保留至手动清理；不会自动到期删除' : <>候选 {counts.candidate ?? 0} · 已确认 {counts.confirmed ?? 0} · 待修订 {counts.needsRevision ?? 0} · 已归档 {counts.archived ?? 0}</>}</span></WorkspacePanelFooter>
     <PointMenu point={menu ? { x: menu.x, y: menu.y } : null} onOpenChange={open => { if (!open) setMenu(null); }}>
-      <Menu ariaLabel="知识操作" onAction={key => menuItem && runMenu(String(key), menuItem)}>
-        <MenuItem id="view">查看详情</MenuItem>
-        {menuItem?.deletedAt ? <MenuItem id="untrash" isDisabled={menuDisabled || !props.onRestoreDeleted}>从回收站恢复</MenuItem> : <>
-          <MenuItem id="edit" isDisabled={menuDisabled || menuItem?.reviewStatus === 'archived'}>编辑</MenuItem>
-          {menuItem?.reviewStatus === 'archived' ? <MenuItem id="restore" isDisabled={menuDisabled}>恢复为候选</MenuItem> : <MenuItem id="archive" isDisabled={menuDisabled}>归档</MenuItem>}
-          <MenuItem id="trash" isDanger isDisabled={menuDisabled || !props.onTrash}>移入回收站</MenuItem>
+      <Menu ariaLabel="知识操作" onClose={() => setMenu(null)} onAction={key => menuItem && runMenu(String(key), menuItem)}>
+        <MenuItem key="view" id="view">查看详情</MenuItem>
+        {menuItem?.deletedAt ? <MenuItem key="untrash" id="untrash" isDisabled={menuDisabled || !props.onRestoreDeleted}>从回收站恢复</MenuItem> : <>
+          <MenuItem key="edit" id="edit" isDisabled={menuDisabled || menuItem?.reviewStatus === 'archived'}>编辑</MenuItem>
+          {menuItem?.reviewStatus === 'archived' ? <MenuItem key="restore" id="restore" isDisabled={menuDisabled}>恢复为候选</MenuItem> : <MenuItem key="archive" id="archive" isDisabled={menuDisabled}>归档</MenuItem>}
+          <MenuItem key="trash" id="trash" isDanger isDisabled={menuDisabled || !props.onTrash}>移入回收站</MenuItem>
         </>}
       </Menu>
     </PointMenu>
@@ -366,12 +374,13 @@ export function KnowledgeWorkspaceView(props: KnowledgeWorkspaceViewProps) {
     {editDraft ? <KnowledgeItemDialog key={editDraft.candidateId} title="编辑知识" draft={editDraft} recovered={Boolean(recoveryDraft)} canWrite={canWrite} readOnlyReason={readOnlyReason}
       onClose={() => setEditDraft(null)} onSubmit={async (value, baseline) => props.onUpdate(baseline.candidateId, { ...value, expectedUpdatedAt: baseline.expectedUpdatedAt })}
       onSaved={item => { if (item) { acceptItem(item); setNotice('知识已保存。'); } }} /> : null}
-    {archiveItem ? <Dialog title="归档这条知识？" description={`“${archiveItem.title || '未命名知识'}”将移入已归档，来源仍保留。恢复后会成为待核对的候选。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) { setArchiveItem(null); setDetailError(''); } }}>
-      {detailError ? <DialogBody><p role="alert" className={styles.error}>{detailError}</p></DialogBody> : null}
-      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => { setArchiveItem(null); setDetailError(''); }}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite} onPress={() => void mutate(archiveItem, props.onArchive, '知识已归档。')}>确认归档</Button></DialogFooter>
+    {archiveItem ? <Dialog title="归档这条知识？" description={`“${archiveItem.title || '未命名知识'}”将移入已归档，来源仍保留。恢复后会成为待核对的候选。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) { setArchiveItem(null); setMutationFeedback(null); } }}>
+      {mutationFeedback?.error ? <DialogBody><p role="alert" className={styles.error}>“{mutationFeedback.title}”：<span>{mutationFeedback.text}</span></p></DialogBody> : null}
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => { setArchiveItem(null); setMutationFeedback(null); }}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite} onPress={() => void mutate(archiveItem, props.onArchive, '知识已归档。')}>确认归档</Button></DialogFooter>
     </Dialog> : null}
-    {trashItem ? <Dialog title="移入知识回收站？" description={`“${trashItem.title || '未命名知识'}”将退出日常使用；关联的学习目标、题目和来源历史不会一起删除。恢复后会重新检查来源与审核状态。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setTrashItem(null); }}>
-      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => setTrashItem(null)}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite || !props.onTrash} onPress={() => props.onTrash && void mutate(trashItem, props.onTrash, '知识已移入回收站。').then(() => setTrashItem(null))}>确认移入回收站</Button></DialogFooter>
+    {trashItem ? <Dialog title="移入知识回收站？" description={`“${trashItem.title || '未命名知识'}”将退出日常使用；关联的学习目标、题目和来源历史不会一起删除。恢复后会重新检查来源与审核状态。`} isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) { setTrashItem(null); setMutationFeedback(null); } }}>
+      <DialogBody>{mutationFeedback?.error ? <p role="alert" className={styles.error}>“{mutationFeedback.title}”：<span>{mutationFeedback.text}</span></p> : null}</DialogBody>
+      <DialogFooter><Button variant="ghost" isDisabled={pending} onPress={() => { setTrashItem(null); setMutationFeedback(null); }}>取消</Button><Button variant="danger" isPending={pending} isDisabled={!canWrite || !props.onTrash} onPress={() => props.onTrash && void mutate(trashItem, props.onTrash, '知识已移入回收站。')}>确认移入回收站</Button></DialogFooter>
     </Dialog> : null}
     {purgePreview ? <Dialog title="永久删除知识点？" description="删除后无法普通恢复。来源笔记和标注不会删除；离线设备待同步，备份按保留策略处理。" isOpen isPending={pending} onOpenChange={open => { if (!open && !pending) setPurgePreview(null); }}>
       <DialogBody>
