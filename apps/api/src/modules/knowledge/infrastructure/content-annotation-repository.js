@@ -35,7 +35,8 @@ export function createInMemoryContentAnnotationRepository(options = {}) {
     markStaleByNoteId(noteId, currentContentHash) {
       const changed = [];
       for (const item of records) {
-        if (item.noteId !== noteId || !active(item, false) || item.noteContentHash === currentContentHash) continue;
+        // v3（内联重点）的位置在正文标记里，不按正文哈希判定过期。
+        if (item.noteId !== noteId || !active(item, false) || item.noteContentHash === currentContentHash || item.schemaVersion === 3) continue;
         item.anchorStatus = 'needsReview';
         item.anchorReason = 'contentChanged';
         item.status = 'stale';

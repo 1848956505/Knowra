@@ -1,6 +1,8 @@
+import { stripKnowraMarks } from '@study-accelerator/shared/knowra-marks';
 import { updateStructure, extractNoteLinks } from '@study-accelerator/content-anchor';
 function stripMarkdown(markdown) {
-  return markdown
+  // 先去掉 Knowra 标记（重点、挖空），否则搜索、摘要会被标签打断。
+  return stripKnowraMarks(markdown)
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/`([^`]+)`/g, '$1')
     .replace(/\[\[([^\]]+)\]\]/g, '$1')

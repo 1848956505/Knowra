@@ -334,6 +334,16 @@ export function stripKnowraMarksMapped(markdown) {
   return { markdown: output, toClean };
 }
 
+const mayContainMarks = text => text.includes('<mark') || text.includes('<!--k');
+
+/** 两份正文去掉 Knowra 标记后是否相同：只增删、修改标记的保存不算正文改动。 */
+export function sameKnowraText(left, right) {
+  if (left === right) return true;
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  if (!mayContainMarks(left) && !mayContainMarks(right)) return false;
+  return stripKnowraMarks(left) === stripKnowraMarks(right);
+}
+
 export function formatKnowraMarkOpen(id, attrs = {}) {
   if (!ID.test(id)) throw new Error(`Invalid Knowra mark id: ${id}`);
   const parts = [`data-k="${id}"`];

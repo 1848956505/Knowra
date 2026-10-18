@@ -1,3 +1,4 @@
+import { sameKnowraText } from '@study-accelerator/shared/knowra-marks';
 import { createHash } from 'node:crypto';
 import { createAppError } from '../../../errors/app-error.js';
 
@@ -185,7 +186,7 @@ export function resolveKnowledgeArtifactProvenanceSource({ record, source, evide
     || knowledgeItem.reviewStatus === 'archived' || evidence.status === 'invalid' || evidence.status === 'insufficient'
     || ['withdrawn', 'needsReview'].includes(evidence.applicabilityStatus);
   const stale = evidence.status === 'stale'
-    || (typeof note.rawMarkdown === 'string' && sha256(note.rawMarkdown) !== member.contentHash)
+    || (typeof note.rawMarkdown === 'string' && sha256(note.rawMarkdown) !== member.contentHash && !sameKnowraText(note.rawMarkdown, noteVersion.content))
     || (typeof note.rawMarkdown !== 'string' && digest(note.contentHash) && note.contentHash !== member.contentHash);
   return {
     originalVersionId: member.originNoteVersionId, resolvedVersionId: noteVersion.id,

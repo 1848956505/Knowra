@@ -1,3 +1,4 @@
+import { sameKnowraText } from '@study-accelerator/shared/knowra-marks';
 import { matchesKnowledgeCandidateRequest } from './knowledge-candidate-retry.js';
 import { assertKnowledgeItemBaseline, nextKnowledgeItemTimestamp } from './knowledge-item-concurrency.js';
 import { KnowledgeItem } from '../domain/knowledge-item.js';
@@ -112,7 +113,7 @@ export function createKnowledgeItemService({
       const note = noteRepository.findById(noteId);
       if (!note) throw notFoundError('NOTE_NOT_FOUND', 'Note not found');
       if (note.deleted) status = 'invalid';
-      else if (dto.sourceType === 'noteVersion' && version && version.content !== note.rawMarkdown && status !== 'invalid') {
+      else if (dto.sourceType === 'noteVersion' && version && !sameKnowraText(version.content, note.rawMarkdown) && status !== 'invalid') {
         status = 'stale';
       }
     }

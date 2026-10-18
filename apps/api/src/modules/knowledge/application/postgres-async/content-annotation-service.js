@@ -5,7 +5,7 @@ import { resolveStoredAnnotation } from '../resolve-stored-annotation.js';
 import crypto from 'node:crypto';
 import { listTracking, anchorForSection, calculateContentHash, followSectionAnchor, headingPathForSourceOffset, relocateAnchor, resolveAnchor } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../../errors/app-error.js';
-import { ContentAnnotation } from '../../domain/content-annotation.js';
+import { ContentAnnotation, INLINE_ANNOTATION_SCHEMA } from '../../domain/content-annotation.js';
 import { buildCreateContentAnnotationDto, buildUpdateAnnotationAnchorDto, buildUpdateContentAnnotationDto } from '../dto/content-annotation-dto.js';
 
 const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
@@ -25,6 +25,12 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     if (note.spaceId !== dto.spaceId) throw fail('ANNOTATION_SPACE_MISMATCH', '标注空间与笔记不一致', 409);
     if (calculateContentHash(note.rawMarkdown) !== dto.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请重新选择标注范围', 409);
     return note;
+  }
+  // 重点内联化 v3：类型、重要程度、范围与取消/恢复都写在正文标记里，由保存时派生；这里只允许改备注。
+  function assertNotTextOwned(annotation, dto = null) {
+    if (annotation.schemaVersion !== INLINE_ANNOTATION_SCHEMA) return;
+    if (dto && dto.kind === undefined && dto.importance === undefined) return;
+    throw fail('ANNOTATION_INLINE_TEXT_OWNED', '这个重点写在正文里，请在笔记中修改', 409);
   }
   function assertRevision(annotation, expectedRevision) {
     if (expectedRevision === undefined || expectedRevision === null || Number.isNaN(expectedRevision)) return;
@@ -83,28 +89,33 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     getAnnotation: requireAnnotation,
     async advanceRevision(id, input = {}) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       assertRevision(annotation, input.expectedRevision);
       return saveUpdated(annotation, {}, input.operation ?? 'rangeChanged', input.reason ?? null);
     },
     async updateAnnotation(id, input) {
       const annotation = await requireAnnotation(id);
       const dto = buildUpdateContentAnnotationDto(input);
+      assertNotTextOwned(annotation, dto);
       assertRevision(annotation, dto.expectedRevision);
       return saveUpdated(annotation, dto, 'metadataUpdated');
     },
     async archiveAnnotation(id, input = {}) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       assertRevision(annotation, input.expectedRevision);
       return saveUpdated(annotation, { lifecycleStatus: 'archived', deletedAt: new Date().toISOString() }, 'archived');
     },
     async deleteAnnotation(id, input = {}) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       assertRevision(annotation, input.expectedRevision);
       if (annotation.lifecycleStatus === 'deleted') return annotation;
       return saveUpdated(annotation, { lifecycleStatus: 'deleted', deletedAt: new Date().toISOString() }, 'deleted');
     },
     async restoreAnnotation(id, input = {}) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       assertRevision(annotation, input.expectedRevision);
       if (annotation.lifecycleStatus === 'active') return annotation;
       const parent = await noteRepository.findById(annotation.noteId);
@@ -123,6 +134,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     },
     async updateAnnotationAnchor(id, input) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       const dto = buildUpdateAnnotationAnchorDto(input);
       if (annotation.scopeType === 'list' && dto.anchor?.scopeType !== 'list') throw fail('ANNOTATION_RANGE_INVALID', '列表重点的新来源必须是完整列表项', 409);
       assertRevision(annotation, dto.expectedRevision);
@@ -134,6 +146,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     },
     async confirmAnnotationRange(id, input) {
       const annotation = await requireAnnotation(id);
+      assertNotTextOwned(annotation);
       const note = await noteRepository.findById(annotation.noteId);
       if (!note || note.deleted) throw fail('ANNOTATION_NOTE_NOT_FOUND', '笔记不存在', 404);
       const anchor = assertRangeConfirmation(annotation, note, input);
@@ -148,6 +161,8 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
       const changed = [];
       const contentChangedAnnotationIds = [];
       for (const annotation of await repository.list({ noteId, includeDeleted: true })) {
+        // v3 的位置在正文标记里，由保存后的派生维护，不参与旧链路跟随。
+        if (annotation.schemaVersion === INLINE_ANNOTATION_SCHEMA) continue;
         if (annotation.lifecycleStatus !== 'active' || (annotation.noteContentHash === currentContentHash && !context?.edits?.length)) continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           changed.push(await saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
@@ -180,7 +195,7 @@ export function createAsyncContentAnnotationService({ repository, noteRepository
     },
     async markAnnotationStale(id) {
       const annotation = await requireAnnotation(id);
-      return annotation.lifecycleStatus === 'archived' ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged');
+      return annotation.lifecycleStatus === 'archived' || annotation.schemaVersion === INLINE_ANNOTATION_SCHEMA ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged');
     },
     markStaleForNote(noteId, currentContentHash) { return repository.markStaleByNoteId?.(noteId, currentContentHash) ?? Promise.resolve([]); }
   };

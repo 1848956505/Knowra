@@ -5,6 +5,7 @@ import {
   insertKnowraMarks,
   knowraCheck,
   parseKnowraMarks,
+  sameKnowraText,
   stripKnowraMarks,
   stripKnowraMarksMapped
 } from '../src/knowra-marks.js';
@@ -243,4 +244,12 @@ test('只有反斜杠加 ASCII 标点才是转义：\\eta 中间可以作为边�
   assert.equal(insertKnowraMarks(source, { snap: true, inline: [{ id: 'c', from: 1, to: 2 }] }), '(<mark data-k="c">\\e</mark>ta) 与 \\*');
   assert.equal(stripKnowraMarks(snapped), source);
   assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'b', from: source.length - 1, to: source.length }] }), /protected/);
+});
+
+test('sameKnowraText：只差标记视为相同正文', () => {
+  assert.equal(sameKnowraText('甲乙', '<mark data-k="a">甲</mark>乙'), true);
+  assert.equal(sameKnowraText('## 标题', '## 标题 <!--k s1 s=section-->'), true);
+  assert.equal(sameKnowraText('甲乙', '甲乙丙'), false);
+  assert.equal(sameKnowraText('<mark>普通</mark>', '普通'), false);
+  assert.equal(sameKnowraText(null, ''), false);
 });

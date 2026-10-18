@@ -41,6 +41,7 @@ import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.te
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { annotationIdentityShadowTests } from './annotation-identity-shadow.test.js';
 import { annotationIdentityBindingTests, annotationIdentityBindingPostgresTests } from './annotation-identity-binding.test.js';
+import { inlineAnnotationTests, inlineAnnotationPostgresTests } from './inline-annotations.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
 import { aiKnowledgeExtractionGatewayTests } from './ai-knowledge-extraction-gateway.test.js';
@@ -230,6 +231,8 @@ const tests = [
   ...annotationIdentityShadowTests,
   ...annotationIdentityBindingTests,
   ...annotationIdentityBindingPostgresTests,
+  ...inlineAnnotationTests,
+  ...inlineAnnotationPostgresTests,
   ...annotationDynamicPostgresTests,
   ...serverHttpTests,
   ...knowledgeBaseSnapshotServiceTests,

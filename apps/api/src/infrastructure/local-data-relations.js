@@ -1,3 +1,4 @@
+import { sameKnowraText } from '@study-accelerator/shared/knowra-marks';
 import { calculateContentHash, projectMarkdown, resolveAnchor, listTracking } from '@study-accelerator/content-anchor';
 import { nextKnowledgeItemTimestamp } from '../modules/knowledge/application/knowledge-item-concurrency.js';
 import crypto from 'node:crypto';
@@ -279,7 +280,8 @@ function validateAnnotations(annotationItems, spaces, notes, noteVersions) {
       note.spaceId === annotation.spaceId,
       `Annotation ${annotation.id} and its note must belong to the same space`
     );
-    if (annotation.scopeType === 'list' && annotation.lifecycleStatus === 'active' && annotation.anchorStatus === 'resolved'
+    // v3（内联重点）的列表范围写在正文标记里，没有旧的列表身份。
+    if (annotation.scopeType === 'list' && annotation.schemaVersion !== 3 && annotation.lifecycleStatus === 'active' && annotation.anchorStatus === 'resolved'
       && annotation.noteContentHash === calculateContentHash(note.rawMarkdown)) {
       const resolution = resolveAnchor(note.rawMarkdown, annotation.anchor);
       const tracking = listTracking(projectMarkdown(note.rawMarkdown), annotation.anchor, note.annotationStructure);
@@ -419,7 +421,7 @@ function validateKnowledgeEvidence(items, knowledgeItems, notes, noteVersions, a
       &&
       version
       && note
-      && version.content !== note.rawMarkdown
+      && !sameKnowraText(version.content, note.rawMarkdown)
       && derivedStatus !== 'invalid'
     ) {
       derivedStatus = 'stale';
@@ -507,7 +509,7 @@ function validateQuestionSources(items, {
         isCurrent: Boolean(
           note
           && !note.deleted
-          && note.rawMarkdown === reference.content
+          && sameKnowraText(note.rawMarkdown, reference.content)
         )
       };
     }
