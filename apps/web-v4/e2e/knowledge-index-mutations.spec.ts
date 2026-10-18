@@ -63,8 +63,20 @@ test('知识右键写入失败保留重试入口，归档菜单查看、关闭�
   await openMenu(page);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('menu', { name: '知识操作' })).toHaveCount(0);
-  await openMenu(page);
-  await page.getByRole('heading', { name: '知识库', exact: true }).click();
+  const outsideMenu = await openMenu(page);
+  await expect(outsideMenu).toBeVisible();
+  // 模态 Popover 将背景设为 inert；实际外部点击落在遮罩，而不是穿透点击标题。
+  const heading = page.getByRole('heading', { name: '知识库', exact: true, includeHidden: true });
+  await expect(heading).toBeVisible();
+  const headingBox = await heading.boundingBox();
+  const menuBox = await outsideMenu.boundingBox();
+  expect(headingBox).not.toBeNull();
+  expect(menuBox).not.toBeNull();
+  if (!headingBox || !menuBox) throw new Error('无法确认菜单外点击位置');
+  const outsidePoint = { x: headingBox.x + headingBox.width / 2, y: headingBox.y + headingBox.height / 2 };
+  expect(outsidePoint.x < menuBox.x || outsidePoint.x > menuBox.x + menuBox.width
+    || outsidePoint.y < menuBox.y || outsidePoint.y > menuBox.y + menuBox.height).toBe(true);
+  await page.mouse.click(outsidePoint.x, outsidePoint.y);
   await expect(page.getByRole('menu', { name: '知识操作' })).toHaveCount(0);
   await (await openMenu(page)).getByRole('menuitem', { name: '查看详情' }).click();
   await expect(page.getByRole('heading', { name: item.title, exact: true })).toBeVisible();
