@@ -11,6 +11,7 @@ import {
   RELATION_LAYER_LABELS, neighborIds, relationLabel, relationLayer, relationMidpoint, relationsOf, type GraphFocus, type RelationLayer
 } from './conceptGraphModel';
 import styles from './ConceptGraphView.module.css';
+import { IncrementalConfirmationDemo } from './IncrementalConfirmationDemo';
 
 const VIEW_WIDTH = 1040;
 const VIEW_HEIGHT = 760;
@@ -33,6 +34,7 @@ export function ConceptGraphView({ data: sample = CONCEPT_GRAPH_SAMPLE }: { data
   const fileInput = useRef<HTMLInputElement>(null);
   const [loaded, setLoaded] = useState<ConceptGraphData | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [confirmationDemoOpen, setConfirmationDemoOpen] = useState(false);
   const [layers, setLayers] = useState<Record<RelationLayer, boolean>>({ relation: true, suggestion: true, retrieval: false });
   const [focus, setFocus] = useState<GraphFocus>({ kind: 'none' });
   const focusConceptId = focus.kind === 'concept' ? focus.id : focus.kind === 'item' ? focus.conceptId : null;
@@ -64,13 +66,13 @@ export function ConceptGraphView({ data: sample = CONCEPT_GRAPH_SAMPLE }: { data
   const clear = () => setFocus({ kind: 'none' });
   const hasFocus = focus.kind !== 'none';
   useEffect(() => {
-    if (!hasFocus) return undefined;
+    if (!hasFocus || confirmationDemoOpen) return undefined;
     const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') setFocus({ kind: 'none' }); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [hasFocus]);
+  }, [hasFocus, confirmationDemoOpen]);
 
-  return <WorkspacePanel as="main" aria-labelledby="concept-graph-title">
+  return <><WorkspacePanel as="main" aria-labelledby="concept-graph-title">
     <WorkspacePanelHeader title="概念图" code="KNOW" titleId="concept-graph-title" icon={<KnowledgeIcon size={13} />}
       breadcrumb={<PathTrail path={[
         { id: 'home', label: '主页', onNavigate: () => navigate('/') },
@@ -86,6 +88,10 @@ export function ConceptGraphView({ data: sample = CONCEPT_GRAPH_SAMPLE }: { data
           onChange={event => { void importFile(event.target.files?.[0]); event.target.value = ''; }} />
       </>} />
     <WorkspacePanelBody className={styles.body}>
+      <div className={styles.experimentActions}>
+        <Button size="compact" onPress={() => setConfirmationDemoOpen(true)}>增量确认演示（实验）</Button>
+        <span>合成内容 · 仅本页有效 · 关闭即清空</span>
+      </div>
       <p className={styles.prototype} role="note">{full.notice ?? PROTOTYPE_NOTICE}</p>
       {loadError ? <p className={styles.loadError} role="alert">{loadError}</p> : null}
       {loaded ? <div className={styles.layers} role="group" aria-label="显示哪些连线">
@@ -167,7 +173,7 @@ export function ConceptGraphView({ data: sample = CONCEPT_GRAPH_SAMPLE }: { data
       </div>
     </WorkspacePanelBody>
     <WorkspacePanelFooter><span>{data.concepts.length} 个概念 · {data.items.length} 条知识 · 显示 {data.relations.length}/{full.relations.length} 条连线</span><span>点击圆点展开，Esc 收起</span></WorkspacePanelFooter>
-  </WorkspacePanel>;
+  </WorkspacePanel>{confirmationDemoOpen ? <IncrementalConfirmationDemo onClose={() => setConfirmationDemoOpen(false)} /> : null}</>;
 }
 
 function Legend({ research }: { research: boolean }) {
