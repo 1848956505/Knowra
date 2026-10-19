@@ -1,0 +1,2725 @@
+{
+  "provenance": {
+    "kind": "frozen-synthetic-live-output",
+    "runId": 39280401396,
+    "remoteCommit": "5b9908e4cda8ca8559ee4bc3b79f685bf30b91e7",
+    "artifactSha256": "ad308106634d7dbe314795d6ab12604e7f42e4ae6b1c1c3dab0acc6d98e2db98",
+    "note": "Agent-authored synthetic inputs only. Historical expectations/evaluations are immutable."
+  },
+  "snapshot": {
+    "concepts": [
+      {
+        "id": "C_MATRIX",
+        "name": "矩阵",
+        "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_MATMUL",
+        "name": "矩阵乘法",
+        "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_ADD",
+        "name": "矩阵加法",
+        "sense": "线性代数中同形状矩阵之间的加法运算",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_HADAMARD",
+        "name": "逐元素乘法",
+        "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_DOT",
+        "name": "点积",
+        "sense": "两个等长向量之间得到一个标量的运算，也称内积",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_TRANSPOSE",
+        "name": "转置",
+        "sense": "矩阵的行列互换操作",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_GRADIENT",
+        "name": "梯度",
+        "sense": "数学：多元函数对各变量偏导数组成的向量",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_DERIV",
+        "name": "导数",
+        "sense": "数学：一元函数的瞬时变化率",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_TENSOR",
+        "name": "张量",
+        "sense": "深度学习框架中的多维数组",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_BACKPROP",
+        "name": "反向传播",
+        "sense": "神经网络中沿计算图反向计算梯度的算法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_SGD",
+        "name": "随机梯度下降",
+        "sense": "用小批量样本估计梯度来更新参数的优化算法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_LR",
+        "name": "学习率",
+        "sense": "优化算法中控制每一步更新幅度的超参数",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_LOSS",
+        "name": "损失函数",
+        "sense": "衡量模型预测与真实值差距的函数",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_SOFTMAX",
+        "name": "softmax",
+        "sense": "把一组实数变换为概率分布的函数",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_CONV",
+        "name": "卷积",
+        "sense": "卷积神经网络中用卷积核在输入上滑动计算的运算",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_POOL",
+        "name": "池化",
+        "sense": "对局部区域取最大值或平均值以降低尺寸的操作",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_ACT",
+        "name": "激活函数",
+        "sense": "神经网络中给神经元输出引入非线性的函数",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_DROPOUT",
+        "name": "dropout",
+        "sense": "训练时随机丢弃部分神经元的正则化方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_BN",
+        "name": "批量归一化",
+        "sense": "按小批量统计量对中间层输出做标准化的方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_OVERFIT",
+        "name": "过拟合",
+        "sense": "模型在训练集上表现好而在新数据上表现差的现象",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_REG",
+        "name": "正则化",
+        "sense": "通过约束模型复杂度来减轻过拟合的一类方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_CE",
+        "name": "交叉熵",
+        "sense": "衡量两个概率分布差异的量，常用作分类损失",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_DET",
+        "name": "行列式",
+        "sense": "方阵对应的一个标量",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_RANK",
+        "name": "秩",
+        "sense": "线性代数：矩阵中线性无关的行或列的最大数目",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_NORM",
+        "name": "范数",
+        "sense": "衡量向量或矩阵大小的量",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_EIG",
+        "name": "特征值",
+        "sense": "线性代数：满足 Av = λv 的标量 λ",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_ATTN",
+        "name": "注意力机制",
+        "sense": "按相关性对输入加权汇总的机制",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_EMB",
+        "name": "嵌入",
+        "sense": "把离散符号映射为稠密向量的表示方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_RESID",
+        "name": "残差连接",
+        "sense": "把输入直接加到某层输出上的结构",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_PYTHON",
+        "name": "Python",
+        "sense": "一门通用编程语言",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_PYTORCH",
+        "name": "PyTorch",
+        "sense": "一个深度学习框架及其函数库",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_ML",
+        "name": "机器学习",
+        "sense": "让计算机从数据中学习规律的一类方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_DL",
+        "name": "深度学习",
+        "sense": "使用多层神经网络学习数据表示的方法",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_VECTOR",
+        "name": "向量",
+        "sense": "线性代数中有序排列的一组数",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "C_BROADCAST",
+        "name": "广播",
+        "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制",
+        "origin": "catalog",
+        "reviewStatus": "confirmed",
+        "revision": 1
+      }
+    ],
+    "items": [
+      {
+        "id": "K_PRE_1",
+        "conceptId": "C_MATMUL",
+        "title": "矩阵乘法一般不满足交换律",
+        "kind": "fact",
+        "statement": "一般情况下 AB 不等于 BA。",
+        "sources": [
+          {
+            "noteId": "SYNTHETIC_ORIGINAL",
+            "quote": "一般情况下 AB 不等于 BA。"
+          }
+        ],
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "K_PRE_2",
+        "conceptId": "C_GRADIENT",
+        "title": "梯度的定义",
+        "kind": "definition",
+        "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。",
+        "sources": [
+          {
+            "noteId": "SYNTHETIC_ORIGINAL",
+            "quote": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          }
+        ],
+        "reviewStatus": "confirmed",
+        "revision": 1
+      },
+      {
+        "id": "K_PRE_3",
+        "conceptId": "C_HADAMARD",
+        "title": "逐元素乘法的定义",
+        "kind": "definition",
+        "statement": "两个同形状数组在相同位置上的元素相乘。",
+        "sources": [
+          {
+            "noteId": "SYNTHETIC_ORIGINAL",
+            "quote": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ],
+        "reviewStatus": "confirmed",
+        "revision": 1
+      }
+    ],
+    "nextConcept": 1,
+    "nextItem": 1
+  },
+  "rows": [
+    {
+      "caseId": "I01",
+      "arm": "retrieval",
+      "note": {
+        "id": "I01",
+        "markdown": "矩阵乘法满足结合律：(AB)C=A(BC)。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I01",
+        "note": {
+          "id": "I01",
+          "markdown": "矩阵乘法满足结合律：(AB)C=A(BC)。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-concept-new-item",
+        "conceptId": "C_MATMUL"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 1,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I01\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"矩阵乘法满足结合律\",\"kind\":\"fact\",\"statement\":\"矩阵乘法满足结合律：(AB)C=A(BC)。\",\"quote\":\"矩阵乘法满足结合律：(AB)C=A(BC)。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I01",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "矩阵乘法满足结合律",
+                "kind": "fact",
+                "statement": "矩阵乘法满足结合律：(AB)C=A(BC)。",
+                "quote": "矩阵乘法满足结合律：(AB)C=A(BC)。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 992,
+          "completion_tokens": 108,
+          "total_tokens": 1100
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4430,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-concept-new-item",
+          "conceptId": "C_MATMUL"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I01",
+      "arm": "oracle",
+      "note": {
+        "id": "I01",
+        "markdown": "矩阵乘法满足结合律：(AB)C=A(BC)。",
+        "candidates": [
+          "C_MATMUL",
+          "C_MATRIX",
+          "C_ADD",
+          "C_HADAMARD",
+          "C_TRANSPOSE",
+          "C_NORM",
+          "C_EIG",
+          "C_RANK"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I01",
+        "note": {
+          "id": "I01",
+          "markdown": "矩阵乘法满足结合律：(AB)C=A(BC)。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-concept-new-item",
+        "conceptId": "C_MATMUL"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 2,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I01\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"矩阵乘法满足结合律\",\"kind\":\"fact\",\"statement\":\"矩阵乘法满足结合律：(AB)C=A(BC)。\",\"quote\":\"矩阵乘法满足结合律：(AB)C=A(BC)。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I01",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "矩阵乘法满足结合律",
+                "kind": "fact",
+                "statement": "矩阵乘法满足结合律：(AB)C=A(BC)。",
+                "quote": "矩阵乘法满足结合律：(AB)C=A(BC)。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 992,
+          "completion_tokens": 108,
+          "total_tokens": 1100
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4430,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-concept-new-item",
+          "conceptId": "C_MATMUL"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I02",
+      "arm": "oracle",
+      "note": {
+        "id": "I02",
+        "markdown": "矩阵乘法一般不满足交换律，通常 AB≠BA。",
+        "candidates": [
+          "C_MATMUL",
+          "C_MATRIX",
+          "C_ADD",
+          "C_HADAMARD",
+          "C_TRANSPOSE",
+          "C_NORM",
+          "C_EIG",
+          "C_RANK"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I02",
+        "note": {
+          "id": "I02",
+          "markdown": "矩阵乘法一般不满足交换律，通常 AB≠BA。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_MATMUL",
+        "itemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 3,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I02\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_1\",\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵乘法一般不满足交换律，通常 AB≠BA。\",\"quote\":\"矩阵乘法一般不满足交换律，通常 AB≠BA。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I02",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_1",
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "矩阵乘法一般不满足交换律，通常 AB≠BA。",
+                "quote": "矩阵乘法一般不满足交换律，通常 AB≠BA。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 992,
+          "completion_tokens": 114,
+          "total_tokens": 1106
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4442,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_MATMUL",
+          "itemId": "K_PRE_1"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I02",
+      "arm": "retrieval",
+      "note": {
+        "id": "I02",
+        "markdown": "矩阵乘法一般不满足交换律，通常 AB≠BA。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I02",
+        "note": {
+          "id": "I02",
+          "markdown": "矩阵乘法一般不满足交换律，通常 AB≠BA。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_MATMUL",
+        "itemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 4,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I02\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_1\",\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵乘法一般不满足交换律，通常 AB≠BA。\",\"quote\":\"矩阵乘法一般不满足交换律，通常 AB≠BA。\"},\"sourceIssue\":null}],\"remarks\":\"笔记只有一条知识，与候选概念“矩阵乘法”及已有条目 K_PRE_1 完全对应，直接复用。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I02",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_1",
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "矩阵乘法一般不满足交换律，通常 AB≠BA。",
+                "quote": "矩阵乘法一般不满足交换律，通常 AB≠BA。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "笔记只有一条知识，与候选概念“矩阵乘法”及已有条目 K_PRE_1 完全对应，直接复用。"
+        },
+        "usage": {
+          "prompt_tokens": 992,
+          "completion_tokens": 140,
+          "total_tokens": 1132
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4442,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_MATMUL",
+          "itemId": "K_PRE_1"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I03",
+      "arm": "retrieval",
+      "note": {
+        "id": "I03",
+        "markdown": "x.grad 保存 PyTorch 中张量 x 的梯度值；连续反传时该属性中的数值会累加。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I03",
+        "note": {
+          "id": "I03",
+          "markdown": "x.grad 保存 PyTorch 中张量 x 的梯度值；连续反传时该属性中的数值会累加。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_PYTORCH",
+            "name": "PyTorch",
+            "sense": "一个深度学习框架及其函数库"
+          },
+          {
+            "id": "C_PYTHON",
+            "name": "Python",
+            "sense": "一门通用编程语言"
+          },
+          {
+            "id": "C_SGD",
+            "name": "随机梯度下降",
+            "sense": "用小批量样本估计梯度来更新参数的优化算法"
+          },
+          {
+            "id": "C_BACKPROP",
+            "name": "反向传播",
+            "sense": "神经网络中沿计算图反向计算梯度的算法"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "related-but-different",
+        "forbiddenConceptIds": [
+          "C_GRADIENT"
+        ],
+        "acceptableExistingIds": [
+          "C_PYTORCH"
+        ]
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 5,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I03\",\"links\":[{\"conceptAction\":\"create\",\"conceptId\":null,\"newConcept\":{\"name\":\"张量的梯度属性\",\"sense\":\"PyTorch 中张量用于保存梯度值的属性 x.grad\"},\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"x.grad 保存梯度值\",\"kind\":\"fact\",\"statement\":\"x.grad 保存 PyTorch 中张量 x 的梯度值。\",\"quote\":\"x.grad 保存 PyTorch 中张量 x 的梯度值\"},\"sourceIssue\":null},{\"conceptAction\":\"create\",\"conceptId\":null,\"newConcept\":{\"name\":\"张量的梯度属性\",\"sense\":\"PyTorch 中张量用于保存梯度值的属性 x.grad\"},\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"连续反传时梯度值累加\",\"kind\":\"fact\",\"statement\":\"连续反传时，x.grad 属性中的数值会累加。\",\"quote\":\"连续反传时该属性中的数值会累加\"},\"sourceIssue\":null}],\"remarks\":\"原文未说明累加是默认行为还是需配合 retain_graph 等设置；x.grad 与数学“梯度”概念含义不同，故新建概念。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I03",
+          "links": [
+            {
+              "conceptAction": "create",
+              "conceptId": null,
+              "newConcept": {
+                "name": "张量的梯度属性",
+                "sense": "PyTorch 中张量用于保存梯度值的属性 x.grad"
+              },
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "x.grad 保存梯度值",
+                "kind": "fact",
+                "statement": "x.grad 保存 PyTorch 中张量 x 的梯度值。",
+                "quote": "x.grad 保存 PyTorch 中张量 x 的梯度值"
+              },
+              "sourceIssue": null
+            },
+            {
+              "conceptAction": "create",
+              "conceptId": null,
+              "newConcept": {
+                "name": "张量的梯度属性",
+                "sense": "PyTorch 中张量用于保存梯度值的属性 x.grad"
+              },
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "连续反传时梯度值累加",
+                "kind": "fact",
+                "statement": "连续反传时，x.grad 属性中的数值会累加。",
+                "quote": "连续反传时该属性中的数值会累加"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "原文未说明累加是默认行为还是需配合 retain_graph 等设置；x.grad 与数学“梯度”概念含义不同，故新建概念。"
+        },
+        "usage": {
+          "prompt_tokens": 1004,
+          "completion_tokens": 288,
+          "total_tokens": 1292
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4496,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "related-but-different",
+          "forbiddenConceptIds": [
+            "C_GRADIENT"
+          ],
+          "acceptableExistingIds": [
+            "C_PYTORCH"
+          ]
+        },
+        "targetPresent": null,
+        "routingPass": false,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": false,
+        "needsHumanSemanticReview": true,
+        "contractPass": false,
+        "acceptedLinkCount": 2
+      }
+    },
+    {
+      "caseId": "I03",
+      "arm": "oracle",
+      "note": {
+        "id": "I03",
+        "markdown": "x.grad 保存 PyTorch 中张量 x 的梯度值；连续反传时该属性中的数值会累加。",
+        "candidates": [
+          "C_TENSOR",
+          "C_GRADIENT",
+          "C_PYTORCH",
+          "C_PYTHON",
+          "C_SGD",
+          "C_BACKPROP",
+          "C_BROADCAST",
+          "C_HADAMARD"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I03",
+        "note": {
+          "id": "I03",
+          "markdown": "x.grad 保存 PyTorch 中张量 x 的梯度值；连续反传时该属性中的数值会累加。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_PYTORCH",
+            "name": "PyTorch",
+            "sense": "一个深度学习框架及其函数库"
+          },
+          {
+            "id": "C_PYTHON",
+            "name": "Python",
+            "sense": "一门通用编程语言"
+          },
+          {
+            "id": "C_SGD",
+            "name": "随机梯度下降",
+            "sense": "用小批量样本估计梯度来更新参数的优化算法"
+          },
+          {
+            "id": "C_BACKPROP",
+            "name": "反向传播",
+            "sense": "神经网络中沿计算图反向计算梯度的算法"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "related-but-different",
+        "forbiddenConceptIds": [
+          "C_GRADIENT"
+        ],
+        "acceptableExistingIds": [
+          "C_PYTORCH"
+        ]
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 6,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I03\",\"links\":[{\"conceptAction\":\"create\",\"conceptId\":null,\"newConcept\":{\"name\":\"张量的梯度属性\",\"sense\":\"PyTorch 中张量对象用于保存其梯度值的属性 x.grad\"},\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"x.grad 保存梯度值\",\"kind\":\"fact\",\"statement\":\"x.grad 保存 PyTorch 中张量 x 的梯度值。\",\"quote\":\"x.grad 保存 PyTorch 中张量 x 的梯度值\"},\"sourceIssue\":null},{\"conceptAction\":\"create\",\"conceptId\":null,\"newConcept\":{\"name\":\"张量的梯度属性\",\"sense\":\"PyTorch 中张量对象用于保存其梯度值的属性 x.grad\"},\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"连续反传时梯度值累加\",\"kind\":\"fact\",\"statement\":\"连续反传时 x.grad 属性中的数值会累加。\",\"quote\":\"连续反传时该属性中的数值会累加\"},\"sourceIssue\":null}],\"remarks\":\"原文未说明累加是否需先清零梯度；x.grad 与数学“梯度”概念语境不同，故新建概念。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I03",
+          "links": [
+            {
+              "conceptAction": "create",
+              "conceptId": null,
+              "newConcept": {
+                "name": "张量的梯度属性",
+                "sense": "PyTorch 中张量对象用于保存其梯度值的属性 x.grad"
+              },
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "x.grad 保存梯度值",
+                "kind": "fact",
+                "statement": "x.grad 保存 PyTorch 中张量 x 的梯度值。",
+                "quote": "x.grad 保存 PyTorch 中张量 x 的梯度值"
+              },
+              "sourceIssue": null
+            },
+            {
+              "conceptAction": "create",
+              "conceptId": null,
+              "newConcept": {
+                "name": "张量的梯度属性",
+                "sense": "PyTorch 中张量对象用于保存其梯度值的属性 x.grad"
+              },
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "连续反传时梯度值累加",
+                "kind": "fact",
+                "statement": "连续反传时 x.grad 属性中的数值会累加。",
+                "quote": "连续反传时该属性中的数值会累加"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "原文未说明累加是否需先清零梯度；x.grad 与数学“梯度”概念语境不同，故新建概念。"
+        },
+        "usage": {
+          "prompt_tokens": 1004,
+          "completion_tokens": 285,
+          "total_tokens": 1289
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4496,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "related-but-different",
+          "forbiddenConceptIds": [
+            "C_GRADIENT"
+          ],
+          "acceptableExistingIds": [
+            "C_PYTORCH"
+          ]
+        },
+        "targetPresent": null,
+        "routingPass": false,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": false,
+        "needsHumanSemanticReview": true,
+        "contractPass": false,
+        "acceptedLinkCount": 2
+      }
+    },
+    {
+      "caseId": "I04",
+      "arm": "oracle",
+      "note": {
+        "id": "I04",
+        "markdown": "它和前面那个一样，按那个方法算就行。",
+        "candidates": [
+          "C_EMB",
+          "C_ML",
+          "C_DL",
+          "C_DROPOUT",
+          "C_MATMUL",
+          "C_HADAMARD"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I04",
+        "note": {
+          "id": "I04",
+          "markdown": "它和前面那个一样，按那个方法算就行。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_EMB",
+            "name": "嵌入",
+            "sense": "把离散符号映射为稠密向量的表示方法"
+          },
+          {
+            "id": "C_ML",
+            "name": "机器学习",
+            "sense": "让计算机从数据中学习规律的一类方法"
+          },
+          {
+            "id": "C_DL",
+            "name": "深度学习",
+            "sense": "使用多层神经网络学习数据表示的方法"
+          },
+          {
+            "id": "C_DROPOUT",
+            "name": "dropout",
+            "sense": "训练时随机丢弃部分神经元的正则化方法"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "insufficient-evidence-pending"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 7,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I04\",\"links\":[],\"remarks\":\"笔记只有一句指代性表述（“它和前面那个一样，按那个方法算就行”），没有可独立修订或核查的实质知识内容，无法确定“它”“那个方法”所指，故不生成知识条目。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I04",
+          "links": [],
+          "remarks": "笔记只有一句指代性表述（“它和前面那个一样，按那个方法算就行”），没有可独立修订或核查的实质知识内容，无法确定“它”“那个方法”所指，故不生成知识条目。"
+        },
+        "usage": {
+          "prompt_tokens": 936,
+          "completion_tokens": 68,
+          "total_tokens": 1004
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4245,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "insufficient-evidence-pending"
+        },
+        "targetPresent": null,
+        "routingPass": null,
+        "protocolGap": "原版协议没有待定动作，不能据此验证模型主动拒判；应用层仅隔离所有输出等待人工决定。",
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": false,
+        "needsHumanSemanticReview": true,
+        "contractPass": null,
+        "acceptedLinkCount": 0
+      }
+    },
+    {
+      "caseId": "I04",
+      "arm": "retrieval",
+      "note": {
+        "id": "I04",
+        "markdown": "它和前面那个一样，按那个方法算就行。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I04",
+        "note": {
+          "id": "I04",
+          "markdown": "它和前面那个一样，按那个方法算就行。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_EMB",
+            "name": "嵌入",
+            "sense": "把离散符号映射为稠密向量的表示方法"
+          },
+          {
+            "id": "C_ML",
+            "name": "机器学习",
+            "sense": "让计算机从数据中学习规律的一类方法"
+          },
+          {
+            "id": "C_DL",
+            "name": "深度学习",
+            "sense": "使用多层神经网络学习数据表示的方法"
+          },
+          {
+            "id": "C_DROPOUT",
+            "name": "dropout",
+            "sense": "训练时随机丢弃部分神经元的正则化方法"
+          },
+          {
+            "id": "C_BN",
+            "name": "批量归一化",
+            "sense": "按小批量统计量对中间层输出做标准化的方法"
+          },
+          {
+            "id": "C_REG",
+            "name": "正则化",
+            "sense": "通过约束模型复杂度来减轻过拟合的一类方法"
+          }
+        ],
+        "candidateItems": []
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "insufficient-evidence-pending"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 8,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I04\",\"links\":[],\"remarks\":\"笔记仅有一句指代性表述（“它和前面那个一样，按那个方法算就行”），未给出任何可独立修订或核查的知识内容，无法确定所指概念与具体陈述，故不生成知识条目。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I04",
+          "links": [],
+          "remarks": "笔记仅有一句指代性表述（“它和前面那个一样，按那个方法算就行”），未给出任何可独立修订或核查的知识内容，无法确定所指概念与具体陈述，故不生成知识条目。"
+        },
+        "usage": {
+          "prompt_tokens": 844,
+          "completion_tokens": 67,
+          "total_tokens": 911
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 3853,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "insufficient-evidence-pending"
+        },
+        "targetPresent": null,
+        "routingPass": null,
+        "protocolGap": "原版协议没有待定动作，不能据此验证模型主动拒判；应用层仅隔离所有输出等待人工决定。",
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": false,
+        "needsHumanSemanticReview": true,
+        "contractPass": null,
+        "acceptedLinkCount": 0
+      }
+    },
+    {
+      "caseId": "I05",
+      "arm": "retrieval",
+      "note": {
+        "id": "I05",
+        "markdown": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I05",
+        "note": {
+          "id": "I05",
+          "markdown": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_PYTHON",
+            "name": "Python",
+            "sense": "一门通用编程语言"
+          },
+          {
+            "id": "C_PYTORCH",
+            "name": "PyTorch",
+            "sense": "一个深度学习框架及其函数库"
+          },
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_MATMUL",
+        "itemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 9,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I05\",\"links\":[{\"conceptAction\":\"create\",\"conceptId\":null,\"newConcept\":{\"name\":\"矩阵乘法\",\"sense\":\"线性代数中两个矩阵按行与列对应元素相乘再求和得到新矩阵的运算，在 NumPy 中用 @ 表示\"},\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"NumPy 二维数组 A、B 都为 n×n 时，通常 A@B≠B@A。\",\"quote\":\"NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。\"},\"sourceIssue\":null}],\"remarks\":\"原文未说明 A@B 是矩阵乘法，按 NumPy 语义理解为矩阵乘法；候选概念中没有矩阵乘法，故新建。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I05",
+          "links": [
+            {
+              "conceptAction": "create",
+              "conceptId": null,
+              "newConcept": {
+                "name": "矩阵乘法",
+                "sense": "线性代数中两个矩阵按行与列对应元素相乘再求和得到新矩阵的运算，在 NumPy 中用 @ 表示"
+              },
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "NumPy 二维数组 A、B 都为 n×n 时，通常 A@B≠B@A。",
+                "quote": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "原文未说明 A@B 是矩阵乘法，按 NumPy 语义理解为矩阵乘法；候选概念中没有矩阵乘法，故新建。"
+        },
+        "usage": {
+          "prompt_tokens": 977,
+          "completion_tokens": 192,
+          "total_tokens": 1169
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4344,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_MATMUL",
+          "itemId": "K_PRE_1"
+        },
+        "targetPresent": false,
+        "routingPass": false,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": false,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I05",
+      "arm": "oracle",
+      "note": {
+        "id": "I05",
+        "markdown": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。",
+        "candidates": [
+          "C_PYTHON",
+          "C_PYTORCH",
+          "C_TENSOR",
+          "C_MATRIX",
+          "C_GRADIENT",
+          "C_BROADCAST",
+          "C_MATMUL"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I05",
+        "note": {
+          "id": "I05",
+          "markdown": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_PYTHON",
+            "name": "Python",
+            "sense": "一门通用编程语言"
+          },
+          {
+            "id": "C_PYTORCH",
+            "name": "PyTorch",
+            "sense": "一个深度学习框架及其函数库"
+          },
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_MATMUL",
+        "itemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 10,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I05\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_1\",\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"NumPy 二维数组 A、B 都为 n×n 时，通常 A@B≠B@A。\",\"quote\":\"NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。\"},\"sourceIssue\":null}],\"remarks\":\"笔记用 NumPy 的 @ 运算符表述矩阵乘法不满足交换律，与已有条目 K_PRE_1 是同一陈述，故复用。若希望区分 NumPy 语境与纯线性代数语境，可另行拆分。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I05",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_1",
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "NumPy 二维数组 A、B 都为 n×n 时，通常 A@B≠B@A。",
+                "quote": "NumPy 二维数组 A、B 都为 n×n，通常 A@B≠B@A。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "笔记用 NumPy 的 @ 运算符表述矩阵乘法不满足交换律，与已有条目 K_PRE_1 是同一陈述，故复用。若希望区分 NumPy 语境与纯线性代数语境，可另行拆分。"
+        },
+        "usage": {
+          "prompt_tokens": 967,
+          "completion_tokens": 187,
+          "total_tokens": 1154
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4322,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_MATMUL",
+          "itemId": "K_PRE_1"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I06",
+      "arm": "oracle",
+      "note": {
+        "id": "I06",
+        "markdown": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。",
+        "candidates": [
+          "C_GRADIENT",
+          "C_VECTOR",
+          "C_LOSS",
+          "C_ACT",
+          "C_SGD",
+          "C_DERIV",
+          "C_EMB",
+          "C_DOT"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I06",
+        "note": {
+          "id": "I06",
+          "markdown": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_VECTOR",
+            "name": "向量",
+            "sense": "线性代数中有序排列的一组数"
+          },
+          {
+            "id": "C_LOSS",
+            "name": "损失函数",
+            "sense": "衡量模型预测与真实值差距的函数"
+          },
+          {
+            "id": "C_ACT",
+            "name": "激活函数",
+            "sense": "神经网络中给神经元输出引入非线性的函数"
+          },
+          {
+            "id": "C_SGD",
+            "name": "随机梯度下降",
+            "sense": "用小批量样本估计梯度来更新参数的优化算法"
+          },
+          {
+            "id": "C_DERIV",
+            "name": "导数",
+            "sense": "数学：一元函数的瞬时变化率"
+          },
+          {
+            "id": "C_EMB",
+            "name": "嵌入",
+            "sense": "把离散符号映射为稠密向量的表示方法"
+          },
+          {
+            "id": "C_DOT",
+            "name": "点积",
+            "sense": "两个等长向量之间得到一个标量的运算，也称内积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_GRADIENT",
+        "itemId": "K_PRE_2"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 11,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I06\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_GRADIENT\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_2\",\"item\":{\"title\":\"梯度的定义\",\"kind\":\"definition\",\"statement\":\"多元函数对各个变量的偏导数组成的向量叫梯度。\",\"quote\":\"数学中的梯度指多元函数对各个变量的偏导所组成的向量。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I06",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_GRADIENT",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_2",
+              "item": {
+                "title": "梯度的定义",
+                "kind": "definition",
+                "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。",
+                "quote": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 935,
+          "completion_tokens": 115,
+          "total_tokens": 1050
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4269,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_GRADIENT",
+          "itemId": "K_PRE_2"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I06",
+      "arm": "retrieval",
+      "note": {
+        "id": "I06",
+        "markdown": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I06",
+        "note": {
+          "id": "I06",
+          "markdown": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          },
+          {
+            "id": "C_VECTOR",
+            "name": "向量",
+            "sense": "线性代数中有序排列的一组数"
+          },
+          {
+            "id": "C_LOSS",
+            "name": "损失函数",
+            "sense": "衡量模型预测与真实值差距的函数"
+          },
+          {
+            "id": "C_ACT",
+            "name": "激活函数",
+            "sense": "神经网络中给神经元输出引入非线性的函数"
+          },
+          {
+            "id": "C_SGD",
+            "name": "随机梯度下降",
+            "sense": "用小批量样本估计梯度来更新参数的优化算法"
+          },
+          {
+            "id": "C_DERIV",
+            "name": "导数",
+            "sense": "数学：一元函数的瞬时变化率"
+          },
+          {
+            "id": "C_EMB",
+            "name": "嵌入",
+            "sense": "把离散符号映射为稠密向量的表示方法"
+          },
+          {
+            "id": "C_DOT",
+            "name": "点积",
+            "sense": "两个等长向量之间得到一个标量的运算，也称内积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_GRADIENT",
+        "itemId": "K_PRE_2"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 12,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I06\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_GRADIENT\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_2\",\"item\":{\"title\":\"梯度的定义\",\"kind\":\"definition\",\"statement\":\"多元函数对各个变量的偏导数组成的向量叫梯度。\",\"quote\":\"数学中的梯度指多元函数对各个变量的偏导所组成的向量。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I06",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_GRADIENT",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_2",
+              "item": {
+                "title": "梯度的定义",
+                "kind": "definition",
+                "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。",
+                "quote": "数学中的梯度指多元函数对各个变量的偏导所组成的向量。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 935,
+          "completion_tokens": 115,
+          "total_tokens": 1050
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4269,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_GRADIENT",
+          "itemId": "K_PRE_2"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I07",
+      "arm": "retrieval",
+      "note": {
+        "id": "I07",
+        "markdown": "矩阵加法满足交换律：A+B=B+A。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I07",
+        "note": {
+          "id": "I07",
+          "markdown": "矩阵加法满足交换律：A+B=B+A。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-concept-new-item",
+        "conceptId": "C_ADD"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 13,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I07\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_ADD\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"矩阵加法满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵加法满足交换律：A+B=B+A。\",\"quote\":\"矩阵加法满足交换律：A+B=B+A。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I07",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_ADD",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "矩阵加法满足交换律",
+                "kind": "fact",
+                "statement": "矩阵加法满足交换律：A+B=B+A。",
+                "quote": "矩阵加法满足交换律：A+B=B+A。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        },
+        "usage": {
+          "prompt_tokens": 913,
+          "completion_tokens": 105,
+          "total_tokens": 1018
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4099,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-concept-new-item",
+          "conceptId": "C_ADD"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I07",
+      "arm": "oracle",
+      "note": {
+        "id": "I07",
+        "markdown": "矩阵加法满足交换律：A+B=B+A。",
+        "candidates": [
+          "C_ADD",
+          "C_MATRIX",
+          "C_MATMUL",
+          "C_TRANSPOSE",
+          "C_NORM",
+          "C_EIG",
+          "C_RANK"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I07",
+        "note": {
+          "id": "I07",
+          "markdown": "矩阵加法满足交换律：A+B=B+A。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_EIG",
+            "name": "特征值",
+            "sense": "线性代数：满足 Av = λv 的标量 λ"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-concept-new-item",
+        "conceptId": "C_ADD"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 14,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I07\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_ADD\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"矩阵加法满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵加法满足交换律：A+B=B+A。\",\"quote\":\"矩阵加法满足交换律：A+B=B+A。\"},\"sourceIssue\":null}],\"remarks\":\"笔记仅一句，直接归入矩阵加法概念；候选概念中无更贴切的已有条目。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I07",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_ADD",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "矩阵加法满足交换律",
+                "kind": "fact",
+                "statement": "矩阵加法满足交换律：A+B=B+A。",
+                "quote": "矩阵加法满足交换律：A+B=B+A。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "笔记仅一句，直接归入矩阵加法概念；候选概念中无更贴切的已有条目。"
+        },
+        "usage": {
+          "prompt_tokens": 913,
+          "completion_tokens": 125,
+          "total_tokens": 1038
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4099,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-concept-new-item",
+          "conceptId": "C_ADD"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I08",
+      "arm": "oracle",
+      "note": {
+        "id": "I08",
+        "markdown": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。",
+        "candidates": [
+          "C_HADAMARD",
+          "C_MATMUL",
+          "C_SOFTMAX",
+          "C_BROADCAST",
+          "C_ADD",
+          "C_DOT",
+          "C_TENSOR",
+          "C_GRADIENT"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I08",
+        "note": {
+          "id": "I08",
+          "markdown": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_SOFTMAX",
+            "name": "softmax",
+            "sense": "把一组实数变换为概率分布的函数"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_DOT",
+            "name": "点积",
+            "sense": "两个等长向量之间得到一个标量的运算，也称内积"
+          },
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_HADAMARD",
+        "itemId": "K_PRE_3"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 15,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I08\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_HADAMARD\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_3\",\"item\":{\"title\":\"逐元素乘法的定义\",\"kind\":\"definition\",\"statement\":\"两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。\",\"quote\":\"两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。\"},\"sourceIssue\":null}],\"remarks\":\"笔记只有一条知识，与候选概念 C_HADAMARD 及已有条目 K_PRE_3 完全对应，故复用；原文未提及 Hadamard 积的符号表示，无需新建。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I08",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_HADAMARD",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_3",
+              "item": {
+                "title": "逐元素乘法的定义",
+                "kind": "definition",
+                "statement": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。",
+                "quote": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "笔记只有一条知识，与候选概念 C_HADAMARD 及已有条目 K_PRE_3 完全对应，故复用；原文未提及 Hadamard 积的符号表示，无需新建。"
+        },
+        "usage": {
+          "prompt_tokens": 1043,
+          "completion_tokens": 175,
+          "total_tokens": 1218
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4712,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_HADAMARD",
+          "itemId": "K_PRE_3"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I08",
+      "arm": "retrieval",
+      "note": {
+        "id": "I08",
+        "markdown": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I08",
+        "note": {
+          "id": "I08",
+          "markdown": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_SOFTMAX",
+            "name": "softmax",
+            "sense": "把一组实数变换为概率分布的函数"
+          },
+          {
+            "id": "C_BROADCAST",
+            "name": "广播",
+            "sense": "形状不同的数组按规则自动扩展后逐元素运算的机制"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_DOT",
+            "name": "点积",
+            "sense": "两个等长向量之间得到一个标量的运算，也称内积"
+          },
+          {
+            "id": "C_TENSOR",
+            "name": "张量",
+            "sense": "深度学习框架中的多维数组"
+          },
+          {
+            "id": "C_GRADIENT",
+            "name": "梯度",
+            "sense": "数学：多元函数对各变量偏导数组成的向量"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_2",
+            "conceptId": "C_GRADIENT",
+            "title": "梯度的定义",
+            "kind": "definition",
+            "statement": "多元函数对各个变量的偏导数组成的向量叫梯度。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "same-item-new-source",
+        "conceptId": "C_HADAMARD",
+        "itemId": "K_PRE_3"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 16,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I08\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_HADAMARD\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_3\",\"item\":{\"title\":\"逐元素乘法的定义\",\"kind\":\"definition\",\"statement\":\"两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。\",\"quote\":\"两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。\"},\"sourceIssue\":null}],\"remarks\":\"笔记只有一条知识，与候选概念 C_HADAMARD 及已有条目 K_PRE_3 完全对应，直接复用；原文未涉及矩阵乘法、广播等，无需新建。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I08",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_HADAMARD",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_3",
+              "item": {
+                "title": "逐元素乘法的定义",
+                "kind": "definition",
+                "statement": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。",
+                "quote": "两个同形状数组的同位置元素分别相乘，这种逐元素乘法也称 Hadamard 积。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": "笔记只有一条知识，与候选概念 C_HADAMARD 及已有条目 K_PRE_3 完全对应，直接复用；原文未涉及矩阵乘法、广播等，无需新建。"
+        },
+        "usage": {
+          "prompt_tokens": 1043,
+          "completion_tokens": 172,
+          "total_tokens": 1215
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4712,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "same-item-new-source",
+          "conceptId": "C_HADAMARD",
+          "itemId": "K_PRE_3"
+        },
+        "targetPresent": true,
+        "routingPass": true,
+        "protocolGap": null,
+        "sourceIssueSignals": [],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": true,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I09",
+      "arm": "retrieval",
+      "note": {
+        "id": "I09",
+        "markdown": "矩阵相乘时总有 AB=BA。"
+      },
+      "request": {
+        "requestId": "concept-link-r2-I09",
+        "note": {
+          "id": "I09",
+          "markdown": "矩阵相乘时总有 AB=BA。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "conflicting-claim",
+        "conceptId": "C_MATMUL",
+        "forbiddenItemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 17,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I09\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_1\",\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵相乘时总有 AB=BA。\",\"quote\":\"矩阵相乘时总有 AB=BA。\"},\"sourceIssue\":\"原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。\"}],\"remarks\":\"笔记仅一句，且与已有条目 K_PRE_1 的陈述相反；按原文复述并复用该条目，是否修正原文由用户判断。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I09",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_1",
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "矩阵相乘时总有 AB=BA。",
+                "quote": "矩阵相乘时总有 AB=BA。"
+              },
+              "sourceIssue": "原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。"
+            }
+          ],
+          "remarks": "笔记仅一句，且与已有条目 K_PRE_1 的陈述相反；按原文复述并复用该条目，是否修正原文由用户判断。"
+        },
+        "usage": {
+          "prompt_tokens": 960,
+          "completion_tokens": 168,
+          "total_tokens": 1128
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4316,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "conflicting-claim",
+          "conceptId": "C_MATMUL",
+          "forbiddenItemId": "K_PRE_1"
+        },
+        "targetPresent": true,
+        "routingPass": false,
+        "protocolGap": null,
+        "sourceIssueSignals": [
+          "原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。"
+        ],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": false,
+        "acceptedLinkCount": 1
+      }
+    },
+    {
+      "caseId": "I09",
+      "arm": "oracle",
+      "note": {
+        "id": "I09",
+        "markdown": "矩阵相乘时总有 AB=BA。",
+        "candidates": [
+          "C_MATRIX",
+          "C_MATMUL",
+          "C_ADD",
+          "C_TRANSPOSE",
+          "C_NORM",
+          "C_RANK",
+          "C_HADAMARD"
+        ]
+      },
+      "request": {
+        "requestId": "concept-link-r2-I09",
+        "note": {
+          "id": "I09",
+          "markdown": "矩阵相乘时总有 AB=BA。"
+        },
+        "candidateConcepts": [
+          {
+            "id": "C_MATRIX",
+            "name": "矩阵",
+            "sense": "线性代数中由行和列排成的二维数表，是对象而不是运算"
+          },
+          {
+            "id": "C_MATMUL",
+            "name": "矩阵乘法",
+            "sense": "线性代数中两个矩阵之间的乘法运算，不是逐元素相乘"
+          },
+          {
+            "id": "C_ADD",
+            "name": "矩阵加法",
+            "sense": "线性代数中同形状矩阵之间的加法运算"
+          },
+          {
+            "id": "C_TRANSPOSE",
+            "name": "转置",
+            "sense": "矩阵的行列互换操作"
+          },
+          {
+            "id": "C_NORM",
+            "name": "范数",
+            "sense": "衡量向量或矩阵大小的量"
+          },
+          {
+            "id": "C_RANK",
+            "name": "秩",
+            "sense": "线性代数：矩阵中线性无关的行或列的最大数目"
+          },
+          {
+            "id": "C_HADAMARD",
+            "name": "逐元素乘法",
+            "sense": "同形状数组在相同位置上相乘的运算，也称 Hadamard 积"
+          }
+        ],
+        "candidateItems": [
+          {
+            "id": "K_PRE_1",
+            "conceptId": "C_MATMUL",
+            "title": "矩阵乘法一般不满足交换律",
+            "kind": "fact",
+            "statement": "一般情况下 AB 不等于 BA。"
+          },
+          {
+            "id": "K_PRE_3",
+            "conceptId": "C_HADAMARD",
+            "title": "逐元素乘法的定义",
+            "kind": "definition",
+            "statement": "两个同形状数组在相同位置上的元素相乘。"
+          }
+        ]
+      },
+      "snapshotHash": "92620432f0eb1bcff5ccb21f1cd374ee2b7c05a3efb30e7b557f418fbd61cba2",
+      "expected": {
+        "outcome": "conflicting-claim",
+        "conceptId": "C_MATMUL",
+        "forbiddenItemId": "K_PRE_1"
+      },
+      "provider": {
+        "kind": "provider-result",
+        "attempt": 18,
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-I09\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C_MATMUL\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"reuse\",\"existingItemId\":\"K_PRE_1\",\"item\":{\"title\":\"矩阵乘法一般不满足交换律\",\"kind\":\"fact\",\"statement\":\"矩阵相乘时总有 AB=BA。\",\"quote\":\"矩阵相乘时总有 AB=BA。\"},\"sourceIssue\":\"原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。\"}],\"remarks\":\"笔记只有一句，且与已有条目 K_PRE_1 的陈述相反；按“忠于原文”原则仍复用该条目，但原文说法很可能有误，建议用户核实。\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-I09",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C_MATMUL",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "reuse",
+              "existingItemId": "K_PRE_1",
+              "item": {
+                "title": "矩阵乘法一般不满足交换律",
+                "kind": "fact",
+                "statement": "矩阵相乘时总有 AB=BA。",
+                "quote": "矩阵相乘时总有 AB=BA。"
+              },
+              "sourceIssue": "原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。"
+            }
+          ],
+          "remarks": "笔记只有一句，且与已有条目 K_PRE_1 的陈述相反；按“忠于原文”原则仍复用该条目，但原文说法很可能有误，建议用户核实。"
+        },
+        "usage": {
+          "prompt_tokens": 960,
+          "completion_tokens": 174,
+          "total_tokens": 1134
+        },
+        "requestedModel": "deepseek-flash",
+        "reportedModel": "deepseek-flash",
+        "thinking": "disabled",
+        "inputBytes": 4316,
+        "maxOutputTokens": 4096
+      },
+      "evaluation": {
+        "expected": {
+          "outcome": "conflicting-claim",
+          "conceptId": "C_MATMUL",
+          "forbiddenItemId": "K_PRE_1"
+        },
+        "targetPresent": true,
+        "routingPass": false,
+        "protocolGap": null,
+        "sourceIssueSignals": [
+          "原文断言 AB=BA 恒成立，与矩阵乘法一般不满足交换律的通常结论相反，疑为笔误或表述有误。"
+        ],
+        "evidenceCoveragePass": true,
+        "needsHumanSemanticReview": true,
+        "contractPass": false,
+        "acceptedLinkCount": 1
+      }
+    }
+  ]
+}
