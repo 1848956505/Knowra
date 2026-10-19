@@ -14,4 +14,4 @@
 @media (max-width: 600px) { .comparison { grid-template-columns: minmax(0, 1fr); } }
 
 .bounded { max-width: 100%; min-width: 0; }
-.buttonText { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.buttonText { min-width: 0; line-height: 1.4; padding-block: var(--space-1); white-space: normal; overflow-wrap: anywhere; }

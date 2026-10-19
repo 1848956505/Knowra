@@ -45,7 +45,7 @@ export function ReviewProposalDetail({ row, proposal, decision, onDecide, onUndo
         {row.candidateConcepts.length ? row.candidateConcepts.map(concept => <section key={concept.id} aria-label={`候选 ${concept.name}`}>
           <h4>{concept.name} · {concept.id}</h4><p>{concept.sense}</p>
           {row.candidateItems.filter(item => item.conceptId === concept.id).map(item => <div key={item.id}><strong>{item.title} · {item.id}</strong><p>{item.statement}</p></div>)}
-          {!holds.length && !decision && !creating ? <Button size="compact" className={styles.bounded} onPress={() => commit({ kind: 'existing', conceptId: concept.id })}><span className={styles.buttonText}>归到 {concept.name}（{concept.id}）</span></Button> : null}
+          {!holds.length && !decision && !creating ? <Button size="compact" className={styles.bounded} aria-label={`归到 ${concept.name}（${concept.id}）`} onPress={() => commit({ kind: 'existing', conceptId: concept.id })}><span className={styles.buttonText}>归入此概念</span></Button> : null}
         </section>) : <p>没有候选概念。可另建或待定，不自动归属。</p>}
       </section>
     </div>

@@ -26,6 +26,7 @@ describe('离线报告审阅', () => {
   it('展示原文、提案、候选与旧条目；不默认选择，选择/待定可撤销；下载保留全部会话', async () => {
     const user = userEvent.setup(); const download = vi.spyOn(downloads, 'downloadReview').mockImplementation(() => {});
     render(<LocalReportReview onClose={() => {}} />); await upload();
+    expect(assign()).toHaveTextContent('归入此概念');
     expect(summary()).toHaveTextContent('未决定 1'); expect(screen.getByRole('dialog')).toHaveTextContent('不认证文件来源');
     expect(screen.getByRole('region', { name: '候选概念与旧条目' })).toHaveTextContent('合成旧陈述保持原样');
     expect(screen.getByRole('region', { name: '模型提案' })).toHaveTextContent('未报告风险不代表事实可靠');
