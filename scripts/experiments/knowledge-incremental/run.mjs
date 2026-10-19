@@ -57,6 +57,7 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
   }
   const rows = [];
   let slot = 0;
+  let halted = false;
   for (const sample of CASES) {
     // 交替臂顺序以减少固定先后顺序影响；每臂均用相同快照。
     const pair = preparePair(snapshot, sample);
@@ -64,13 +65,18 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
     for (const prepared of pair) {
       slot += 1;
       const row = { caseId: sample.id, ...prepared, expected: sample.expected, status: 'not-run', staged: null, evaluation: null };
+      if (halted) { row.status = 'not-run-after-provider-failure'; rows.push(row); continue; }
       if (invoke) {
         if (slot > MAX_CALLS) throw Error('budget-exhausted');
         const stem = path.join(out, `call-${String(slot).padStart(2, '0')}`);
         // 在调用前落盘独占预留。失败/超时/中断都占用预算，不自动重试。
         const reserved = await createOnce(`${stem}.reserved.json`, { planHash, slot, caseId: sample.id, arm: prepared.arm });
         if (!reserved) {
-          try { rows.push(await readJson(`${stem}.result.json`)); continue; }
+          try {
+            const cached = await readJson(`${stem}.result.json`);
+            if (mode === 'live-model' && cached.status === 'invocation-or-response-failed') halted = true;
+            rows.push(cached); continue;
+          }
           catch (error) {
             if (error.code !== 'ENOENT') throw error;
             row.status = 'interrupted-or-in-progress-not-retried';
@@ -86,7 +92,9 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
               row.evaluation = evaluate(sample, prepared, row.staged);
               row.status = 'response-received';
             }
-          } catch {
+          } catch (error) {
+            if (mode === 'live-model') halted = true;
+            if (/^http-(400|401|402|403|404|429|other)$/.test(error?.safeCode)) row.providerFailure = error.safeCode;
             // 不把供应商错误字符串写入报告，避免泄漏凭据；明确无模型结论。
             row.status = 'invocation-or-response-failed';
           }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { createProviderInvoker, MAX_PROVIDER_CALLS } from '../experiments/knowledge-incremental/provider.mjs';
+import { createProviderInvoker, MAX_PROVIDER_CALLS, MAX_INPUT_BYTES, MAX_OUTPUT_TOKENS, MODEL } from '../experiments/knowledge-incremental/provider.mjs';
 import { main } from '../experiments/knowledge-incremental/run.mjs';
 
 const temp = () => mkdtemp(path.join(os.tmpdir(), 'knowra-provider-contract-'));
@@ -18,6 +18,12 @@ test('固定endpoint禁止重定向，凭据只进鉴权头，fetch前预算已�
     assert.equal(options.redirect, 'error');
     assert.equal(options.headers.authorization, 'Bearer FAKE_TEST_ONLY');
     assert.equal(options.body.includes('FAKE_TEST_ONLY'), false);
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.model, MODEL);
+    assert.deepEqual(payload.thinking, { type: 'disabled' });
+    assert.equal(payload.max_tokens, MAX_OUTPUT_TOKENS);
+    assert.equal('tools' in payload, false);
+    assert.ok(Buffer.byteLength(JSON.stringify(payload.messages)) <= MAX_INPUT_BYTES);
     assert.ok(options.signal instanceof AbortSignal);
     assert.equal((await readdir(budgetDir)).filter(x => x.startsWith('attempt-')).length, 1);
     return reply('{"links":[]}');
@@ -80,4 +86,31 @@ test('显式模式仅使用fake fetch验收；跨输出目录共用预算且不�
   await main(['--live-model', '--budget-dir', budgetDir, '--out', await temp()], { env, fetchImpl });
   assert.equal(calls, MAX_PROVIDER_CALLS);
   assert.equal((await readFile(path.join(firstOut, 'result.json'), 'utf8')).includes('FAKE_SECRET_TEST_ONLY'), false);
+});
+
+test('输入UTF8字节上限在预算及fetch前拒绝', async () => {
+  let calls = 0; const budgetDir = await temp();
+  const invoke = createProviderInvoker({ apiKey: 'FAKE', budgetDir, fetchImpl: async () => { calls++; } });
+  await assert.rejects(invoke({ systemPrompt: '字'.repeat(MAX_INPUT_BYTES), request: {} }), /input-limit/);
+  assert.equal(calls, 0); assert.deepEqual(await readdir(budgetDir), []);
+});
+
+test('HTTP配置失败立即停止剩余真实模式请求且不记录供应商错误正文', async () => {
+  let calls = 0;
+  const result = await main(['--live-model', '--budget-dir', await temp(), '--out', await temp()], {
+    env: { DEEPSEEK_API_KEY: 'FAKE' }, fetchImpl: async () => { calls++; return { ok: false, status: 401 }; }
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.rows[0].providerFailure, 'http-401');
+  assert.equal(result.rows.filter(x => x.status === 'not-run-after-provider-failure').length, 17);
+});
+
+test('fatal失败检查点跨CLI重启仍然停止，不向后续case发请求', async () => {
+  let calls = 0; const budgetDir = await temp(); const out = await temp();
+  const argv = ['--live-model', '--budget-dir', budgetDir, '--out', out];
+  const dependencies = { env: { DEEPSEEK_API_KEY: 'FAKE' }, fetchImpl: async () => { calls++; return { ok: false, status: 402 }; } };
+  await main(argv, dependencies);
+  const resumed = await main(argv, dependencies);
+  assert.equal(calls, 1);
+  assert.equal(resumed.rows.filter(x => x.status === 'not-run-after-provider-failure').length, 17);
 });

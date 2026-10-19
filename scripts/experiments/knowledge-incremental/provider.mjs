@@ -3,6 +3,9 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const MAX_PROVIDER_CALLS = 20;
+export const MODEL = 'deepseek-flash';
+export const MAX_INPUT_BYTES = 64 * 1024;
+export const MAX_OUTPUT_TOKENS = 4096;
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const EXPERIMENT_ID = 'knowledge-incremental-20261019';
 
@@ -29,16 +32,23 @@ export async function reserveProviderCall(budgetDir) {
 export function createProviderInvoker({ apiKey, budgetDir, fetchImpl = fetch }) {
   if (typeof apiKey !== 'string' || !apiKey.trim() || !budgetDir) throw Error('provider-configuration-missing');
   return async ({ systemPrompt, request }) => {
+    const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: JSON.stringify(request) }];
+    const inputBytes = Buffer.byteLength(JSON.stringify(messages), 'utf8');
+    if (inputBytes > MAX_INPUT_BYTES) throw Error('provider-input-limit');
     // 网络失败、超时也消耗预留；没有自动重试，更换输出目录不重置本预算。
     const attempt = await reserveProviderCall(budgetDir);
     const response = await fetchImpl(ENDPOINT, {
       method: 'POST', redirect: 'error', headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'deepseek-chat', temperature: 0, max_tokens: 2048,
+      body: JSON.stringify({ model: MODEL, thinking: { type: 'disabled' }, temperature: 0, max_tokens: MAX_OUTPUT_TOKENS,
         response_format: { type: 'json_object' },
-        messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: JSON.stringify(request) }] }),
+        messages }),
       signal: AbortSignal.timeout(60000)
     });
-    if (!response.ok) throw Error('provider-http-failed');
+    if (!response.ok) {
+      const error = Error('provider-http-failed');
+      error.safeCode = [400, 401, 402, 403, 404, 429].includes(response.status) ? `http-${response.status}` : 'http-other';
+      throw error;
+    }
     const body = await response.json();
     const choice = body?.choices?.[0];
     const rawText = typeof choice?.message?.content === 'string' ? choice.message.content : null;
@@ -49,7 +59,9 @@ export function createProviderInvoker({ apiKey, budgetDir, fetchImpl = fetch }) 
     if (choice?.finish_reason === 'stop' && rawText !== null) {
       try { parsed = JSON.parse(rawText); status = 'complete'; } catch { status = 'invalid-json'; }
     }
-    return { kind: 'provider-result', attempt, status, rawText, parsed, usage };
+    const reportedModel = typeof body.model === 'string' && /^[a-zA-Z0-9._-]{1,100}$/.test(body.model) ? body.model : null;
+    return { kind: 'provider-result', attempt, status, rawText, parsed, usage,
+      requestedModel: MODEL, reportedModel, thinking: 'disabled', inputBytes, maxOutputTokens: MAX_OUTPUT_TOKENS };
   };
 }
 

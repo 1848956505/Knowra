@@ -1,0 +1,62 @@
+name: Authorized synthetic trial 20261019 once
+
+# 一次性实验分支，不合入 main。先建立安全基础分支，再单次更新到精确标记提交。
+on:
+  push:
+    branches: [experiment/knowledge-synthetic-20261019-once]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-synthetic-20261019-once
+  cancel-in-progress: false
+
+jobs:
+  synthetic-trial:
+    if: >-
+      github.repository == '1848956505/Knowra' &&
+      github.ref == 'refs/heads/experiment/knowledge-synthetic-20261019-once' &&
+      github.event.before == 'd9882135933491b2f6c2e009264347fd982dcf75' &&
+      github.run_attempt == 1 &&
+      github.event.head_commit.message == '实验：执行授权合成会话 knowledge-20261019-01'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Verify reviewed code and run free tests
+        run: |
+          set -euo pipefail
+          sha256sum --check scripts/experiments/knowledge-incremental/session-code.sha256
+          node --test scripts/test/knowledge-incremental*.test.js scripts/test/concept-linking-r2.test.js
+      - name: Run approved synthetic session (18 planned calls, hard ceiling 20)
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
+            echo "Configured test secret unavailable; no calls made."
+            exit 1
+          fi
+          node scripts/experiments/knowledge-incremental/run.mjs --live-model --budget-dir "$RUNNER_TEMP/knowledge-20261019-01-budget" --out "$RUNNER_TEMP/knowledge-20261019-01-results"
+      - name: Verify all planned responses completed (not semantic correctness)
+        env:
+          RESULT_PATH: ${{ runner.temp }}/knowledge-20261019-01-results/result.json
+        run: |
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; const r=JSON.parse(readFileSync(process.env.RESULT_PATH,'utf8')); if(r.rows.length!==18 || r.rows.some(x=>x.provider?.status!=='complete')) { console.error('Incomplete model run; inspect synthetic artifact.'); process.exit(1); }"
+      - name: Retain synthetic outputs and budget receipts only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-20261019-01-synthetic
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/knowledge-20261019-01-results/
+            ${{ runner.temp }}/knowledge-20261019-01-budget/
