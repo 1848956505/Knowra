@@ -1,0 +1,87 @@
+{
+  "kind": "knowra.incremental-review",
+  "version": 1,
+  "reportId": "synthetic-review-example",
+  "snapshotRef": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "approval": "not-granted",
+  "semanticSafety": "not-verified",
+  "rows": [
+    {
+      "rowId": "retrieval:S01",
+      "requestId": "concept-link-r2-S01",
+      "arm": "retrieval",
+      "note": {
+        "id": "S01",
+        "markdown": "合成甲属于示例。"
+      },
+      "candidateConcepts": [
+        {
+          "id": "C1",
+          "name": "合成概念",
+          "sense": "用于离线测试的示例语境"
+        }
+      ],
+      "candidateItems": [
+        {
+          "id": "K1",
+          "conceptId": "C1",
+          "title": "合成旧内容",
+          "kind": "fact",
+          "statement": "合成旧陈述保持原样。"
+        }
+      ],
+      "providerResult": {
+        "kind": "provider-result",
+        "status": "complete",
+        "rawText": "{\"requestId\":\"concept-link-r2-S01\",\"links\":[{\"conceptAction\":\"reuse\",\"conceptId\":\"C1\",\"newConcept\":null,\"possibleDuplicateOf\":null,\"itemAction\":\"new\",\"existingItemId\":null,\"item\":{\"title\":\"合成示例\",\"kind\":\"fact\",\"statement\":\"合成甲属于示例。\",\"quote\":\"合成甲属于示例。\"},\"sourceIssue\":null}],\"remarks\":\"\"}",
+        "parsed": {
+          "requestId": "concept-link-r2-S01",
+          "links": [
+            {
+              "conceptAction": "reuse",
+              "conceptId": "C1",
+              "newConcept": null,
+              "possibleDuplicateOf": null,
+              "itemAction": "new",
+              "existingItemId": null,
+              "item": {
+                "title": "合成示例",
+                "kind": "fact",
+                "statement": "合成甲属于示例。",
+                "quote": "合成甲属于示例。"
+              },
+              "sourceIssue": null
+            }
+          ],
+          "remarks": ""
+        }
+      },
+      "responseState": "proposals",
+      "explanation": null,
+      "proposals": [
+        {
+          "proposalId": "synthetic-review-example/retrieval:S01#0",
+          "originalIndex": 0,
+          "original": {
+            "conceptAction": "reuse",
+            "conceptId": "C1",
+            "newConcept": null,
+            "possibleDuplicateOf": null,
+            "itemAction": "new",
+            "existingItemId": null,
+            "item": {
+              "title": "合成示例",
+              "kind": "fact",
+              "statement": "合成甲属于示例。",
+              "quote": "合成甲属于示例。"
+            },
+            "sourceIssue": null
+          },
+          "validationAccepted": true,
+          "validationErrors": [],
+          "heldByProposalIndices": []
+        }
+      ]
+    }
+  ]
+}
