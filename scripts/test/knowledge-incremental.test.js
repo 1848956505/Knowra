@@ -123,7 +123,7 @@ test('默认纯离线，所有模型结论留空，无API环境读取入口', as
   assert.equal(result.mode, 'offline-plan'); assert.equal(result.rows.length, CASES.length * 2);
   assert.ok(result.rows.every(x => x.status === 'not-run' && x.evaluation === null));
   assert.match(await readFile(path.join(out, 'report.md'), 'utf8'), /未调用模型/);
-  await assert.rejects(main(['--live']), /only-out-supported/);
+  await assert.rejects(main(['--live']), /invalid-arguments/);
 });
 
 test('固定总预算内一次一请求；失败计入且不重试；重跑恢复旧结果', async () => {

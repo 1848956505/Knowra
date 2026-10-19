@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// 默认只导出固定合成请求。没有付费调用 CLI；invoke 只由独立获准的调用方注入。
+// 默认只导出固定合成请求；付费调用必须经独立授权后显式启用。
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createProviderInvoker, readBudgetUsage } from './provider.mjs';
 import { CASES, confirmedSnapshot } from './cases.mjs';
 import { diagnosePair, evaluate, fingerprint, preparePair, stageResponse, SYSTEM_PROMPT } from './core.mjs';
 
@@ -23,6 +24,7 @@ export function renderReport(result) {
     '- 原版 R2 挂靠提示词逐字复用，不调用整理建议，不自动修改已确认快照。',
     '- 原版协议没有原生待定动作；本轮不能宣称四类行为全部通过。',
     '- hypotheticalDiff 仅为研究模拟，不是已批准写入；committedDiff 应始终为空。',
+    ...(result.providerBudget ? [`- 整晚共享预算：上限 ${result.providerBudget.limit} 次；已预留 ${result.providerBudget.reservedCalls} 次（含失败/中断）。`] : []),
     `- 运行条目 ${rows.length}；取得输出 ${rows.filter(x => x.staged).length}；未取得输出 ${rows.filter(x => !x.staged).length}。`,
     '', '| 样本 | 现有检索候选数 | Oracle 候选数 | 初步归因 |', '| --- | --- | --- | --- |',
     ...CASES.map(sample => {
@@ -46,7 +48,7 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
   const planHash = fingerprint(plan);
   await mkdir(out, { recursive: true });
   // 同一目录不能从离线变付费，或切换样本/提示词后误用旧检查点。
-  const implementationFiles = ['./run.mjs', './core.mjs', './cases.mjs', '../concept-linking-r2/core.mjs'];
+  const implementationFiles = ['./run.mjs', './core.mjs', './cases.mjs', './provider.mjs', '../concept-linking-r2/core.mjs'];
   const implementationHash = fingerprint(await Promise.all(implementationFiles.map(file => readFile(new URL(file, import.meta.url), 'utf8'))));
   const metadata = { planHash, implementationHash, mode, maxCalls: MAX_CALLS };
   const manifestFile = path.join(out, 'manifest.json');
@@ -76,9 +78,14 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
         } else {
           try {
             const response = await invoke({ systemPrompt: SYSTEM_PROMPT, request: structuredClone(prepared.request) });
-            row.staged = stageResponse(snapshot, prepared, response);
-            row.evaluation = evaluate(sample, prepared, row.staged);
-            row.status = 'response-received';
+            if (response?.kind === 'provider-result') row.provider = response;
+            if (response?.kind === 'provider-result' && response.status !== 'complete') {
+              row.status = response.status;
+            } else {
+              row.staged = stageResponse(snapshot, prepared, response?.kind === 'provider-result' ? response.parsed : response);
+              row.evaluation = evaluate(sample, prepared, row.staged);
+              row.status = 'response-received';
+            }
           } catch {
             // 不把供应商错误字符串写入报告，避免泄漏凭据；明确无模型结论。
             row.status = 'invocation-or-response-failed';
@@ -95,10 +102,29 @@ export async function runTrial({ out, invoke, mode = 'offline-plan' }) {
   return result;
 }
 
-export async function main(argv) {
-  if (argv.length !== 0 && !(argv.length === 2 && argv[0] === '--out' && argv[1])) throw Error('only-out-supported');
-  return runTrial({ out: argv[1] ?? 'storage/experiments/knowledge-incremental/offline-plan' });
+export async function main(argv, { env = process.env, fetchImpl = fetch } = {}) {
+  const args = { out: 'storage/experiments/knowledge-incremental/offline-plan', live: false };
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i];
+    if (flag === '--live-model') args.live = true;
+    else if (['--out', '--budget-dir'].includes(flag) && argv[i + 1] && !argv[i + 1].startsWith('--')) {
+      args[flag === '--out' ? 'out' : 'budgetDir'] = argv[++i];
+    } else throw Error('invalid-arguments');
+  }
+  if (!args.live) {
+    if (args.budgetDir) throw Error('budget-requires-live-mode');
+    return runTrial({ out: args.out });
+  }
+  if (!args.budgetDir) throw Error('live-mode-requires-fixed-budget');
+  // 只有显式付费模式到达这里才读取指定密钥；不枚举环境、不自动查找其它密钥。
+  const invoke = createProviderInvoker({ apiKey: env.DEEPSEEK_API_KEY, budgetDir: args.budgetDir, fetchImpl });
+  const result = await runTrial({ out: args.out, mode: 'live-model', invoke });
+  result.providerBudget = await readBudgetUsage(args.budgetDir);
+  await writeFile(path.join(args.out, 'result.json'), JSON.stringify(result, null, 2));
+  await writeFile(path.join(args.out, 'report.md'), renderReport(result));
+  return result;
 }
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main(process.argv.slice(2)).catch(() => { console.error('实验参数或检查点无效'); process.exitCode = 1; });
 }
