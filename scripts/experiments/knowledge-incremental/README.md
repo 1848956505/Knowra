@@ -49,3 +49,15 @@ Oracle 是理想召回干预，不是更好的检索器；当真实检索不足�
 冲突样本的文本检查只是可观察标记，不能证明所有自然语言陈述都忠实原文；语义仍需人工读原始输出。真实模型结果即使成功，也只能支持该合成样本集的一次观察，不得直接改正式知识模型或宣称私人笔记效果已验证。
 
 I03 的可接受已有归属暂设 PyTorch，或新建独立概念；这是本轮 agent 编写的宽容判据，与原 R04 的 C_BACKPROP 判据不同，尚待人工裁定。该例通过不证明“PyTorch 与 x.grad 是同一概念”。
+
+## 确认前审查门（独立离线层）
+
+`review-gate.mjs` 的 `reviewBeforeConfirmation({snapshot, prepared, providerResult})` 只生成 `needs_review` 隔离结果；所有 `approval` 都是 `not-granted`，`committedDiff` 永远为空，不连接正式知识库，也不证明模型语义正确。
+
+- 保留模型完整输出、候选、原文、逐条原动作、风险和校验原因；`sourceIssue` 只表示 AI 报告的未核实风险，不表示已证实原文错误。
+- 有风险提案不进入可审阅的假设预览，因此不能自动成为旧条目的支持来源。若同篇新概念组受到风险影响，相关提案一起隔离并记录 `heldByProposalIndices`，不产生悬空概念引用。
+- 未标风险的输出仍需人工审核；预览不是可直接提交的批准结果。过滤会重新分配临时 ID，必须使用原提案 `index` 对应的 `previewIdentity` 关联预览，不能沿用原 validation 的临时 ID。
+- 仅完整响应且 requestId/包络匹配时，空 links 被记录为 `no_proposals` 并保留原说明，后续由人检查或澄清；不声称旧协议已有原生 abstain/pending。JSON损坏、截断和服务失败分开记录。
+- `scripts/test/fixtures/knowledge-incremental-session-20261019.json` 固定保留已授权真实调用的18个**公开合成**输出和原预期/评分，附run及artifact摘要。测试只离线重放，不再调用API。I03的单条gold与两事实粒度差异保留解释，不改原评分；I04旧协议仍拒绝空links；I09仍保留原冲突误复用失败，新门只阻止其进入来源预览。
+
+一次性实跑分支上的 flash 适配器、费用上限和触发workflow不属于本层变更，未自动带入此框架分支。
