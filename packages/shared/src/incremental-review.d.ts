@@ -30,6 +30,7 @@ export interface ReviewDraft {
   report: ReviewEnvelope; decisions: { proposalId: string; holdReasons: HoldReason[]; decision: ReviewDecision | { kind: 'undecided' } }[];
   counts: { total: number; undecided: number; deferred: number; selected: number };
 }
+export interface ReviewFile { report: ReviewEnvelope; session: ReviewSession }
 export const REVIEW_LIMITS: Readonly<{ bytes: number; rows: number; proposals: number; concepts: number; items: number;
   id: number; title: number; name: number; sense: number; note: number; text: number; rawText: number; depth: number; nodes: number; statement: number; sourceIssue: number; linksPerRow: number; simulationWork: number; similarityWork: number }>;
 export const REVIEW_KIND: 'knowra.incremental-review';
@@ -44,3 +45,6 @@ export function decideReview(envelope: ReviewEnvelope, session: ReviewSession, p
 export function undoReview(envelope: ReviewEnvelope, session: ReviewSession, proposalId: string): ReviewSession;
 export function createReviewDraft(envelope: ReviewEnvelope, session: ReviewSession): ReviewDraft;
 export function serializeReviewDraft(envelope: ReviewEnvelope, session: ReviewSession): string;
+export function validateReviewDraft(value: unknown): ReviewDraft;
+export function parseReviewDraft(input: string): ReviewDraft;
+export function parseReviewFile(input: string): ReviewFile;

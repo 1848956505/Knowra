@@ -1,4 +1,4 @@
-import { REVIEW_LIMITS as L, keys, text, fail, record, clone, boundedJson } from './validation.js';
+import { REVIEW_LIMITS as L, keys, text, list, unique, same, fail, record, clone, boundedJson, parseJson } from './validation.js';
 import { validateReviewEnvelope, DRAFT_KIND, REVIEW_VERSION } from './envelope.js';
 import { holdReasons } from './proposals.js';
 function validateDecision(row, proposal, decision, path) {
@@ -51,3 +51,44 @@ export function createReviewDraft(envelope, session) {
   boundedJson(draft); return draft;
 }
 export const serializeReviewDraft = (envelope, session) => JSON.stringify(createReviewDraft(envelope, session));
+
+function restoreReviewDraft(value) {
+  boundedJson(value);
+  keys(value, ['kind', 'version', 'approval', 'semanticSafety', 'report', 'decisions', 'counts'], '$');
+  if (value.kind !== DRAFT_KIND || value.version !== REVIEW_VERSION) fail('$', 'version');
+  if (value.approval !== 'not-granted' || value.semanticSafety !== 'not-verified') fail('$', 'authority');
+  list(value.decisions, L.proposals, '$.decisions');
+  for (const [index, entry] of value.decisions.entries()) {
+    const path = `$.decisions[${index}]`;
+    keys(entry, ['proposalId', 'holdReasons', 'decision'], path);
+    if (typeof entry.proposalId !== 'string') fail(`${path}.proposalId`, 'proposal-identity');
+    if (!record(entry.decision)) fail(`${path}.decision`, 'decision');
+    if (entry.decision.kind === 'undecided') keys(entry.decision, ['kind'], `${path}.decision`);
+  }
+  unique(value.decisions.map(entry => entry.proposalId), '$.decisions');
+  const session = Object.fromEntries(value.decisions.filter(entry => entry.decision.kind !== 'undecided')
+    .map(entry => [entry.proposalId, entry.decision]));
+  // 复用导出入口的 checked/validateDecision 与完整报告重验，不信任文件声明的风险或计数。
+  const draft = createReviewDraft(value.report, session);
+  if (value.decisions.length !== draft.decisions.length) fail('$.decisions', 'proposal-coverage');
+  for (const [index, entry] of value.decisions.entries()) {
+    const expected = draft.decisions[index]; const path = `$.decisions[${index}]`;
+    if (entry.proposalId !== expected.proposalId) fail(`${path}.proposalId`, 'proposal-order');
+    if (!same(entry.holdReasons, expected.holdReasons)) fail(`${path}.holdReasons`, 'hold-reasons-mismatch');
+  }
+  keys(value.counts, ['total', 'undecided', 'deferred', 'selected'], '$.counts');
+  if (!same(value.counts, draft.counts)) fail('$.counts', 'counts-mismatch');
+  return { draft, session: clone(session) };
+}
+/** 严格恢复草稿；决定必须完整且沿报告顺序，未决定项不写入内存 session。 */
+export const validateReviewDraft = value => restoreReviewDraft(value).draft;
+export const parseReviewDraft = input => validateReviewDraft(parseJson(input));
+/** 原报告开启空 session；草稿整体校验成功后恢复其中的逐项决定。 */
+export function parseReviewFile(input) {
+  const value = parseJson(input);
+  if (record(value) && value.kind === DRAFT_KIND) {
+    const { draft, session } = restoreReviewDraft(value);
+    return { report: draft.report, session };
+  }
+  return { report: validateReviewEnvelope(value), session: {} };
+}

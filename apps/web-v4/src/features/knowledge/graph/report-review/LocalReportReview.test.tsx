@@ -44,12 +44,12 @@ describe('离线报告审阅', () => {
   });
   it('成功替换和重置清空；有选择时须确认，取消及失败保留旧报告', async () => {
     const user = userEvent.setup(); render(<LocalReportReview onClose={() => {}} />); await upload(); await user.click(assign());
-    await upload(); await screen.findByRole('button', { name: '替换并清空选择' });
+    await upload(); await screen.findByRole('button', { name: '确认替换' });
     await user.click(screen.getByRole('button', { name: /^取消$/ })); expect(summary()).toHaveTextContent('已选择 1');
     const bad = new File(['{}'], 'bad.json'); Object.defineProperty(bad, 'text', { value: async () => '{}' });
     fireEvent.change(screen.getByLabelText('选择离线审阅报告文件'), { target: { files: [bad] } });
     await screen.findByRole('alert'); expect(summary()).toHaveTextContent('已选择 1');
-    await upload(); await user.click(await screen.findByRole('button', { name: '替换并清空选择' })); expect(summary()).toHaveTextContent('未决定 1');
+    await upload(); await user.click(await screen.findByRole('button', { name: '确认替换' })); expect(summary()).toHaveTextContent('未决定 1');
     await user.click(assign()); await user.click(screen.getByRole('button', { name: '重置报告' }));
     await user.keyboard('{Escape}'); expect(summary()).toHaveTextContent('已选择 1');
     await user.click(screen.getByRole('button', { name: '重置报告' })); await user.click(screen.getByRole('button', { name: '确认重置' }));
