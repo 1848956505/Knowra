@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { decideReview, parseReviewEnvelope, serializeReviewDraft, undoReview, REVIEW_LIMITS,
+import { decideReview, parseReviewFile, serializeReviewDraft, undoReview, REVIEW_LIMITS,
   type ReviewDecision, type ReviewEnvelope, type ReviewSession } from '@study-accelerator/shared/incremental-review';
 import { Button, Dialog, DialogBody, DialogFooter } from '../../../../components/ui';
 import { ReviewRowDetail, responseLabels } from './ReviewRowDetail';
@@ -7,7 +7,8 @@ import { useLocalFile } from './useLocalFile';
 import { downloadReview } from './downloadReview';
 import styles from './ReportReview.module.css';
 
-type Pending = { kind: 'replace'; report: ReviewEnvelope } | { kind: 'reset' } | { kind: 'close' } | { kind: 'download' };
+type LoadedReview = { report: ReviewEnvelope; session: ReviewSession };
+type Pending = { kind: 'replace'; value: LoadedReview } | { kind: 'reset' } | { kind: 'close' } | { kind: 'download' };
 
 /** 独立内存会话。不会读写应用 store、API 或浏览器持久化。 */
 export function LocalReportReview({ onClose }: { onClose(): void }) {
@@ -20,9 +21,9 @@ export function LocalReportReview({ onClose }: { onClose(): void }) {
   const input = useRef<HTMLInputElement>(null);
   const status = useRef<HTMLParagraphElement>(null);
   const hasDecisions = Object.keys(session).length > 0;
-  const install = (next: ReviewEnvelope | null) => { setReport(next); setRevision(value => value + 1); setSession({}); setRowIndex(0); setPending(null); setActionError(''); };
-  const loader = useLocalFile(parseReviewEnvelope, REVIEW_LIMITS.bytes, next => {
-    if (hasDecisions) setPending({ kind: 'replace', report: next }); else install(next);
+  const install = (next: LoadedReview | null) => { setReport(next?.report ?? null); setRevision(value => value + 1); setSession(next?.session ?? {}); setRowIndex(0); setPending(null); setActionError(''); };
+  const loader = useLocalFile(parseReviewFile, REVIEW_LIMITS.bytes, next => {
+    if (hasDecisions) setPending({ kind: 'replace', value: next }); else install(next);
   });
   const request = (kind: 'reset' | 'close') => {
     loader.invalidate(); setPending(null);
@@ -44,7 +45,7 @@ export function LocalReportReview({ onClose }: { onClose(): void }) {
     }
     loader.invalidate();
     if (pending.kind === 'close') onClose();
-    else install(pending.kind === 'replace' ? pending.report : null);
+    else install(pending.kind === 'replace' ? pending.value : null);
   };
   const decisions = Object.values(session);
   const total = report?.rows.reduce((sum, row) => sum + row.proposals.length, 0) ?? 0;
@@ -54,9 +55,9 @@ export function LocalReportReview({ onClose }: { onClose(): void }) {
     <Dialog title="离线报告审阅（实验）" isOpen size="md" onOpenChange={open => { if (!open) request('close'); }}
       description="文件仅在本页内存读取，不上传；关闭或刷新清空。不会改变原图或知识库。">
       <DialogBody><div className={styles.content}>
-        <p className={styles.notice}>仅检查结构与内部一致性，不认证文件来源。模型提案和候选均未核实；无警告也不代表事实可靠。选择仅形成未授权草稿，不是正式提交。</p>
+        <p className={styles.notice}>仅检查结构与内部一致性，不认证文件来源。模型提案和候选均未核实；无警告也不代表事实可靠。当前审阅状态：未授权、未核实。选择仅形成草稿，不是正式提交。可选择报告或先前下载的草稿继续审阅；恢复不会授予执行授权。</p>
         <div className={styles.toolbar}>
-          <Button variant="primary" onPress={() => { loader.invalidate(); setPending(null); input.current?.click(); }}>{report ? '选择另一份报告' : '选择离线报告'}</Button>
+          <Button variant="primary" onPress={() => { loader.invalidate(); setPending(null); input.current?.click(); }}>{report ? '选择其他报告或草稿' : '选择报告或草稿'}</Button>
           <input ref={input} hidden type="file" accept=".json,application/json" aria-label="选择离线审阅报告文件"
             onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; setPending(null); void loader.read(file); }} />
           {report ? <Button variant="ghost" onPress={() => request('reset')}>重置报告</Button> : null}
@@ -78,9 +79,9 @@ export function LocalReportReview({ onClose }: { onClose(): void }) {
       onOpenChange={open => { if (!open) cancelPending(); }}>
       <DialogBody>{pending.kind === 'download'
         ? <p>下载文件包含笔记原文、模型响应、候选旧内容，以及已选择、待定和未决定状态。仅保存到你的设备，不上传；这不是正式提交，也不授予执行授权。下载后当前选择仍保留。</p>
-        : <p>{pending.kind === 'replace' ? '新报告已完成结构检查。替换' : pending.kind === 'reset' ? '重置' : '关闭'}会清空当前所有内存选择，未下载的决定将丢失。取消会保留当前报告与选择。</p>}</DialogBody>
+        : <p>{pending.kind === 'replace' ? '新报告或草稿已完成结构检查。替换' : pending.kind === 'reset' ? '重置' : '关闭'}会丢弃当前内存选择，未下载的决定将丢失。{pending.kind === 'replace' ? '导入报告从未决定开始；导入草稿恢复其中的决定。' : ''}取消会保留当前报告与选择。</p>}</DialogBody>
       <DialogFooter><Button variant="ghost" onPress={cancelPending}>取消</Button><Button variant="primary" onPress={confirm}>
-        {pending.kind === 'download' ? '确认下载（含原文）' : pending.kind === 'replace' ? '替换并清空选择' : pending.kind === 'reset' ? '确认重置' : '关闭并清空选择'}</Button></DialogFooter>
+        {pending.kind === 'download' ? '确认下载（含原文）' : pending.kind === 'replace' ? '确认替换' : pending.kind === 'reset' ? '确认重置' : '关闭并清空选择'}</Button></DialogFooter>
     </Dialog> : null}
   </>;
 }
