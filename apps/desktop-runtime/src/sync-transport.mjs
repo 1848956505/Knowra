@@ -61,10 +61,12 @@ export function createSyncTransport({ fetcher, getServerUrl, getAuthorization })
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(upload || bootstrap ? 90000 : 15000)
     };
     const response = await fetchSync(`${serverUrl}${route.startsWith('/api/') ? route : `/api/sync/${route}`}`, options, upload, bootstrap);
-    const data = await response.json().catch(failure => {
+    const payload = await response.json().catch(failure => {
       if (options.signal.aborted || failure?.name === 'TimeoutError') throw transportFailure(options.signal.reason ?? failure, upload, bootstrap);
       return {};
     });
+    // 非对象 JSON 不是响应封装，但仍应保留 HTTP 状态对应的错误分类。
+    const data = payload !== null && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
     if (!response.ok) {
       const authRequired = response.status === 401 || response.status === 403;
       const deviceNotEnabled = data.error?.code === 'SYNC_DEVICE_NOT_ENABLED';
