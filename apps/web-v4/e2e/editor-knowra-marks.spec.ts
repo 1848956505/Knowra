@@ -83,7 +83,17 @@ for (const mode of ['native', 'menu'] as const) test(`代码内普通文本粘�
   const code = page.locator('.ProseMirror [data-code-block] code');
   await page.evaluate(() => navigator.clipboard.writeText('X'));
   await code.locator('mark[data-knowra-mark="a"]').click();
-  await page.keyboard.press('Home'); await page.keyboard.press('ArrowRight');
+  const caretOffset = () => code.evaluate(element => {
+    const selection = window.getSelection();
+    if (!selection?.isCollapsed || !selection.focusNode || !element.contains(selection.focusNode)) return -1;
+    const range = document.createRange(); range.selectNodeContents(element);
+    range.setEnd(selection.focusNode, selection.focusOffset);
+    return range.toString().length;
+  });
+  await page.keyboard.press('Home');
+  await expect.poll(caretOffset).toBe(0);
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(caretOffset).toBe(1);
   if (mode === 'native') await page.keyboard.press('ControlOrMeta+v');
   else {
     await openEditorToolbarMenu(page, '编辑');
