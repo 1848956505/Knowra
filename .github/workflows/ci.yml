@@ -139,7 +139,10 @@ jobs:
 
       - name: Install Chromium and system dependencies
         if: matrix.suite == 'chromium'
-        run: npx playwright install --with-deps chromium
+        # 恢复回归复用合成页面配置，以 runner 预装的 Chrome 保留浏览器沙箱。
+        run: |
+          npx playwright install --with-deps chromium
+          google-chrome --version
 
       - name: Run isolated test suite
         env:
@@ -153,6 +156,17 @@ jobs:
           name: task-workspace-journey-${{ github.sha }}
           path: test-results/task-workspace-journey/*.png
           if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Save synthetic editor recovery evidence
+        if: always() && matrix.suite == 'chromium'
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-draft-recovery-${{ github.sha }}
+          path: |
+            apps/web-v4/test-results/mobile-evidence
+            apps/web-v4/playwright-report/mobile-evidence
+          if-no-files-found: warn
           retention-days: 7
 
   verify:

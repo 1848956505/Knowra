@@ -15,10 +15,37 @@ test('CI partitions every npm test entry exactly once and keeps Chromium in addi
   });
   assert.deepEqual(Object.entries(suites).filter(([name]) => name !== 'chromium').flatMap(([, commands]) => commands), original);
   assert.equal(new Set(original).size, original.length);
-  assert.deepEqual(suites.chromium, ['test:e2e -w @study-accelerator/desktop-runtime']);
+  assert.deepEqual(suites.chromium, [
+    'test:e2e -w @study-accelerator/desktop-runtime',
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts'
+  ]);
   const matrix = workflow.match(/suite: \[([^\]]+)\]/)[1].split(',').map(value => value.trim());
   assert.deepEqual(matrix, Object.keys(suites));
   assert.match(workflow, /fail-fast: false/);
+});
+
+test('Chromium gate collects both editor recovery scenarios and propagates their failure', () => {
+  const calls = [];
+  assert.throws(() => runSuite('chromium', (command, args) => {
+    calls.push(args);
+    return { status: calls.length === 2 ? 1 : 0 };
+  }), /editor-draft-recovery\.spec\.ts/);
+  assert.deepEqual(calls, suites.chromium.map(command => ['run', ...command.split(' ')]));
+
+  // 使用真实 Playwright 收集器，防止命令已登记但 testMatch 白名单漏掉文件。
+  const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [
+    'run', ...suites.chromium[1].split(' '), '--list', '--reporter=json'
+  ], { cwd: new URL('../../', import.meta.url), encoding: 'utf8', env: process.env });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const report = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
+  assert.deepEqual(report.errors, []);
+  const specs = report.suites.flatMap(suite => suite.specs);
+  assert.equal(specs.length, 2);
+  for (const spec of specs) {
+    assert.equal(spec.file, 'editor-draft-recovery.spec.ts');
+    assert.equal(spec.tests.length, 1);
+    assert.equal(spec.tests[0].expectedStatus, 'passed');
+  }
 });
 
 test('CI aggregation accepts success only and rejects missing, extra, skipped or cancelled jobs', () => {
@@ -63,7 +90,8 @@ test('all split suites retain database, production identity, serial runtime and 
     'image: postgres:17', 'KNOWRA_SYNC_TEST_DATABASE_URL:', 'KNOWRA_SYNC_TEST_ALLOW_WRITES: "1"',
     'npm ci --ignore-scripts', 'npm run prisma:generate', 'npm run prisma:migrate:deploy',
     'NODE_ENV=production npm run build:web', '--verify-web "$GITHUB_WORKSPACE" "$GITHUB_SHA"',
-    "-name '*.map'", 'npx playwright install --with-deps chromium',
+    "-name '*.map'", 'npx playwright install --with-deps chromium', 'google-chrome --version',
+    'editor-draft-recovery-${{ github.sha }}',
     'node scripts/ci.mjs suite "$CI_SUITE"', 'task-workspace-journey-${{ github.sha }}'
   ]) assert.ok(matrixJob.includes(contract), contract);
   const runtime = JSON.parse(read('apps/desktop-runtime/package.json'));

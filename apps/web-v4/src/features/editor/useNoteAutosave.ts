@@ -1,4 +1,4 @@
-import { appendEdit } from './annotationEditJournal';
+import { appendEdit, buildEditMapping } from './annotationEditJournal';
 import { createNoteAutosaveSession, noteHasLocalWork } from './noteAutosaveSession';
 import { useNoteSaveLifecycle } from './useNoteSaveLifecycle';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
@@ -150,7 +150,10 @@ export function useNoteAutosave({
         state.pending = recovered.markdown;
         state.localRevision = 1;
         state.syncedRevision = 0;
-        if (recovered.markdown === remoteMarkdown) {
+        // 同正文的批注意图仍需提交；只重放与当前远端基线完整匹配的日志。
+        const pendingAnnotationMapping = recovered.baseMarkdown === remoteMarkdown
+          && buildEditMapping(recovered.baseMarkdown, recovered.markdown, state.edits);
+        if (recovered.markdown === remoteMarkdown && !pendingAnnotationMapping) {
           state.pending = undefined;
           clearRecovery(noteId);
           state.serverMarkdown = remoteMarkdown;
