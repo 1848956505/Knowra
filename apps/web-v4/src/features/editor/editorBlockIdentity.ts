@@ -5,6 +5,8 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from '@milkdown
 import { Transform } from '@milkdown/kit/prose/transform';
 import { $markSchema, $prose } from '@milkdown/kit/utils';
 import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx';
+import { KNOWRA_MARK, knowraMarkSchema, parseKnowraClipboardBlocks } from './editorKnowraMarks';
+import { createKnowraClipboardIntent, KNOWRA_CLIPBOARD_PLAIN, remapCopiedKnowraMarks } from './editorKnowraClipboard';
 
 /** 重点在正文中的身份载体。只用于跟踪位置，不绘制、不进入 Markdown。 */
 export const ANNOTATION_MARK = 'knowraAnnotation';
@@ -23,29 +25,34 @@ export const annotationMarkSchema = $markSchema(ANNOTATION_MARK, () => ({
   toMarkdown: { match: (mark) => mark.type.name === ANNOTATION_MARK, runner: () => undefined as never }
 }));
 
-function withBlockId(spec: NodeSpec, name: string): NodeSpec {
+function withBlockId(spec: NodeSpec, name: string, hasKnowraMark: boolean): NodeSpec {
   const toDOM = spec.toDOM;
   return {
     ...spec,
-    attrs: { ...spec.attrs, blockId: { default: null } },
-    ...(name === 'code_block' ? { marks: ANNOTATION_MARK } : {}),
+    // knowraBlocks：块级 Knowra 标记（重点内联化 I1，见 editorKnowraMarks.ts），属于正文内容。
+    attrs: { ...spec.attrs, blockId: { default: null }, knowraBlocks: { default: null } },
+    ...(name === 'code_block' ? { marks: hasKnowraMark ? `${ANNOTATION_MARK} ${KNOWRA_MARK}` : ANNOTATION_MARK } : {}),
     parseDOM: spec.parseDOM?.map((rule: ParseRule) => ({
       ...rule,
       getAttrs: (dom: HTMLElement | string) => {
         const base = rule.getAttrs ? rule.getAttrs(dom as never) : rule.attrs ?? {};
         if (base === false) return false;
         const blockId = typeof dom === 'string' ? null : dom.getAttribute?.('data-block-id') ?? null;
-        return { ...(base ?? {}), blockId };
+        const knowraBlocks = typeof dom === 'string' ? null : parseKnowraClipboardBlocks(dom.getAttribute?.('data-knowra-blocks') ?? null);
+        return { ...(base ?? {}), blockId, knowraBlocks };
       }
     })) as NodeSpec['parseDOM'],
     toDOM: toDOM && ((node: ProseNode) => {
       const out = toDOM(node) as unknown;
-      if (!Array.isArray(out) || !node.attrs.blockId) return out as never;
+      const extra: Record<string, string> = {};
+      if (node.attrs.blockId) extra['data-block-id'] = node.attrs.blockId;
+      if (node.attrs.knowraBlocks?.length) extra['data-knowra-blocks'] = JSON.stringify(node.attrs.knowraBlocks);
+      if (!Array.isArray(out) || !Object.keys(extra).length) return out as never;
       const [tag, attrs, ...rest] = out;
       const isAttrs = attrs && typeof attrs === 'object' && !Array.isArray(attrs) && !(attrs as Node).nodeType;
       return (isAttrs
-        ? [tag, { ...attrs, 'data-block-id': node.attrs.blockId }, ...rest]
-        : [tag, { 'data-block-id': node.attrs.blockId }, ...(attrs === undefined ? [] : [attrs]), ...rest]) as never;
+        ? [tag, { ...attrs, ...extra }, ...rest]
+        : [tag, extra, ...(attrs === undefined ? [] : [attrs]), ...rest]) as never;
     })
   };
 }
@@ -55,7 +62,8 @@ export function configureBlockIdentitySchema(ctx: Ctx) {
   for (const name of IDENTITY_BLOCK_TYPES) {
     const key = name === 'list_item' ? extendListItemSchemaForTask.key : name;
     try {
-      ctx.update(key as never, (previous: (ctx: Ctx) => NodeSpec) => (current: Ctx) => withBlockId(previous(current), name));
+      // knowraMark 只在编辑器注册了它时才允许出现在代码块里（mark 插件在初始化阶段同步注入配置槽）。
+      ctx.update(key as never, (previous: (ctx: Ctx) => NodeSpec) => (current: Ctx) => withBlockId(previous(current), name, current.isInjected(knowraMarkSchema.key)));
     } catch { /* 当前编辑器未注册该节点 */ }
   }
 }
@@ -100,9 +108,12 @@ function fullyMarkedCodeBlocks(doc: ProseNode, type: MarkType) {
  * - 粘贴或拖放插入的重点 mark：同一重点在插入范围外仍有片段（复制），或不属于本笔记，则从插入内容剥离。
  * - 事务前整段覆盖代码块的重点，事务后继续覆盖整个代码块。
  */
-export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorState) => ReadonlySet<string> | null) {
+export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorState) => ReadonlySet<string> | null,
+  isCutPaste: (state: EditorState) => boolean = () => false) {
+  const clipboardIntent = createKnowraClipboardIntent();
   return $prose(() => new Plugin({
     key: new PluginKey('KNOWRA_BLOCK_IDENTITY'),
+    props: { handleDOMEvents: { copy() { clipboardIntent.clear(); return false; } } },
     appendTransaction(transactions, oldState, state) {
       const type = state.schema.marks[ANNOTATION_MARK];
       const inserted = insertedRanges(transactions);
@@ -122,7 +133,16 @@ export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorSt
         for (const position of positions) if (position !== keep) tr.setNodeAttribute(position, 'blockId', createBlockId());
       }
       for (const position of missing) tr.setNodeAttribute(position, 'blockId', createBlockId());
-      if (type && transactions.some(transaction => ['paste', 'drop'].includes(transaction.getMeta('uiEvent')))) {
+      const clipboard = transactions.some(transaction => ['paste', 'drop'].includes(transaction.getMeta('uiEvent')) && !transaction.getMeta(KNOWRA_CLIPBOARD_PLAIN));
+      const menuMove = clipboardIntent.consume(transactions);
+      const moving = isCutPaste(state) || menuMove || transactions.some(transaction => transaction.getMeta('uiEvent') === 'drop'
+        && transaction.mapping.maps.some(map => {
+          let deleted = false;
+          map.forEach((from, to, start, end) => { if (to > from && start === end) deleted = true; });
+          return deleted;
+        }));
+      const copiedMarks = clipboard && remapCopiedKnowraMarks(tr, inserted, moving);
+      if (type && clipboard) {
         const known = knownAnnotationIds(state);
         const outside = new Set<string>();
         state.doc.descendants((node, position) => {
@@ -153,7 +173,8 @@ export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorSt
           });
         }
       }
-      return tr.docChanged ? tr.setMeta('addToHistory', false).setMeta(IDENTITY_META, true) : null;
+      // 新重点 ID 属于正文，与本次粘贴一起进入撤销历史；纯块身份维护仍不进历史。
+      return tr.docChanged ? (copiedMarks ? tr : tr.setMeta('addToHistory', false).setMeta(IDENTITY_META, true)) : null;
     }
   }));
 }
@@ -189,9 +210,10 @@ export const annotationSerializerGuard: MilkdownPlugin = (ctx) => async () => {
 
 /** 导出 HTML 时去掉块身份属性与重点载体；序列化方式与 imageHtmlWithRenderedSizes 一致。 */
 export function stripIdentityFromHtml(html: string): string {
-  if (!html.includes('data-block-id') && !html.includes('data-knowra-annotation')) return html;
+  if (!html.includes('data-block-id') && !html.includes('data-knowra-annotation') && !html.includes('data-knowra-blocks')) return html;
   const parsed = new DOMParser().parseFromString(html, 'text/html');
   parsed.body.querySelectorAll('[data-block-id]').forEach(element => element.removeAttribute('data-block-id'));
+  parsed.body.querySelectorAll('[data-knowra-blocks]').forEach(element => element.removeAttribute('data-knowra-blocks'));
   parsed.body.querySelectorAll('span[data-knowra-annotation]').forEach(element => element.replaceWith(...element.childNodes));
   return Array.from(parsed.body.childNodes).map(node => new XMLSerializer().serializeToString(node)).join('');
 }

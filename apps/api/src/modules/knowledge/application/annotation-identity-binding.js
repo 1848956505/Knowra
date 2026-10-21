@@ -15,7 +15,8 @@ export function nextIdentityBindings(note, annotations, editorState = null) {
   const changes = [];
   const bindingContext = {}; // 仅本次保存共用同一份正文与身份表的不可变解析结果。
   for (const annotation of annotations) {
-    if ((annotation.lifecycleStatus ?? 'active') !== 'active') continue;
+    // v3（内联重点）的位置在正文标记里，不需要身份绑定。
+    if ((annotation.lifecycleStatus ?? 'active') !== 'active' || annotation.schemaVersion === 3) continue;
     const reported = reportedById.get(annotation.id);
     const previous = annotation.identityBinding ?? null;
     const next = (reported?.scopeType === annotation.scopeType ? bindingFromEditor(note.rawMarkdown, identity, reported, bindingContext) : null)

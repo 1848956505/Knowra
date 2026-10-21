@@ -1,3 +1,4 @@
+import { sameKnowraText } from '@study-accelerator/shared/knowra-marks';
 import { Question } from '../../domain/question.js';
 import { QuestionSource } from '../../domain/question-source.js';
 import { buildCreateQuestionDto, buildUpdateQuestionDto } from '../dto/assessment.dto.js';
@@ -68,7 +69,7 @@ export function createAsyncQuestionService({
         isCurrent: Boolean(
           note
           && !note.deleted
-          && note.rawMarkdown === reference.content
+          && sameKnowraText(note.rawMarkdown, reference.content)
         )
       };
     }

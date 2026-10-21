@@ -1,5 +1,6 @@
 import { createNoteDependencyLifecycle } from './application/note-dependency-lifecycle.js';
 import { withIdentityBindingRefresh } from './application/annotation-identity-binding.js';
+import { marksOnlyDependencies, withInlineAnnotations } from './application/inline-annotations.js';
 import { createSpaceAssetLifecycle } from './application/space-asset-lifecycle.js';
 import { createNavigationReferencePolicy } from './application/navigation-reference-policy.js';
 import { taskCoverage, supplementPurgePreview, assertPurgeDatasetEpoch, assertManualPurgeScope } from './application/asset-purge-guard.js';
@@ -260,10 +261,17 @@ export function createKnowledgeModule(options = {}) {
     noteVersionRepository.deleteById(previous.id);
   }
   const annotationIdentityShadow = createAnnotationIdentityShadow({
-    listAnnotations: (noteId) => contentAnnotationRepository.list({ noteId, includeDeleted: true }),
+    // 影子比对只针对旧链路重点；v3（内联重点）的位置在正文标记里。
+    listAnnotations: (noteId) => contentAnnotationRepository.list({ noteId, includeDeleted: true }).filter((item) => item.schemaVersion !== 3),
     sink: options.annotationShadowSink ?? null,
     afterCommit: options.afterCommit
   });
+  const noteDependencies = {
+    contentAnnotationService, contentAnnotationRepository, annotationIdentityShadow,
+    knowledgeItemService, questionService, noteVersionService, noteVersionRepository,
+    knowledgeEvidenceRepository, questionSourceRepository, analysisScopeRepository,
+    coalescePreviousVersion
+  };
   const noteService = createNoteService({
     repository: noteRepository,
     annotationRepository: contentAnnotationRepository,
@@ -271,12 +279,12 @@ export function createKnowledgeModule(options = {}) {
     normalizeTagIds,
     noteVersionService,
     runTransaction,
-    ...withIdentityBindingRefresh(createNoteDependencyLifecycle({
-      contentAnnotationService, contentAnnotationRepository, annotationIdentityShadow,
-      knowledgeItemService, questionService, noteVersionService, noteVersionRepository,
-      knowledgeEvidenceRepository, questionSourceRepository, analysisScopeRepository,
-      coalescePreviousVersion
-    }), contentAnnotationRepository),
+    // 重点内联化：只改标记的保存不让旧版本证据过期；级联完成后从正文派生内联重点行。
+    ...withInlineAnnotations(withIdentityBindingRefresh(createNoteDependencyLifecycle(noteDependencies), contentAnnotationRepository), {
+      repository: contentAnnotationRepository,
+      revisionRepository: annotationRevisionRepository,
+      marksOnlyLifecycle: withIdentityBindingRefresh(createNoteDependencyLifecycle(marksOnlyDependencies(noteDependencies)), contentAnnotationRepository)
+    }),
     validateSiblingNameConflict: ({ spaceId, folderId, title, currentNoteId }) => {
       assertSiblingNameAvailable({
         spaceId,

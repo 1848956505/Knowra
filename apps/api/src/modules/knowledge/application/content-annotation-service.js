@@ -14,7 +14,7 @@ import {
   resolveAnchor
 } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../errors/app-error.js';
-import { ContentAnnotation } from '../domain/content-annotation.js';
+import { ContentAnnotation, INLINE_ANNOTATION_SCHEMA } from '../domain/content-annotation.js';
 import { buildCreateContentAnnotationDto, buildUpdateAnnotationAnchorDto, buildUpdateContentAnnotationDto } from './dto/content-annotation-dto.js';
 import { createInMemoryContentAnnotationRepository } from '../infrastructure/content-annotation-repository.js';
 
@@ -26,6 +26,12 @@ export function createContentAnnotationService({ repository = createInMemoryCont
   function requireAnnotation(id) { const annotation = repository.findById(id); if (!annotation) throw fail('ANNOTATION_NOT_FOUND', '标注不存在', 404); return annotation; }
   function assertCurrentNote(dto) { const note = noteRepository?.findById(dto.noteId); if (!note || note.deleted) throw fail('ANNOTATION_NOTE_NOT_FOUND', '笔记不存在', 404); if (note.spaceId !== dto.spaceId) throw fail('ANNOTATION_SPACE_MISMATCH', '标注空间与笔记不一致', 409); if (contentHash(note.rawMarkdown) !== dto.noteContentHash) throw fail('ANNOTATION_CONTENT_CONFLICT', '笔记内容已变化，请重新选择标注范围', 409); return note; }
   function nextId() { return `annotation-${crypto.randomUUID()}`; }
+  // 重点内联化 v3：类型、重要程度、范围与取消/恢复都写在正文标记里，由保存时派生；这里只允许改备注。
+  function assertNotTextOwned(annotation, dto = null) {
+    if (annotation.schemaVersion !== INLINE_ANNOTATION_SCHEMA) return;
+    if (dto && dto.kind === undefined && dto.importance === undefined) return;
+    throw fail('ANNOTATION_INLINE_TEXT_OWNED', '这个重点写在正文里，请在笔记中修改', 409);
+  }
   function assertRevision(annotation, expectedRevision) {
     if (expectedRevision === undefined || expectedRevision === null || Number.isNaN(expectedRevision)) return;
     if (annotation.revision !== Number(expectedRevision)) throw fail('ANNOTATION_REVISION_CONFLICT', '标注已被其他操作修改，请刷新后重试', 409);
@@ -119,12 +125,13 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     },
     listAnnotationsByNote(options) { return repository.list(options); },
     getAnnotation(id) { return requireAnnotation(id); },
-    advanceRevision(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, {}, input.operation ?? 'rangeChanged', input.reason ?? null); },
-    updateAnnotation(id, input) { const annotation = requireAnnotation(id); const dto = buildUpdateContentAnnotationDto(input); assertRevision(annotation, dto.expectedRevision); return saveUpdated(annotation, dto, 'metadataUpdated'); },
-    archiveAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, { lifecycleStatus: 'archived', deletedAt: new Date().toISOString() }, 'archived'); },
-    deleteAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertRevision(annotation, input.expectedRevision); if (annotation.lifecycleStatus === 'deleted') return annotation; return saveUpdated(annotation, { lifecycleStatus: 'deleted', deletedAt: new Date().toISOString() }, 'deleted'); },
+    advanceRevision(id, input = {}) { const annotation = requireAnnotation(id); assertNotTextOwned(annotation); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, {}, input.operation ?? 'rangeChanged', input.reason ?? null); },
+    updateAnnotation(id, input) { const annotation = requireAnnotation(id); const dto = buildUpdateContentAnnotationDto(input); assertNotTextOwned(annotation, dto); assertRevision(annotation, dto.expectedRevision); return saveUpdated(annotation, dto, 'metadataUpdated'); },
+    archiveAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertNotTextOwned(annotation); assertRevision(annotation, input.expectedRevision); return saveUpdated(annotation, { lifecycleStatus: 'archived', deletedAt: new Date().toISOString() }, 'archived'); },
+    deleteAnnotation(id, input = {}) { const annotation = requireAnnotation(id); assertNotTextOwned(annotation); assertRevision(annotation, input.expectedRevision); if (annotation.lifecycleStatus === 'deleted') return annotation; return saveUpdated(annotation, { lifecycleStatus: 'deleted', deletedAt: new Date().toISOString() }, 'deleted'); },
     restoreAnnotation(id, input = {}) {
       const annotation = requireAnnotation(id);
+      assertNotTextOwned(annotation);
       assertRevision(annotation, input.expectedRevision);
       if (annotation.lifecycleStatus === 'active') return annotation;
       const parent = noteRepository?.findById(annotation.noteId);
@@ -153,6 +160,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     },
     updateAnnotationAnchor(id, input) {
       const annotation = requireAnnotation(id);
+      assertNotTextOwned(annotation);
       const dto = buildUpdateAnnotationAnchorDto(input);
       if (annotation.scopeType === 'list' && dto.anchor?.scopeType !== 'list') throw fail('ANNOTATION_RANGE_INVALID', '列表重点的新来源必须是完整列表项', 409);
       assertRevision(annotation, dto.expectedRevision);
@@ -170,6 +178,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
     },
     confirmAnnotationRange(id, input) {
       const annotation = requireAnnotation(id);
+      assertNotTextOwned(annotation);
       const note = noteRepository.findById(annotation.noteId);
       if (!note || note.deleted) throw fail('ANNOTATION_NOTE_NOT_FOUND', '笔记不存在', 404);
       const anchor = assertRangeConfirmation(annotation, note, input);
@@ -184,6 +193,8 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       const changed = [];
       const contentChangedAnnotationIds = [];
       for (const annotation of repository.list({ noteId, includeDeleted: true })) {
+        // v3 的位置在正文标记里，由保存后的派生维护，不参与旧链路跟随。
+        if (annotation.schemaVersion === INLINE_ANNOTATION_SCHEMA) continue;
         if (annotation.lifecycleStatus !== 'active' || (annotation.noteContentHash === currentContentHash && !context?.edits?.length)) continue;
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           changed.push(saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'legacyUnverified', noteContentHash: currentContentHash }, 'anchorStatusChanged', 'legacyUnverified'));
@@ -215,7 +226,7 @@ export function createContentAnnotationService({ repository = createInMemoryCont
       return { annotations: changed, contentChangedAnnotationIds };
     },
     markStaleForNote(noteId, currentContentHash) { return repository.markStaleByNoteId?.(noteId, currentContentHash) ?? []; },
-    markAnnotationStale(id) { const annotation = requireAnnotation(id); return annotation.lifecycleStatus !== 'active' ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged'); }
+    markAnnotationStale(id) { const annotation = requireAnnotation(id); return annotation.lifecycleStatus !== 'active' || annotation.schemaVersion === INLINE_ANNOTATION_SCHEMA ? annotation : saveUpdated(annotation, { anchorStatus: 'needsReview', anchorReason: 'contentChanged' }, 'anchorStatusChanged', 'contentChanged'); }
   };
 }
 

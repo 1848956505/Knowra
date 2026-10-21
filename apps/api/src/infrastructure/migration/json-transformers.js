@@ -1,3 +1,4 @@
+import { stripKnowraMarks } from '@study-accelerator/shared/knowra-marks';
 import crypto from 'node:crypto';
 import { validateKnowledgeArtifactProvenanceRelations } from '../../modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import { resolveAnalysisScopeNoteVersion } from '../../modules/knowledge/domain/analysis-scope-version-alias.js';
@@ -583,7 +584,7 @@ function extractInternalLinks(markdown) {
 }
 
 function stripMarkdown(markdown) {
-  return String(markdown ?? '').replace(/```[\s\S]*?```/g, ' ').replace(/`([^`]+)`/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1').replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#>*_~-]/g, ' ').replace(/\s+/g, ' ').trim();
+  return stripKnowraMarks(String(markdown ?? '')).replace(/```[\s\S]*?```/g, ' ').replace(/`([^`]+)`/g, '$1').replace(/\[\[([^\]]+)\]\]/g, '$1').replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#>*_~-]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function sha256(value) {

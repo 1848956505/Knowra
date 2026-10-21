@@ -294,12 +294,14 @@ function validateEntity(collectionName, item, index) {
       && item.anchor?.tracking?.empty === true && item.anchor.quoteText === ''
       && Array.isArray(item.anchor.segments) && item.anchor.segments.length === 0;
     if (!emptyTrackedBlock || item.quoteText !== '') assertNonEmptyString(item.quoteText, `${location}.quoteText`);
-    assertAllowedValue(item.schemaVersion ?? 1, [1, 2], `${location}.schemaVersion`);
+    assertAllowedValue(item.schemaVersion ?? 1, [1, 2, 3], `${location}.schemaVersion`);
     assertAllowedValue(item.scopeType ?? 'selection', ['selection', 'blocks', 'section', 'list'], `${location}.scopeType`);
     assertAllowedValue(item.lifecycleStatus ?? (item.status === 'archived' ? 'archived' : 'active'), ['active', 'archived', 'deleted'], `${location}.lifecycleStatus`);
     assertAllowedValue(item.anchorStatus ?? (item.status === 'stale' ? 'needsReview' : 'resolved'), ['resolved', 'needsReview', 'missing'], `${location}.anchorStatus`);
     if (item.schemaVersion === 2 && (!item.anchor || typeof item.anchor !== 'object' || Array.isArray(item.anchor))) invalidSnapshot(`${location}.anchor is invalid`);
-    if (item.scopeType === 'list' && (item.schemaVersion !== 2 || item.anchor?.scopeType !== 'list'
+    // v3：重点内联化，位置在正文标记里，锚点只记标记 ID。
+    if (item.schemaVersion === 3 && (item.anchor?.format !== 'knowra-inline' || typeof item.anchor.markId !== 'string')) invalidSnapshot(`${location}.anchor is invalid`);
+    if (item.scopeType === 'list' && item.schemaVersion !== 3 && (item.schemaVersion !== 2 || item.anchor?.scopeType !== 'list'
       || !item.anchor.list || typeof item.anchor.tracking?.rootId !== 'string')) invalidSnapshot(`${location}.list identity is invalid`);
   } else if (collectionName === 'annotationExclusions') {
     assertNonEmptyString(item.parentAnnotationId, `${location}.parentAnnotationId`);

@@ -27,6 +27,7 @@ import { sameEntity, IMMUTABLE_COLLECTIONS, referencesFor } from './entity-contr
 import { syncError } from './journal.js';
 import { validateKnowledgeArtifactProvenance } from '../knowledge/domain/knowledge-artifact-provenance-contract.js';
 import { addedNoteLinkTargets } from '../knowledge/application/note-link-relations.js';
+import { applyInlineAnnotationChanges, INLINE_KEY_PREFIX, inlineAnnotationId, inlineMarksOf, planInlineAnnotations } from '../knowledge/application/inline-annotations.js';
 
 const sha = text => createHash('sha256').update(text).digest('hex');
 const builders = { notes: buildCreateNoteDto, folders: buildCreateFolderDto, tags: buildCreateTagDto, tagGroups: buildCreateTagGroupDto };
@@ -150,6 +151,18 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     const old = before.contentAnnotations.find(item => item.id === annotation.id);
     if (old && annotation.revision < old.revision) throw syncError('ANNOTATION_REVISION_CONFLICT', '标注修订不能倒退。');
     if (old && !sameEntity('contentAnnotations', { originSnapshot: old.originSnapshot }, { originSnapshot: origin })) throw syncError('SYNC_IMMUTABLE', '标注原始快照不可改写。', 422);
+    if (annotation.schemaVersion === 3) {
+      // 内联重点：ID 与幂等键由标记 ID 确定性推出；活跃且已定位的重点，其来源版本正文里必须有这个标记。
+      const markId = annotation.anchor?.markId;
+      if (annotation.id !== inlineAnnotationId(annotation.noteId, markId) || annotation.idempotencyKey !== `${INLINE_KEY_PREFIX}${markId}`) throw syncError('ANNOTATION_INLINE_IDENTITY_INVALID', '内联重点的身份与标记不一致。', 422);
+      if (annotation.lifecycleStatus === 'active') {
+        const version = state.noteVersions.find(item => item.id === annotation.noteVersionId);
+        if (!version || version.noteId !== annotation.noteId || version.contentHash !== annotation.noteContentHash) throw syncError('ANNOTATION_VERSION_CONFLICT', '标注来源版本不匹配。', 422);
+        if (!inlineMarksOf(version.content).has(markId)) throw syncError('ANNOTATION_ANCHOR_UNRESOLVED', '内联重点在来源版本中没有对应标记。', 422);
+      }
+      if (!note) throw syncError('DEPENDENCY_MISSING', '标注引用的笔记不存在。');
+      continue;
+    }
     if (annotation.schemaVersion !== 2) throw syncError('ANNOTATION_UPGRADE_REQUIRED', '请先升级旧版标注。', 422);
     if (annotation.anchorStatus === 'resolved') {
       const version = state.noteVersions.find(item => item.id === annotation.noteVersionId);
@@ -194,6 +207,10 @@ export function prepareBatchState(before, changes, ownerId, preparedAttachments 
     if (!state.noteVersions.some(version => version.noteId === note.id && version.contentHash === note.contentHash)) throw syncError('DEPENDENCY_MISSING', '正文对应的不可变版本尚未提交。');
     annotations.reconcileForNote(note.id, calculateContentHash(note.rawMarkdown));
     applyIdentityBindings(createInMemoryContentAnnotationRepository({ records: state.contentAnnotations }), note, state.contentAnnotations.filter(item => item.noteId === note.id));
+    // 内联重点：旧客户端或外部改写没有带来派生行时，按正文补齐；与客户端派生一致时没有变化。
+    const version = state.noteVersions.find(item => item.noteId === note.id && item.contentHash === note.contentHash);
+    applyInlineAnnotationChanges(createInMemoryContentAnnotationRepository({ records: state.contentAnnotations }), createInMemoryAnnotationRevisionRepository({ records: state.annotationRevisions }),
+      planInlineAnnotations(note, version, state.contentAnnotations.filter(item => item.noteId === note.id)));
   }
   for (const collection of ['folders', 'tags', 'tagGroups', 'notes']) {
     const names = new Set();

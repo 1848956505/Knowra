@@ -1,3 +1,5 @@
+import { stripKnowraMarks } from '@study-accelerator/shared/knowra-marks';
+
 const SUMMARY_CHARACTER_LIMIT = 240;
 const READING_CHARACTERS_PER_MINUTE = 360;
 
@@ -28,7 +30,7 @@ export function createNoteSummary(note) {
 }
 
 function extractOutline(markdown) {
-  return String(markdown ?? '').split('\n').flatMap((line) => {
+  return stripKnowraMarks(String(markdown ?? '')).split('\n').flatMap((line) => {
     const match = /^(#{1,3})\s+(.+)$/.exec(line.trim());
     return match ? [{ level: match[1].length, title: match[2].trim() }] : [];
   });

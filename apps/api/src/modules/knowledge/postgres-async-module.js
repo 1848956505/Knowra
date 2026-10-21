@@ -1,4 +1,5 @@
 import { applyIdentityBindings, withIdentityBindingRefresh } from './application/annotation-identity-binding.js';
+import { deriveInlineAnnotations, marksOnlyDependencies, withInlineAnnotations } from './application/inline-annotations.js';
 import { createAsyncNoteDependencyLifecycle } from './application/postgres-async/note-dependency-lifecycle.js';
 import { createAsyncSpaceAssetLifecycle } from './application/postgres-async/space-asset-lifecycle.js';
 import { createAsyncNavigationReferencePolicy } from './application/postgres-async/navigation-reference-policy.js';
@@ -166,20 +167,27 @@ export function createPostgresKnowledgeModule({
   }
   function buildNoteTransactionContext(transaction) {
     const formalServices = createTransactionFormalServices(transaction);
+    const dependencies = {
+      createAnnotationService: () => buildTransactionAnnotationServices(transaction).annotationService,
+      contentAnnotationRepository: transaction.contentAnnotationRepository,
+      noteVersionRepository: transaction.noteVersionRepository,
+      knowledgeEvidenceRepository: transaction.knowledgeEvidenceRepository,
+      questionSourceRepository: transaction.questionSourceRepository,
+      analysisScopeRepository: transaction.analysisScopeRepository,
+      knowledgeItemService: formalServices.knowledgeItemService,
+      questionService: formalServices.questionService
+    };
+    const lifecycle = (deps) => withIdentityBindingRefresh(createAsyncNoteDependencyLifecycle(deps), transaction.contentAnnotationRepository);
     return {
       noteRepository: transaction.noteRepository,
       annotationRepository: transaction.contentAnnotationRepository,
       noteVersionService: createAsyncNoteVersionService({ repository: transaction.noteVersionRepository }),
-      ...withIdentityBindingRefresh(createAsyncNoteDependencyLifecycle({
-        createAnnotationService: () => buildTransactionAnnotationServices(transaction).annotationService,
-        contentAnnotationRepository: transaction.contentAnnotationRepository,
-        noteVersionRepository: transaction.noteVersionRepository,
-        knowledgeEvidenceRepository: transaction.knowledgeEvidenceRepository,
-        questionSourceRepository: transaction.questionSourceRepository,
-        analysisScopeRepository: transaction.analysisScopeRepository,
-        knowledgeItemService: formalServices.knowledgeItemService,
-        questionService: formalServices.questionService
-      }), transaction.contentAnnotationRepository)
+      // 重点内联化：只改标记的保存不让旧版本证据过期；级联完成后从正文派生内联重点行。
+      ...withInlineAnnotations(lifecycle(dependencies), {
+        repository: transaction.contentAnnotationRepository,
+        revisionRepository: transaction.annotationRevisionRepository,
+        marksOnlyLifecycle: lifecycle(marksOnlyDependencies(dependencies))
+      })
     };
   }
   const runTransaction = client?.$transaction
@@ -423,6 +431,7 @@ export function createPostgresKnowledgeModule({
       for (const annotationId of reconciliation.contentChangedAnnotationIds) {
         await knowledgeItemService.markEvidenceByAnnotationId(annotationId, 'stale');
       }
+      await deriveInlineAnnotations({ repository: contentAnnotationRepository, revisionRepository: annotationRevisionRepository }, note, version);
       return reconciliation;
     },
     onNoteDeleted: (noteId) => knowledgeItemService.markEvidenceByNoteId(noteId, 'invalid'),

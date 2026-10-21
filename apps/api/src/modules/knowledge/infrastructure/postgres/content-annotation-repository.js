@@ -108,7 +108,8 @@ export function createPostgresContentAnnotationRepository({ db }) {
     async markStaleByNoteId(noteId, currentContentHash) {
       return withRepositoryErrors(async () => {
         const rows = await db.contentAnnotation.findMany({
-          where: { noteId, lifecycleStatus: 'active', noteContentHash: { not: currentContentHash } }
+          // v3（内联重点）的位置在正文标记里，不按正文哈希判定过期。
+          where: { noteId, lifecycleStatus: 'active', noteContentHash: { not: currentContentHash }, schemaVersion: { not: 3 } }
         });
         if (!rows.length) return [];
         await db.contentAnnotation.updateMany({

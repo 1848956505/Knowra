@@ -4,7 +4,7 @@ import { Schema } from '@milkdown/kit/prose/model';
 import { EditorState, TextSelection } from '@milkdown/kit/prose/state';
 import { EditorView } from '@milkdown/kit/prose/view';
 import { runEditorClipboardAction } from './editorClipboard';
-import { writeClipboardText, runDocumentCommand } from '../../browser/clipboard';
+import { readClipboardText, writeClipboardText, runDocumentCommand } from '../../browser/clipboard';
 
 vi.mock('../../browser/clipboard', () => ({ writeClipboardText: vi.fn(), readClipboardText: vi.fn(), runDocumentCommand: vi.fn() }));
 const schema = new Schema({ nodes: { doc: { content: 'paragraph+' }, paragraph: { content: 'text*', toDOM: () => ['p', 0] }, text: {} } });
@@ -49,5 +49,15 @@ describe('真实 ProseMirror 异步剪切', () => {
     const f = fixture(); const pending = runEditorClipboardAction(f.editor, 'cut');
     f.view.dispatch(f.view.state.tr.setSelection(TextSelection.create(f.view.state.doc, 5, 8))); f.finish(false);
     expect((await pending).ok).toBe(false); expect(runDocumentCommand).not.toHaveBeenCalled();
+  });
+  it('异步读取富文本剪贴板时宿主切换不能粘到旧笔记', async () => {
+    const f = fixture(); let active = true;
+    let finish!: (value: { ok: true; text: string; html: string }) => void;
+    vi.mocked(readClipboardText).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    const pending = runEditorClipboardAction(f.editor, 'paste', () => active);
+    active = false; finish({ ok: true, text: '旧剪贴板', html: '' });
+    expect(await pending).toEqual({ ok: false, reason: 'context-changed' });
+    expect(f.view.state.doc.textContent).toBe('AAA BBB');
+    expect(runDocumentCommand).not.toHaveBeenCalled();
   });
 });

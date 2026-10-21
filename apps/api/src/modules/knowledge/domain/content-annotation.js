@@ -5,6 +5,9 @@ const SCOPE_TYPES = new Set(['selection', 'blocks', 'section', 'list']);
 const IMPORTANCE_LEVELS = new Set([null, 'normal', 'important', 'core']);
 const LIFECYCLE_STATUSES = new Set(['active', 'archived', 'deleted']);
 const ANCHOR_STATUSES = new Set(['resolved', 'needsReview', 'missing']);
+/** 重点内联化：位置写在正文标记里（《重点标记内联化方案》），这一行只存元数据与派生缓存。 */
+export const INLINE_ANNOTATION_SCHEMA = 3;
+export const INLINE_ANCHOR_FORMAT = 'knowra-inline';
 
 export function projectLegacyAnnotationStatus({ lifecycleStatus, anchorStatus }) {
   if (lifecycleStatus === 'archived' || lifecycleStatus === 'deleted') return 'archived';
@@ -51,12 +54,13 @@ export class ContentAnnotation {
     if (!ANNOTATION_KINDS.has(kind) || !SOURCE_MODES.has(sourceMode)) throw new Error('Annotation kind or sourceMode is invalid');
     if (!SCOPE_TYPES.has(scopeType) || !IMPORTANCE_LEVELS.has(importance)) throw new Error('Annotation scope or importance is invalid');
     if (!LIFECYCLE_STATUSES.has(lifecycleStatus) || !ANCHOR_STATUSES.has(anchorStatus)) throw new Error('Annotation lifecycle or anchor status is invalid');
-    if (![1, 2].includes(schemaVersion) || !Number.isInteger(revision) || revision < 1) throw new Error('Annotation schema or revision is invalid');
+    if (![1, 2, INLINE_ANNOTATION_SCHEMA].includes(schemaVersion) || !Number.isInteger(revision) || revision < 1) throw new Error('Annotation schema or revision is invalid');
     if (typeof comment !== 'string' || comment.length > 2000) throw new Error('Annotation comment is invalid');
     if (typeof quoteText !== 'string' || (!quoteText.trim() && !anchor?.tracking?.empty) || !anchorFingerprint?.trim() || !noteContentHash?.trim() || !idempotencyKey?.trim()) throw new Error('Annotation content is required');
     if (!Number.isInteger(fromPosition) || !Number.isInteger(toPosition) || fromPosition < 0 || (fromPosition >= toPosition && !anchor?.tracking?.empty)) throw new Error('Annotation range is invalid');
     if (!ANNOTATION_STATUSES.has(status)) throw new Error('Annotation status is invalid');
     if (schemaVersion === 2 && (!anchor || !originSnapshot)) throw new Error('Versioned annotation anchor is required');
+    if (schemaVersion === INLINE_ANNOTATION_SCHEMA && (anchor?.format !== INLINE_ANCHOR_FORMAT || typeof anchor.markId !== 'string' || !originSnapshot)) throw new Error('Inline annotation anchor is required');
 
     Object.assign(this, {
       id, spaceId, noteId, noteVersionId, kind, sourceMode,

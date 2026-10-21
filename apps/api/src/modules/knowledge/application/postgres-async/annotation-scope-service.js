@@ -51,6 +51,8 @@ export function createAsyncAnnotationScopeService({
 
   async function createExclusion(annotationId, input = {}) {
     const annotation = await requireAnnotation(annotationId);
+    // v3（内联重点）的排除写在正文标记里（`<!--k- id-->`），由编辑器维护。
+    if (annotation.schemaVersion === 3) throw fail('ANNOTATION_INLINE_TEXT_OWNED', '这个重点写在正文里，请在笔记中修改', 409);
     if (!['section', 'list'].includes(annotation.scopeType)) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '只有章节或列表项重点可以保存局部排除', 409);
     if (annotation.lifecycleStatus !== 'active') throw fail('ANNOTATION_EXCLUSION_CONFLICT', '已取消的重点不能新增排除', 409);
     if (annotation.anchorStatus !== 'resolved') throw fail('ANNOTATION_ANCHOR_UNRESOLVED', '请先确认所属重点范围', 409);

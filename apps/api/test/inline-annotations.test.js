@@ -1,0 +1,290 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { calculateContentHash, anchorFromProjectedRange, projectMarkdown } from '@study-accelerator/content-anchor';
+import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
+import { inlineAnnotationId, inlineMarksOf, isMarksOnlyChange, planInlineAnnotations } from '../src/modules/knowledge/application/inline-annotations.js';
+import { prepareBatchState } from '../src/modules/sync/batch-domain.js';
+import { knowraCheck } from '@study-accelerator/shared/knowra-marks';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createAppContext } from '../src/app.factory.js';
+import { createFileDataStore } from '../src/infrastructure/file-data-store.js';
+
+const SPACE = 'space-inline';
+const inlineRows = (module, noteId) => module.repositories.contentAnnotationRepository.list({ noteId, includeDeleted: true }).filter(item => item.schemaVersion === 3);
+const revisions = (module, annotationId) => module.repositories.annotationRevisionRepository.list().filter(item => item.annotationId === annotationId).map(item => item.operation);
+
+function createNote(module, rawMarkdown) {
+  return module.noteService.createNote({ id: `note-${randomUUID()}`, spaceId: SPACE, title: `内联 ${randomUUID()}`, rawMarkdown });
+}
+function update(module, note, rawMarkdown) {
+  return module.noteService.updateNote(note.id, { rawMarkdown, expectedUpdatedAt: note.updatedAt });
+}
+
+const BASE = [
+  '## 第一章 <!--k sec1 s=section l=core-->',
+  '',
+  '勾股定理指出 <mark data-k="m1" data-t="key cloze" data-l="important">两边平方和</mark>等于斜边平方。',
+  '',
+  '- 列表项 <!--k lst1 s=list c=pitfall-->',
+  '',
+  `<!--k code1 t=key s=code r=0-1 h=${knowraCheck('x')}-->`,
+  '```',
+  'x',
+  '```'
+].join('\n');
+
+export const inlineAnnotationTests = [
+  {
+    name: '公式内未闭合围栏文字不删除公式后已有的真实重点',
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, '<mark data-k="real">正文</mark>');
+      const id = inlineAnnotationId(note.id, 'real');
+      note = update(module, note, `$$\n~~~x\n$$\n\n${note.rawMarkdown}`);
+      assert.equal(module.repositories.contentAnnotationRepository.findById(id).lifecycleStatus, 'active');
+      assert.equal(inlineRows(module, note.id).length, 1);
+    }
+  },
+  ...[
+    ['四空格缩进代码', text => `    ${text}\n`],
+    ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],
+    ['跨行 code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`],
+    ['行内公式', text => `公式 $\\text{${text}}$`]
+  ].map(([name, wrap]) => ({
+    name: `字面标记正文编辑：${name}不派生伪重点，删除标签让知识证据及直接/间接题源过期`,
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, wrap('<mark data-k="a">literal</mark>'));
+      assert.equal(inlineRows(module, note.id).length, 0);
+      const version = module.noteVersionService.listVersions({ noteId: note.id })[0];
+      const { item, evidence: [evidence] } = module.knowledgeItemService.createCandidate({
+        spaceId: SPACE, title: '字面代码', canonicalStatement: '代码标签是正文的一部分', knowledgeType: 'concept',
+        sourceMode: 'selection', evidence: [{ sourceType: 'noteVersion', noteVersionId: version.id }]
+      });
+      module.knowledgeItemService.confirmItem(item.id);
+      const objective = module.learningObjectiveService.createCandidate({ knowledgeItemId: item.id, objective: '能够解释代码标签', actionVerb: 'explain', cognitiveLevel: 'understand' });
+      module.learningObjectiveService.confirmObjective(objective.id);
+      const question = module.questionService.createQuestion({ stem: '代码标签是什么？', referenceAnswer: '正文', learningObjectiveIds: [objective.id], sources: [
+        { sourceType: 'noteVersion', sourceId: version.id }, { sourceType: 'knowledgeEvidence', sourceId: evidence.id }
+      ] });
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'valid');
+      assert.deepEqual(question.sources.map(source => source.status), ['active', 'active']);
+      const edited = wrap('literal');
+      assert.equal(isMarksOnlyChange(note.rawMarkdown, edited), false);
+      note = update(module, note, edited);
+      assert.equal(note.rawMarkdown, edited);
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'stale');
+      assert.deepEqual(module.questionService.getQuestion(question.id).sources.map(source => source.status), ['stale', 'stale']);
+    }
+  })),
+  {
+    name: '内联重点：从正文标记派生元数据行，ID 由笔记与标记 ID 确定',
+    run() {
+      const marks = inlineMarksOf(BASE);
+      assert.deepEqual([...marks.keys()].sort(), ['code1', 'lst1', 'm1', 'sec1']);
+      assert.equal(marks.get('m1').quoteText, '两边平方和');
+      assert.deepEqual(marks.get('m1').headingPath, ['第一章']);
+      assert.deepEqual(marks.get('m1').roles, ['key', 'cloze']);
+      assert.equal(marks.get('sec1').scopeType, 'section');
+      assert.equal(marks.get('sec1').quoteText, '第一章');
+      assert.equal(marks.get('lst1').kind, 'pitfall');
+      assert.equal(marks.get('code1').quoteText, 'x');
+
+      const module = createKnowledgeModule();
+      const note = createNote(module, BASE);
+      const rows = inlineRows(module, note.id);
+      assert.equal(rows.length, 4);
+      const m1 = rows.find(row => row.anchor.markId === 'm1');
+      assert.equal(m1.id, inlineAnnotationId(note.id, 'm1'));
+      assert.equal(m1.idempotencyKey, 'knowra-mark:m1');
+      assert.equal(m1.importance, 'important');
+      assert.equal(m1.scopeType, 'selection');
+      assert.equal(m1.anchorStatus, 'resolved');
+      assert.equal(m1.originSnapshot.noteVersionId, m1.noteVersionId);
+      assert.deepEqual(revisions(module, m1.id), ['created']);
+      assert.equal(rows.find(row => row.anchor.markId === 'sec1').importance, 'core');
+    }
+  },
+  {
+    name: '内联重点：只有元数据变化才升修订号；上方打字不重写行；删标记→删除，加回→恢复',
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, BASE);
+      const id = inlineAnnotationId(note.id, 'm1');
+      const before = module.repositories.contentAnnotationRepository.findById(id);
+
+      note = update(module, note, BASE.replace('勾股定理指出', '著名的勾股定理指出'));
+      const typed = module.repositories.contentAnnotationRepository.findById(id);
+      assert.equal(typed.revision, before.revision);
+      assert.equal(typed.updatedAt, before.updatedAt, '摘录与标题路径都没变时不重写');
+
+      note = update(module, note, note.rawMarkdown.replace('data-l="important"', 'data-l="core"'));
+      const promoted = module.repositories.contentAnnotationRepository.findById(id);
+      assert.equal(promoted.importance, 'core');
+      assert.equal(promoted.revision, before.revision + 1);
+
+      note = update(module, note, note.rawMarkdown.replace('两边平方和', '两边平方之和'));
+      const recached = module.repositories.contentAnnotationRepository.findById(id);
+      assert.equal(recached.quoteText, '两边平方之和');
+      assert.equal(recached.revision, promoted.revision, '摘录是缓存，不升修订号');
+
+      const marked = note.rawMarkdown;
+      note = update(module, note, marked.replace(/<mark data-k="m1"[^>]*>/, '').replace('</mark>', ''));
+      assert.equal(module.repositories.contentAnnotationRepository.findById(id).lifecycleStatus, 'deleted');
+      note = update(module, note, marked);
+      const restored = module.repositories.contentAnnotationRepository.findById(id);
+      assert.equal(restored.lifecycleStatus, 'active');
+      assert.deepEqual(revisions(module, id), ['created', 'metadataUpdated', 'deleted', 'restored']);
+    }
+  },
+  {
+    name: '内联重点：旧链路跟随不把 v3 标成待确认；类型等只能在正文中修改，备注可改',
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, BASE);
+      const projection = projectMarkdown(note.rawMarkdown);
+      const start = projection.text.indexOf('等于');
+      const anchor = anchorFromProjectedRange(projection, start, start + 2);
+      const legacy = module.contentAnnotationService.createAnnotation({ noteId: note.id, spaceId: SPACE, schemaVersion: 2, scopeType: 'selection', anchor,
+        quoteText: anchor.quoteText, fromPosition: anchor.sourceStart, toPosition: anchor.sourceEnd, anchorFingerprint: 'fixture',
+        noteContentHash: calculateContentHash(note.rawMarkdown), idempotencyKey: randomUUID() });
+      note = update(module, note, `${note.rawMarkdown}\n\n尾段`);
+      for (const row of inlineRows(module, note.id)) assert.equal(row.anchorStatus, 'resolved');
+      assert.equal(module.repositories.contentAnnotationRepository.findById(legacy.id).schemaVersion, 2);
+
+      const id = inlineAnnotationId(note.id, 'm1');
+      const row = module.repositories.contentAnnotationRepository.findById(id);
+      assert.throws(() => module.contentAnnotationService.updateAnnotation(id, { expectedRevision: row.revision, importance: 'normal' }), { code: 'ANNOTATION_INLINE_TEXT_OWNED' });
+      assert.throws(() => module.contentAnnotationService.deleteAnnotation(id, { expectedRevision: row.revision }), { code: 'ANNOTATION_INLINE_TEXT_OWNED' });
+      const commented = module.contentAnnotationService.updateAnnotation(id, { expectedRevision: row.revision, comment: '考试必考' });
+      assert.equal(commented.comment, '考试必考');
+      note = update(module, note, note.rawMarkdown.replace('data-l="important"', 'data-l="core"'));
+      assert.equal(module.repositories.contentAnnotationRepository.findById(id).comment, '考试必考', '派生不覆盖备注');
+    }
+  },
+  {
+    name: '只改标记的保存：旧版本证据和题目来源保持有效；真正改正文仍按原规则过期',
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, '勾股定理指出两边平方和等于斜边平方。');
+      const version = module.noteVersionService.listVersions({ noteId: note.id })[0];
+      const { evidence: [evidence] } = module.knowledgeItemService.createCandidate({ spaceId: SPACE, title: '勾股定理', canonicalStatement: '直角三角形两直角边平方和等于斜边平方。',
+        knowledgeType: 'concept', sourceMode: 'selection', evidence: [{ sourceType: 'noteVersion', noteVersionId: version.id }] });
+      assert.equal(evidence.status, 'valid');
+      const marked = '勾股定理指出<mark data-k="m1" data-t="key">两边平方和</mark>等于斜边平方。';
+      assert.equal(isMarksOnlyChange(note.rawMarkdown, marked), true);
+      note = update(module, note, marked);
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'valid', '打重点不让证据过期');
+      assert.equal(inlineRows(module, note.id).length, 1);
+      note = update(module, note, `${marked}补充。`);
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'stale', '改正文仍然过期');
+    }
+  },
+  {
+    name: '纯文本、摘要与大纲去掉标记：搜索能找到被标记切开的词',
+    run() {
+      const module = createKnowledgeModule();
+      const note = createNote(module, '## 标题 <!--k s1 s=section-->\n\n两<mark data-k="m1">边平方</mark>和');
+      assert.equal(note.plainText.includes('<mark'), false);
+      assert.equal(note.plainText.includes('两边平方和'), true);
+      const [hit] = module.searchService.searchNotes({ spaceId: SPACE, query: '两边平方' }).items ?? module.searchService.searchNotes({ spaceId: SPACE, query: '两边平方' });
+      assert.equal(hit?.id, note.id);
+    }
+  },
+  {
+    name: '同步：服务端按正文补齐内联重点行；身份与标记不一致的行被拒绝',
+    run() {
+      const root = mkdtempSync(path.join(tmpdir(), 'knowra-inline-sync-'));
+      try {
+        const dataStore = createFileDataStore(path.join(root, 'data.json'));
+        const module = createAppContext({ dataStore, storageRootDir: root }).modules.knowledge;
+        const space = module.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+        const note = module.noteService.createNote({ id: `note-${randomUUID()}`, spaceId: space.id, title: '同步', rawMarkdown: '甲乙丙' });
+        const before = dataStore.exportSnapshot().data;
+        const rawMarkdown = '甲<mark data-k="m1" data-t="key">乙</mark>丙';
+        const [previous] = before.noteVersions.filter(item => item.noteId === note.id);
+        const version = { ...previous, id: `version-${randomUUID()}`, content: rawMarkdown, contentHash: calculateContentHash(rawMarkdown), createdAt: new Date().toISOString() };
+        const changes = [
+          { collection: 'noteVersions', id: version.id, value: version },
+          { collection: 'notes', id: note.id, value: { ...note, rawMarkdown, updatedAt: new Date().toISOString() } }
+        ];
+        const { state } = prepareBatchState(before, changes, 'demo');
+        const rows = state.contentAnnotations.filter(item => item.noteId === note.id);
+        assert.equal(rows.length, 1);
+        assert.equal(rows[0].id, inlineAnnotationId(note.id, 'm1'));
+        assert.equal(rows[0].noteVersionId, version.id);
+        assert.equal(state.annotationRevisions.filter(item => item.annotationId === rows[0].id).length, 1);
+
+        const forged = { ...rows[0], id: 'annotation-forged' };
+        assert.throws(() => prepareBatchState(before, [...changes, { collection: 'contentAnnotations', id: forged.id, value: forged }], 'demo'), { code: 'ANNOTATION_INLINE_IDENTITY_INVALID' });
+        const consistent = prepareBatchState(before, [...changes, { collection: 'contentAnnotations', id: rows[0].id, value: rows[0] }], 'demo').state;
+        assert.equal(consistent.contentAnnotations.filter(item => item.noteId === note.id).length, 1, '客户端已派生的同一行不会重复');
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: '内联重点：JSON 文件存储写入 v3 行，重启后通过快照校验并原样读回',
+    run() {
+      const root = mkdtempSync(path.join(tmpdir(), 'knowra-inline-json-'));
+      try {
+        const file = path.join(root, 'data.json');
+        const module = createAppContext({ dataStore: createFileDataStore(file), storageRootDir: root }).modules.knowledge;
+        const space = module.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+        const note = module.noteService.createNote({ id: `note-${randomUUID()}`, spaceId: space.id, title: 'JSON', rawMarkdown: BASE });
+        const saved = inlineRows(module, note.id);
+        const reopened = createAppContext({ dataStore: createFileDataStore(file), storageRootDir: root }).modules.knowledge;
+        assert.deepEqual(inlineRows(reopened, note.id).map(item => [item.id, item.revision, item.quoteText]).sort(), saved.map(item => [item.id, item.revision, item.quoteText]).sort());
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: '派生计划：没有标记也没有活跃 v3 行时不做任何事',
+    run() {
+      assert.deepEqual(planInlineAnnotations({ id: 'n', spaceId: SPACE, rawMarkdown: '普通正文 <mark>高亮</mark>' }, null, []), []);
+    }
+  }
+];
+
+export const inlineAnnotationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? [{
+  name: '真实 PostgreSQL：保存时派生内联重点，只改标记不让证据过期，元数据变化升修订号',
+  async run() {
+    const { createPostgresTestDatabase } = await import('../../../scripts/test-support/postgres-test-database.mjs');
+    const { createPostgresAppContext } = await import('../src/postgres-app.factory.js');
+    const root = mkdtempSync(path.join(tmpdir(), 'knowra-inline-pg-'));
+    let database, app;
+    try {
+      database = await createPostgresTestDatabase();
+      app = await createPostgresAppContext({ databaseUrl: database.databaseUrl, storageRootDir: root });
+      const k = app.modules.knowledge;
+      const space = await k.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+      let note = await k.noteService.createNote({ id: randomUUID(), spaceId: space.id, title: randomUUID(), rawMarkdown: '勾股定理指出两边平方和等于斜边平方。' });
+      const [version] = await k.noteVersionService.listVersions({ noteId: note.id });
+      const { evidence: [evidence] } = await k.knowledgeItemService.createCandidate({ spaceId: space.id, title: '勾股定理', canonicalStatement: '直角三角形两直角边平方和等于斜边平方。',
+        knowledgeType: 'concept', sourceMode: 'selection', evidence: [{ sourceType: 'noteVersion', noteVersionId: version.id }] });
+      const marked = '勾股定理指出<mark data-k="m1" data-t="key">两边平方和</mark>等于斜边平方。';
+      note = await k.noteService.updateNote(note.id, { rawMarkdown: marked, expectedUpdatedAt: note.updatedAt });
+      const id = inlineAnnotationId(note.id, 'm1');
+      const row = await k.contentAnnotationService.getAnnotation(id);
+      assert.equal(row.schemaVersion, 3);
+      assert.equal(row.quoteText, '两边平方和');
+      assert.equal((await k.repositories.knowledgeEvidenceRepository.findById(evidence.id)).status, 'valid');
+      note = await k.noteService.updateNote(note.id, { rawMarkdown: marked.replace('data-t="key"', 'data-t="key" data-l="core"'), expectedUpdatedAt: note.updatedAt });
+      const promoted = await k.contentAnnotationService.getAnnotation(id);
+      assert.equal(promoted.importance, 'core');
+      assert.equal(promoted.revision, row.revision + 1);
+      note = await k.noteService.updateNote(note.id, { rawMarkdown: `${note.rawMarkdown}补充。`, expectedUpdatedAt: note.updatedAt });
+      assert.equal((await k.repositories.knowledgeEvidenceRepository.findById(evidence.id)).status, 'stale');
+      assert.equal((await k.contentAnnotationService.getAnnotation(id)).anchorStatus, 'resolved');
+    } finally {
+      await app?.close?.();
+      await database?.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+}] : [];

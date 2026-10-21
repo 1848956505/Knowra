@@ -10,6 +10,10 @@
     },
     "./http-limits": "./src/http-limits.js",
     "./http-origin": "./src/http-origin.js",
+    "./knowra-marks": {
+      "types": "./src/knowra-marks.d.ts",
+      "default": "./src/knowra-marks.js"
+    },
     "./incremental-review": {
       "types": "./src/incremental-review.d.ts",
       "default": "./src/incremental-review.js"
@@ -17,5 +21,12 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "mdast-util-from-markdown": "2.0.3",
+    "mdast-util-gfm": "3.1.0",
+    "mdast-util-math": "3.0.0",
+    "micromark-extension-gfm": "3.0.0",
+    "micromark-extension-math": "3.1.0"
   }
 }
