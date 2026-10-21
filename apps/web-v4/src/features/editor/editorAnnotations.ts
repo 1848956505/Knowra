@@ -1,7 +1,7 @@
 import { listItemAt, editorListAnchor, resolveEditorListRange } from './editorListAnnotations';
 import type { AnnotationEditIntent } from './annotationEditJournal';
 import { IDENTITY_META } from './editorBlockIdentity';
-import { hasPastedKnowraMarks, KNOWRA_CLIPBOARD_CUT, rememberNativeKnowraClipboard } from './editorKnowraClipboard';
+import { hasPastedKnowraMarks, knowraClipboardIntent, KNOWRA_CLIPBOARD_CUT, rememberNativeKnowraClipboard } from './editorKnowraClipboard';
 import { isHistoryTransaction } from '@milkdown/kit/prose/history';
 import { serializerCtx } from '@milkdown/kit/core';
 import { mapAnnotationRange, type TrackedAnnotationRange } from './annotationTransactionRanges';
@@ -146,7 +146,7 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
           event.clipboardData.setData('application/x-knowra-move', cut.id);
           event.preventDefault();
           view.dispatch(view.state.tr.deleteSelection().setMeta('uiEvent', 'cut')
-            .setMeta(KNOWRA_CLIPBOARD_CUT, hasPastedKnowraMarks(view.state.selection.content()) ? serialized.text : null).scrollIntoView());
+            .setMeta(KNOWRA_CLIPBOARD_CUT, hasPastedKnowraMarks(view.state.selection.content()) ? knowraClipboardIntent(serialized.text, view.state.selection.content()) : null).scrollIntoView());
           return true;
         },
         copy(view) {

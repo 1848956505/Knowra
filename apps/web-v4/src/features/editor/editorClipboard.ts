@@ -5,7 +5,7 @@ import type { EditorClipboardAction, EditorEditResult } from './editorCommands';
 import { convertTexMathDelimiters, shouldPasteAsSource } from './editorMathPaste';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { selectCodeBlockContents } from './editorCodeCommands';
-import { expectsNativeKnowraClipboard, hasPastedKnowraMarks, insertKnowraSource, KNOWRA_CLIPBOARD_COPY, KNOWRA_CLIPBOARD_CUT, KNOWRA_CLIPBOARD_PASTE,
+import { expectsNativeKnowraClipboard, hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_COPY, KNOWRA_CLIPBOARD_CUT, KNOWRA_CLIPBOARD_PASTE,
   parseKnowraClipboardSlice, recallKnowraClipboard, rememberKnowraClipboard } from './editorKnowraClipboard';
 
 export async function runEditorClipboardAction(editor: Editor, action: EditorClipboardAction, canMutate: () => boolean = () => true): Promise<EditorEditResult> {
@@ -38,7 +38,7 @@ export async function runEditorClipboardAction(editor: Editor, action: EditorCli
   if (action === 'cut' && !canCut()) return { ok: false, reason: 'context-changed' };
   if (copied) {
     if (action === 'cut') view.dispatch(view.state.tr.deleteSelection().setMeta('uiEvent', 'cut')
-      .setMeta(KNOWRA_CLIPBOARD_CUT, marked ? text : null).scrollIntoView());
+      .setMeta(KNOWRA_CLIPBOARD_CUT, marked ? knowraClipboardIntent(text, slice) : null).scrollIntoView());
     else view.dispatch(view.state.tr.setMeta(KNOWRA_CLIPBOARD_COPY, true));
     return { ok: true };
   }
@@ -67,7 +67,7 @@ async function pasteClipboardText(editor: Editor, canMutate: () => boolean): Pro
     if (knownSlice) {
       const text = payload?.plain ?? clipboard.text;
       const tr = insertKnowraSource(view.state, knownSlice, text) ?? view.state.tr.insertText(text).setMeta('uiEvent', 'paste');
-      view.dispatch(tr.setMeta(KNOWRA_CLIPBOARD_PASTE, clipboard.text).scrollIntoView());
+      view.dispatch(tr.setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(clipboard.text, knownSlice)).scrollIntoView());
       view.focus();
       return { ok: true };
     }
@@ -78,7 +78,7 @@ async function pasteClipboardText(editor: Editor, canMutate: () => boolean): Pro
   const markdown = knownSlice ? '' : convertTexMathDelimiters(clipboard.text, source => editor.ctx.get(remarkCtx).parse(source));
   const slice = knownSlice ?? parseMarkdownSlice(editor.ctx.get(parserCtx), markdown);
   if (!slice) return { ok: false, reason: 'unsupported' };
-  view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, clipboard.text).scrollIntoView());
+  view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(clipboard.text, slice)).scrollIntoView());
   view.focus();
   return { ok: true };
 }

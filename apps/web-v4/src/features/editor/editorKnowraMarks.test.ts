@@ -141,6 +141,22 @@ describe('正文 Knowra 标记与编辑器文档互转', () => {
     await paste();
     expect(Object.values(markedText(view.state.doc)).sort()).toEqual(['acb', 'b']);
   });
+  it('剪切后替换为同文异重点的剪贴板：不误判移动，外部副本获得新身份', async () => {
+    const { editor, view } = await createEditor('<mark data-k="a">abc</mark>\n\n<mark data-k="x">b</mark>');
+    const values = new Map<string, string>();
+    const data = { items: [], clearData: () => values.clear(), setData: (type: string, value: string) => values.set(type, value), getData: (type: string) => values.get(type) ?? '' } as unknown as DataTransfer;
+    vi.stubGlobal('navigator', { userAgent: navigator.userAgent, clipboard: {
+      read: async () => [{ types: ['text/plain', 'text/html'], getType: async (type: string) => ({ text: async () => values.get(type) ?? '' }) }]
+    } });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 3)));
+    view.dom.dispatchEvent(new ClipboardEvent('cut', { clipboardData: data }));
+    values.clear(); values.set('text/plain', 'b'); values.set('text/html', '<mark data-knowra-mark="x" data-knowra-attrs="{}">b</mark>');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    expect(await runEditorClipboardAction(editor, 'paste')).toEqual({ ok: true });
+    const covered = markedText(view.state.doc);
+    expect(covered.a).toBe('ac'); expect(covered.x).toBe('b');
+    expect(Object.values(covered).sort()).toEqual(['ac', 'b', 'b']);
+  });
   it('不可信剪贴板：拒绝 null/数组/非法 ID/非字符串属性和损坏块条目，正文仍可粘贴保存', async () => {
     const { view, serialize } = await createEditor('原文');
     const html = '<p data-knowra-blocks=\'[null,{"id":"bad!","attrs":{}},{"id":"b","attrs":{"s":"blocks","future":"ok"}}]\'>'

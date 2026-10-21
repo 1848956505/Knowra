@@ -6,7 +6,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { parserCtx, remarkCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { assertInlineImageFile } from './attachmentFiles';
-import { hasPastedKnowraMarks, insertKnowraSource, KNOWRA_CLIPBOARD_PASTE, parseKnowraClipboardSlice, recallKnowraClipboard } from './editorKnowraClipboard';
+import { hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_PASTE, parseKnowraClipboardSlice, recallKnowraClipboard } from './editorKnowraClipboard';
 
 const MARKDOWN_BLOCK_PATTERNS = [
   /^\s{0,3}#{1,6}\s+/m,
@@ -89,7 +89,7 @@ export function createEditorPasteBehavior(
           const text = payload?.plain ?? source;
           const marked = insertKnowraSource(view.state, slice, text);
           view.dispatch((marked ?? view.state.tr.insertText(text.replace(/\r\n?/g, '\n')).setMeta('uiEvent', 'paste'))
-            .setMeta(KNOWRA_CLIPBOARD_PASTE, source).scrollIntoView());
+            .setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(source, slice)).scrollIntoView());
           return true;
         }
         if (view.state.selection.$from.parent.type.spec.code) return false;
@@ -122,8 +122,9 @@ export function createEditorPasteBehavior(
         const payload = recallKnowraClipboard(text);
         if (payload) {
           event.preventDefault();
-          view.dispatch(view.state.tr.replaceSelection(parseKnowraClipboardSlice(view.state.schema, payload.html))
-            .setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
+          const slice = parseKnowraClipboardSlice(view.state.schema, payload.html);
+          view.dispatch(view.state.tr.replaceSelection(slice)
+            .setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(text, slice)).scrollIntoView());
           return true;
         }
 
@@ -134,7 +135,7 @@ export function createEditorPasteBehavior(
           const slice = parseMarkdownSlice(ctx.get(parserCtx), texConverted);
           if (slice) {
             event.preventDefault();
-            view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
+            view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(text, slice)).scrollIntoView());
             return true;
           }
         }
@@ -147,7 +148,7 @@ export function createEditorPasteBehavior(
           const slice = parseMarkdownSlice(ctx.get(parserCtx), text);
           if (!slice) return false;
           event.preventDefault();
-          view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
+          view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(text, slice)).scrollIntoView());
           return true;
         }
 
@@ -157,7 +158,7 @@ export function createEditorPasteBehavior(
         // 正文重点必须保留剪贴板载体，并让身份插件识别这次复制/移动。
         if (cleanedSlice === preProcessedSlice && !hasPastedKnowraMarks(cleanedSlice)) return false;
         event.preventDefault();
-        view.dispatch(view.state.tr.replaceSelection(cleanedSlice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
+        view.dispatch(view.state.tr.replaceSelection(cleanedSlice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(text, cleanedSlice)).scrollIntoView());
         return true;
       }
     }

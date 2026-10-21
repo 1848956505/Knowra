@@ -7,6 +7,26 @@ export const KNOWRA_CLIPBOARD_CUT = 'knowraClipboardCut';
 export const KNOWRA_CLIPBOARD_COPY = 'knowraClipboardCopy';
 export const KNOWRA_CLIPBOARD_PASTE = 'knowraClipboardPaste';
 
+interface ClipboardIntent { text: string; signature: string }
+
+export function knowraClipboardIntent(text: string, slice: Slice): ClipboardIntent {
+  const runs: Array<{ text: string; marks: string }> = [];
+  const blocks: unknown[] = [];
+  slice.content.descendants(node => {
+    if (node.attrs[KNOWRA_BLOCKS_ATTR]?.length) blocks.push(node.attrs[KNOWRA_BLOCKS_ATTR]);
+    if (!node.isText) return;
+    const marks = JSON.stringify(node.marks.filter(mark => mark.type.name === KNOWRA_MARK).map(mark => mark.attrs)
+      .sort((left, right) => String(left.id).localeCompare(String(right.id))));
+    const last = runs.at(-1);
+    if (last?.marks === marks) last.text += node.text;
+    else runs.push({ text: node.text!, marks });
+  });
+  return { text: text.replace(/\r\n?/g, '\n'), signature: JSON.stringify({ runs, blocks }) };
+}
+
+const isClipboardIntent = (value: unknown): value is ClipboardIntent => value !== null && typeof value === 'object'
+  && typeof (value as ClipboardIntent).text === 'string' && typeof (value as ClipboardIntent).signature === 'string';
+
 interface ClipboardPayload { text: string; html: string; plain: string }
 let clipboardPayload: ClipboardPayload | null = null;
 let nativeKnowraText: string | null = null;
@@ -33,7 +53,7 @@ export function parseKnowraClipboardSlice(schema: Schema, html: string): Slice {
 
 /** 菜单使用异步纯文本剪贴板时，用标记 Markdown 精确匹配一次剪切；撤销/复制会取消移动意图。 */
 export function createKnowraClipboardIntent() {
-  let cut: string | null = null;
+  let cut: ClipboardIntent | null = null;
   return {
     clear: () => { cut = null; },
     consume(transactions: readonly Transaction[]) {
@@ -41,9 +61,10 @@ export function createKnowraClipboardIntent() {
       for (const transaction of transactions) {
         if (isHistoryTransaction(transaction) || transaction.getMeta(KNOWRA_CLIPBOARD_COPY) || transaction.getMeta('uiEvent') === 'cut') cut = null;
         const text: unknown = transaction.getMeta(KNOWRA_CLIPBOARD_CUT);
-        if (typeof text === 'string') cut = text;
+        if (isClipboardIntent(text)) cut = text;
         if (transaction.getMeta('uiEvent') === 'paste') {
-          moving ||= cut !== null && transaction.getMeta(KNOWRA_CLIPBOARD_PASTE) === cut;
+          const pasted: unknown = transaction.getMeta(KNOWRA_CLIPBOARD_PASTE);
+          moving ||= cut !== null && isClipboardIntent(pasted) && pasted.text === cut.text && pasted.signature === cut.signature;
           cut = null;
         }
       }
