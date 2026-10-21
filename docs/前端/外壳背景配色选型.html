@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowra 外壳配色</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 布局：上方预设 + 大样机 + 右侧微调面板；下方各预设缩略并排。样机结构固定为“外栏垫底、侧栏与正文两张浮卡”。 */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #17181b;
+  --ink-2: #5d626c;
+  --line: rgba(24, 30, 48, .1);
+  --accent: #d75a14;
+  --accent-soft: rgba(215, 90, 20, .1);
+  --font-ui: "Inter", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #141518; --surface: #1d1f23; --ink: #ececee; --ink-2: #a2a7b0; --line: rgba(255,255,255,.1); --accent: #ff8a4c; --accent-soft: rgba(255,138,76,.14); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #141518; --surface: #1d1f23; --ink: #ececee; --ink-2: #a2a7b0; --line: rgba(255,255,255,.1); --accent: #ff8a4c; --accent-soft: rgba(255,138,76,.14); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.6 var(--font-ui); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 32px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 24px; }
+h1 { margin: 0; font-size: 24px; line-height: 1.3; text-wrap: balance; }
+h2 { margin: 0; font-size: 15px; text-wrap: balance; }
+p { margin: 0; }
+.lede { max-width: 72ch; color: var(--ink-2); }
+
+.picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.picker button { min-height: 34px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: 500 13px var(--font-ui); cursor: pointer; }
+.picker button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.picker button:focus-visible, .copy:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+@media (max-width: 1020px) { .stage { grid-template-columns: 1fr; } }
+.scroller { overflow-x: auto; border-radius: 14px; }
+.panel { display: grid; gap: 16px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.panel > p { color: var(--ink-2); font-size: 13px; }
+.ctl { display: grid; gap: 4px; }
+.ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 500; }
+.ctl label output { color: var(--ink-2); font: 12px var(--font-mono); }
+.ctl input { width: 100%; accent-color: var(--accent); }
+.ctl small { color: var(--ink-2); font-size: 11.5px; }
+.tokens { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tok { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 12.5px; }
+.tok i { width: 22px; height: 22px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.tok code { font: 12px var(--font-mono); color: var(--ink-2); }
+.copy { justify-self: start; min-height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: 500 12.5px var(--font-ui); cursor: pointer; }
+pre { margin: 0; padding: 10px; border-radius: 8px; background: var(--bg); font: 11.5px/1.6 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- 应用外壳样机：颜色全部来自脚本写入的变量 ---------- */
+.app {
+  --a-ink: #17181b; --a-ink2: #686d76; --a-accent: #f26b1d;
+  min-width: 760px; height: 560px; display: grid; grid-template-columns: 52px 236px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr);
+  gap: 0 8px; padding: 0 8px 8px 0; border-radius: 14px; background: var(--chrome); color: var(--a-ink); font: 13px/1.5 var(--font-ui);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 18px 40px -24px rgba(0,0,0,.35);
+}
+.app * { transition: background-color .2s, box-shadow .2s; }
+.bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding-left: 14px; }
+.bar .dot { width: 24px; height: 24px; border-radius: 7px; background: var(--hover); }
+.bar .gap { width: 30px; }
+.tab { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: 8px; color: var(--a-ink2); font-size: 12.5px; white-space: nowrap; }
+.tab.on { background: var(--raised); color: var(--a-ink); box-shadow: var(--ctl-shadow); font-weight: 550; }
+.tab b { width: 10px; height: 12px; border: 1.4px solid currentColor; border-radius: 2px; opacity: .7; }
+.tab.on b { border-color: var(--a-accent); opacity: 1; }
+.rail { display: grid; align-content: start; justify-items: center; gap: 10px; padding-top: 6px; }
+.rail span { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; }
+.rail span::after { content: ""; width: 16px; height: 16px; border: 1.6px solid #7b808a; border-radius: 4px; }
+.rail span.on { background: var(--raised); box-shadow: var(--ctl-shadow); }
+.rail span.on::after { border-color: var(--a-accent); }
+.side { min-height: 0; display: grid; align-content: start; gap: 2px; padding: 12px 10px; border-radius: 12px; background: var(--side); box-shadow: var(--side-shadow); overflow: hidden; }
+.side h3 { margin: 0 4px 6px; font-size: 14px; }
+.side .lbl { margin: 8px 6px 2px; color: var(--a-ink2); font-size: 11.5px; }
+.side .row { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; font-size: 12.5px; }
+.side .row em { margin-left: auto; font-style: normal; color: var(--a-ink2); font-size: 11.5px; }
+.side .row i { width: 13px; height: 13px; border: 1.4px solid var(--a-ink2); border-radius: 3px; }
+.side .row.on { background: var(--raised); box-shadow: var(--ctl-shadow); font-weight: 600; }
+.side .row.on i { border-color: var(--a-accent); }
+.side .row.f i { border: 0; width: 13px; height: 10px; border-radius: 2px; background: var(--a-accent); opacity: .85; }
+.side hr { height: 1px; margin: 8px 4px; border: 0; background: var(--hair); }
+.page { min-height: 0; overflow: hidden; border-radius: 12px; background: var(--page); box-shadow: var(--page-shadow); padding: 34px 48px; display: grid; align-content: start; gap: 14px; }
+.crumb { color: var(--a-ink2); font-size: 12px; }
+.page h4 { margin: 0; font-size: 28px; line-height: 1.2; letter-spacing: -.01em; }
+.meta { display: flex; gap: 10px; align-items: center; color: var(--a-ink2); font-size: 12px; }
+.meta span:first-child { padding: 2px 9px; border-radius: 999px; background: var(--hover); }
+.tools { display: flex; gap: 16px; align-items: center; height: 36px; padding: 0 14px; border-radius: 10px; background: var(--page); box-shadow: 0 0 0 1px var(--hair), 0 2px 6px -3px rgba(24,30,48,.1); color: var(--a-ink2); font-size: 12px; }
+.tools s { width: 1px; height: 16px; background: var(--hair); }
+.page p { color: var(--a-ink); font-size: 13.5px; line-height: 1.85; max-width: 62ch; }
+.page p b { font-weight: 650; }
+.page .rule { height: 1px; background: var(--hair); }
+.page h5 { margin: 6px 0 0; font-size: 20px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 18px; }
+.card { display: grid; gap: 8px; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 12px; }
+.card .scroller { border-radius: 12px; }
+.card .app { min-width: 560px; height: 300px; grid-template-columns: 40px 150px minmax(0, 1fr); grid-template-rows: 34px minmax(0, 1fr); gap: 0 6px; padding: 0 6px 6px 0; font-size: 11px; }
+.card .tab { height: 24px; padding: 0 9px; font-size: 11px; }
+.card .bar .gap, .card .tab:nth-child(n+5) { display: none; }
+.card .rail span { width: 26px; height: 26px; }
+.card .rail span::after { width: 12px; height: 12px; }
+.card .side { padding: 8px 6px; }
+.card .side h3 { font-size: 12px; }
+.card .side .row { height: 22px; font-size: 10.5px; }
+.card .page { padding: 18px 22px; gap: 8px; }
+.card .page h4 { font-size: 18px; }
+.card .page p { font-size: 10.5px; line-height: 1.7; }
+.card .page h5, .card .tools, .card .page p:nth-of-type(n+2) { display: none; }
+.card header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.card header strong { font-size: 14px; }
+.card header span { color: var(--ink-2); font-size: 12.5px; }
+.sw { display: flex; gap: 6px; flex-wrap: wrap; }
+.sw span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 4px; border: 1px solid var(--line); border-radius: 999px; font: 11.5px var(--font-mono); color: var(--ink-2); }
+.sw i { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); }
+@media (prefers-reduced-motion: reduce) { .app * { transition: none; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>外栏、侧栏与正文的浅色微调</h1>
+    <p class="lede">结构保持现在的样子：外栏垫在最底层，上下文侧栏和正文是两张浮在上面的卡片。颜色只在浅白和浅灰之间调整。几套预设各自只动一两个变量，右侧滑块可以继续细调，调好后复制色值。</p>
+  </header>
+
+  <div class="picker" role="group" aria-label="选择预设" id="picker"></div>
+
+  <section class="stage">
+    <div class="scroller"><div class="app" id="hero"></div></div>
+    <aside class="panel" aria-label="微调">
+      <div style="display:grid;gap:6px"><h2 id="pname"></h2><p id="pdesc" style="color:var(--ink-2);font-size:13px"></p></div>
+      <div id="ctls" style="display:grid;gap:12px"></div>
+      <div class="tokens" id="tokens"></div>
+      <button class="copy" id="copy" type="button">复制色值</button>
+      <pre id="css" hidden></pre>
+    </aside>
+  </section>
+
+  <section style="display:grid;gap:14px">
+    <h2>预设并排对比</h2>
+    <div class="grid" id="grid"></div>
+  </section>
+</div>
+
+<script>
+// 所有灰都用同一色相（偏冷的蓝灰 220°），饱和度可降到 0 成为纯中性灰。
+const HUE = 220;
+const controls = [
+  { key: 'sat', label: '灰的冷度', min: 0, max: 20, step: 1, unit: '%', hint: '0 为纯中性灰；越大越偏蓝灰' },
+  { key: 'chrome', label: '外栏亮度', min: 82, max: 95, step: .5, unit: '%', hint: '越低外栏越“压得住”' },
+  { key: 'side', label: '侧栏亮度', min: 92, max: 100, step: .25, unit: '%', hint: '和正文拉开 2–4% 侧栏才像独立卡片' },
+  { key: 'page', label: '正文亮度', min: 97, max: 100, step: .1, unit: '%', hint: '100 为纯白' },
+  { key: 'ring', label: '卡片描边', min: 0, max: 18, step: 1, unit: '%', hint: '细描边让卡片边界更实' },
+  { key: 'shadow', label: '浮起阴影', min: 0, max: 100, step: 5, unit: '', hint: '越大越“飘”，越小越贴' }
+];
+const presets = [
+  { id: 'now', name: '当前', desc: '作为对照：侧栏半透明、与正文几乎同亮，阴影偏柔。', v: { sat: 15, chrome: 90, side: 97, page: 99.8, ring: 7, shadow: 55 } },
+  { id: 'layer', name: '拉开中间层', desc: '外栏不动，侧栏降到 95.5% 的浅灰，正文改纯白。三层亮度间隔变均匀，侧栏不再和正文融成一片。', v: { sat: 12, chrome: 89.5, side: 95.5, page: 100, ring: 8, shadow: 50 } },
+  { id: 'neutral', name: '去蓝中性灰', desc: '亮度层级同上，把灰里的淡蓝去掉大半。蓝灰在大面积时容易显得冷而发虚，中性灰更“实”。', v: { sat: 4, chrome: 89.5, side: 96, page: 100, ring: 8, shadow: 50 } },
+  { id: 'deeper', name: '外栏压一档', desc: '侧栏和正文保持很亮，只把外栏降到 86.5%。底层变重，两张卡片的轮廓自然清楚，整体更有重心。', v: { sat: 10, chrome: 86.5, side: 97.5, page: 100, ring: 8, shadow: 55 } },
+  { id: 'crisp', name: '实边利落', desc: '颜色接近“拉开中间层”，但加重细描边、减弱大阴影。卡片靠清楚的边缘浮起，而不是靠模糊的影子，读起来更稳。', v: { sat: 8, chrome: 89, side: 96, page: 100, ring: 13, shadow: 25 } },
+  { id: 'paper', name: '侧栏白·正文微灰', desc: '反过来：侧栏用纯白，正文退到 98.6% 的极浅灰。大面积纸面不刺眼，侧栏像浮在最上面的一张卡。', v: { sat: 6, chrome: 89, side: 100, page: 98.6, ring: 9, shadow: 45 } }
+];
+
+function hex(l, s) {
+  s /= 100; l /= 100;
+  const k = n => (n + HUE / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return '#' + [0, 8, 4].map(n => Math.round(f(n) * 255).toString(16).padStart(2, '0')).join('');
+}
+function vars(v) {
+  const ink = `rgba(24,30,48,`;
+  const sh = v.shadow / 100;
+  const ring = `0 0 0 1px ${ink}${(v.ring / 100).toFixed(2)})`;
+  return {
+    '--chrome': hex(v.chrome, v.sat),
+    '--side': hex(v.side, Math.max(0, v.sat - 4)),
+    '--page': hex(v.page, Math.max(0, v.sat - 6)),
+    '--raised': hex(Math.min(100, Math.max(v.side, v.page) + .2), 0),
+    '--hover': `${ink}.05)`,
+    '--hair': `${ink}${(v.ring / 100 + .01).toFixed(2)})`,
+    '--ctl-shadow': `0 0 0 1px ${ink}.06), 0 1px 2px ${ink}.07)`,
+    '--side-shadow': `inset 0 1px 0 rgba(255,255,255,.7), ${ring}, 0 2px 6px -2px ${ink}${(.14 * sh).toFixed(3)}), 0 12px 28px -16px ${ink}${(.3 * sh).toFixed(3)})`,
+    '--page-shadow': `${ring}, 0 2px 6px -2px ${ink}${(.14 * sh).toFixed(3)}), 0 6px 18px -6px ${ink}${(.16 * sh).toFixed(3)}), 0 22px 48px -18px ${ink}${(.24 * sh).toFixed(3)})`
+  };
+}
+function apply(el, v) { Object.entries(vars(v)).forEach(([k, val]) => el.style.setProperty(k, val)); }
+
+const shell = `
+  <div class="bar"><span class="dot"></span><span class="gap"></span>
+    <span class="tab"><b></b>A股短线 ChatGPT…</span><span class="tab"><b></b>观点</span><span class="tab"><b></b>CLIP</span><span class="tab on"><b></b>Vision Transformer</span></div>
+  <nav class="rail" aria-hidden="true"><span></span><span class="on"></span><span></span><span></span><span></span></nav>
+  <div class="side">
+    <h3>笔记</h3><div class="lbl">快速入口</div>
+    <div class="row on"><i></i>全部笔记<em>18</em></div><div class="row"><i></i>最近编辑<em>6</em></div><div class="row"><i></i>收藏<em>0</em></div><div class="row"><i></i>未整理<em>1</em></div>
+    <hr><div class="lbl">文件夹</div>
+    <div class="row f"><i></i>A<em>3</em></div><div class="row f"><i></i>学习方法<em>2</em></div><div class="row f"><i></i>本项目<em>4</em></div><div class="row f"><i></i>论文<em>4</em></div>
+  </div>
+  <main class="page">
+    <div class="crumb">笔记 / 多模态</div>
+    <h4>Vision Transformer</h4>
+    <div class="meta"><span>待整理</span><span>更新于 07/24</span></div>
+    <div class="tools"><span>文件</span><span>段落</span><span>编辑</span><span>格式</span><s></s><span>H1</span><span>H2</span><span>H3</span><s></s><span>B</span><span>I</span></div>
+    <p>下面我按“精读论文”的方式讲 Vision Transformer，也就是这篇：<b>An Image is Worth 16x16 Words</b>。核心主张是：<b>不依赖 CNN，把图片切成 patch 序列，直接送进标准 Transformer。</b></p>
+    <div class="rule"></div>
+    <h5>0. 先给你一句话总览</h5>
+    <p>ViT 的本质不是给图像任务换了个 Transformer 外壳，而是提出了一个重要的思想：图像也可以被当作 token 序列。</p>
+  </main>`;
+
+const hero = document.getElementById('hero');
+const picker = document.getElementById('picker');
+const ctls = document.getElementById('ctls');
+const tokens = document.getElementById('tokens');
+const cssOut = document.getElementById('css');
+hero.innerHTML = shell;
+let state = {};
+let current = null;
+
+controls.forEach(c => {
+  const box = document.createElement('div');
+  box.className = 'ctl';
+  box.innerHTML = `<label for="c-${c.key}">${c.label}<output id="o-${c.key}"></output></label>
+    <input id="c-${c.key}" type="range" min="${c.min}" max="${c.max}" step="${c.step}"><small>${c.hint}</small>`;
+  ctls.append(box);
+  box.querySelector('input').addEventListener('input', e => { state[c.key] = Number(e.target.value); current = null; render(); });
+});
+
+function render() {
+  apply(hero, state);
+  controls.forEach(c => { document.getElementById('c-' + c.key).value = state[c.key]; document.getElementById('o-' + c.key).textContent = state[c.key] + c.unit; });
+  [...picker.children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === current)));
+  const p = presets.find(x => x.id === current);
+  document.getElementById('pname').textContent = p ? p.name : '自定义';
+  document.getElementById('pdesc').textContent = p ? p.desc : '已在预设基础上手动调整。';
+  const v = vars(state);
+  const out = {
+    '--ni-chrome': v['--chrome'], '--ni-ctx-bg': v['--side'], '--ni-page': v['--page'],
+    '卡片描边': `rgba(24,30,48,.${String(state.ring).padStart(2, '0')})`, '阴影强度': `${state.shadow}%`
+  };
+  tokens.innerHTML = Object.entries(out).map(([k, val]) => `<div class="tok"><i style="background:${/^#|rgba/.test(val) ? val : 'transparent'}"></i><span>${k}</span><code>${val}</code></div>`).join('');
+  cssOut.textContent = `--ni-chrome: ${out['--ni-chrome']};\n--ni-ctx-bg: ${out['--ni-ctx-bg']};\n--ni-page: ${out['--ni-page']};\n/* 卡片描边 ${out['卡片描边']}，阴影强度 ${out['阴影强度']} */`;
+  try { localStorage.setItem('knowra-palette-v3', JSON.stringify({ state, current })); } catch {}
+}
+function choose(id) { const p = presets.find(x => x.id === id); state = { ...p.v }; current = id; render(); }
+
+document.getElementById('copy').addEventListener('click', e => {
+  const text = cssOut.textContent;
+  navigator.clipboard?.writeText(text).then(() => { e.target.textContent = '已复制'; setTimeout(() => { e.target.textContent = '复制色值'; }, 1500); })
+    .catch(() => { cssOut.hidden = false; getSelection().selectAllChildren(cssOut); e.target.textContent = '已选中，按 ⌘C 复制'; });
+});
+
+const grid = document.getElementById('grid');
+presets.forEach(p => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.id = p.id; b.textContent = p.name;
+  b.addEventListener('click', () => choose(p.id));
+  picker.append(b);
+  const card = document.createElement('button');
+  card.type = 'button'; card.className = 'card'; card.setAttribute('aria-label', `查看预设：${p.name}`);
+  const v = vars(p.v);
+  card.innerHTML = `<header><strong>${p.name}</strong></header><div class="scroller"><div class="app">${shell}</div></div>
+    <div class="sw">${['--chrome', '--side', '--page'].map(k => `<span><i style="background:${v[k]}"></i>${v[k]}</span>`).join('')}</div>`;
+  apply(card.querySelector('.app'), p.v);
+  card.addEventListener('click', () => { choose(p.id); hero.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  grid.append(card);
+});
+
+let restored = false;
+try {
+  const saved = JSON.parse(localStorage.getItem('knowra-palette-v3') || 'null');
+  if (saved?.state) { state = saved.state; current = saved.current; render(); restored = true; }
+} catch {}
+if (!restored) choose('layer');
+</script>
+</body>
+</html>
