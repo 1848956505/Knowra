@@ -41,10 +41,20 @@ test('跨行 code span：行内默认、snap 和块级插入均不能把真实�
 });
 
 test('跨行 code span 与公式块各自封闭：内部定界符不能屏蔽后续真实标记', () => {
-  for (const prefix of ['前 `开头\n$$\n结束` 后\n', '$$\n`字面\n$$\n']) {
+  for (const prefix of ['前 `开头\nx $$\n结束` 后\n', '$$\n`字面\n$$\n']) {
     const source = `${prefix}<mark data-k="real">正文</mark>\n结尾\``;
     assert.deepEqual(ids(parseKnowraMarks(source).inline), ['real']);
     assert.equal(stripKnowraMarks(source), `${prefix}正文\n结尾\``);
+  }
+});
+
+test('公式内容中的围栏样式文字不会吞掉公式后的真实重点', () => {
+  for (const literal of ['~~~x', '```js', '`字面']) {
+    const prefix = `$$\n${literal}\n<mark data-k="fake">字面</mark>\n$$\n\n`;
+    const source = `${prefix}<mark data-k="real">正文</mark>`;
+    assert.deepEqual(ids(parseKnowraMarks(source).inline), ['real']);
+    assert.equal(stripKnowraMarks(source), `${prefix}正文`);
+    assert.equal(sameKnowraText(source, `${prefix}正文`), true);
   }
 });
 

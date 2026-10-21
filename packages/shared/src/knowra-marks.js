@@ -1,10 +1,12 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 import { gfm } from 'micromark-extension-gfm';
 import { gfmFromMarkdown } from 'mdast-util-gfm';
+import { math } from 'micromark-extension-math';
+import { mathFromMarkdown } from 'mdast-util-math';
 
 // Knowra 正文内联标记：重点、挖空等以标记形式写在 Markdown 正文里（见《重点标记内联化方案》第 2 节）。
 // 行内 `<mark data-k="id" ...>文字</mark>`，块级 `<!--k id s=section ...-->`，标题局部排除 `<!--k- id-->`。
-// CommonMark/GFM 语法树提供代码字面边界，其余标记按源码偏移扫描；未知属性与角色原样保留。
+// 与编辑器一致的 CommonMark/GFM/公式语法树提供字面边界，其余标记按源码偏移扫描；未知属性与角色原样保留。
 
 export const KNOWRA_MARKS_FORMAT = 1;
 
@@ -46,8 +48,12 @@ function lineTable(markdown) {
 function classifyLines(markdown, lines) {
   const fences = new Map();
   const codeSpans = [];
-  const tree = fromMarkdown(markdown, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
+  const tree = fromMarkdown(markdown, { extensions: [gfm(), math({ singleDollarTextMath: true })], mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()] });
   function visit(node) {
+    if (node.type === 'math') {
+      for (let index = node.position.start.line - 1; index < node.position.end.line; index += 1) lines[index].kind = 'math';
+      return;
+    }
     if (node.type === 'inlineCode') codeSpans.push([node.position.start.offset, node.position.end.offset]);
     if (node.type === 'code') {
       const first = node.position.start.line - 1;
@@ -65,21 +71,7 @@ function classifyLines(markdown, lines) {
     for (const child of node.children ?? []) visit(child);
   }
   visit(tree);
-  let math = false;
-  for (const line of lines) {
-    if (line.kind !== 'text') continue;
-    if (math) {
-      line.kind = 'math';
-      if (markdown.slice(line.start, line.end).trim() === '$$') math = false;
-    } else if (markdown.slice(line.start, line.end).trim() === '$$'
-      && !codeSpans.some(([start, end]) => start <= line.start && line.start < end)) {
-      line.kind = 'math';
-      math = true;
-    }
-  }
-  // 公式块中的反引号不应跨出公式保护正文；code span 中的 $$ 也不能打开公式块。
-  const mathLines = lines.filter(line => line.kind === 'math');
-  return { fences, codeSpans: codeSpans.filter(([start, end]) => !mathLines.some(line => start < line.next && line.start < end)) };
+  return { fences, codeSpans };
 }
 
 /** 代码块的逻辑内容，与编辑器看到的代码文字一致。 */

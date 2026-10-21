@@ -6,6 +6,7 @@ import { KNOWRA_BLOCKS_ATTR, KNOWRA_MARK, type KnowraBlockEntry } from './editor
 export const KNOWRA_CLIPBOARD_CUT = 'knowraClipboardCut';
 export const KNOWRA_CLIPBOARD_COPY = 'knowraClipboardCopy';
 export const KNOWRA_CLIPBOARD_PASTE = 'knowraClipboardPaste';
+export const KNOWRA_CLIPBOARD_PLAIN = 'knowraClipboardPlain';
 
 interface ClipboardIntent { text: string; signature: string }
 

@@ -36,6 +36,17 @@ const BASE = [
 ].join('\n');
 
 export const inlineAnnotationTests = [
+  {
+    name: '公式内未闭合围栏文字不删除公式后已有的真实重点',
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, '<mark data-k="real">正文</mark>');
+      const id = inlineAnnotationId(note.id, 'real');
+      note = update(module, note, `$$\n~~~x\n$$\n\n${note.rawMarkdown}`);
+      assert.equal(module.repositories.contentAnnotationRepository.findById(id).lifecycleStatus, 'active');
+      assert.equal(inlineRows(module, note.id).length, 1);
+    }
+  },
   ...[
     ['四空格缩进代码', text => `    ${text}\n`],
     ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],

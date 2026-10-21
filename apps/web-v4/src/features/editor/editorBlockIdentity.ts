@@ -6,7 +6,7 @@ import { Transform } from '@milkdown/kit/prose/transform';
 import { $markSchema, $prose } from '@milkdown/kit/utils';
 import type { Ctx, MilkdownPlugin } from '@milkdown/kit/ctx';
 import { KNOWRA_MARK, knowraMarkSchema, parseKnowraClipboardBlocks } from './editorKnowraMarks';
-import { createKnowraClipboardIntent, remapCopiedKnowraMarks } from './editorKnowraClipboard';
+import { createKnowraClipboardIntent, KNOWRA_CLIPBOARD_PLAIN, remapCopiedKnowraMarks } from './editorKnowraClipboard';
 
 /** 重点在正文中的身份载体。只用于跟踪位置，不绘制、不进入 Markdown。 */
 export const ANNOTATION_MARK = 'knowraAnnotation';
@@ -133,7 +133,7 @@ export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorSt
         for (const position of positions) if (position !== keep) tr.setNodeAttribute(position, 'blockId', createBlockId());
       }
       for (const position of missing) tr.setNodeAttribute(position, 'blockId', createBlockId());
-      const clipboard = transactions.some(transaction => ['paste', 'drop'].includes(transaction.getMeta('uiEvent')));
+      const clipboard = transactions.some(transaction => ['paste', 'drop'].includes(transaction.getMeta('uiEvent')) && !transaction.getMeta(KNOWRA_CLIPBOARD_PLAIN));
       const menuMove = clipboardIntent.consume(transactions);
       const moving = isCutPaste(state) || menuMove || transactions.some(transaction => transaction.getMeta('uiEvent') === 'drop'
         && transaction.mapping.maps.some(map => {
@@ -142,7 +142,7 @@ export function createBlockIdentityBehavior(knownAnnotationIds: (state: EditorSt
           return deleted;
         }));
       const copiedMarks = clipboard && remapCopiedKnowraMarks(tr, inserted, moving);
-      if (type && transactions.some(transaction => ['paste', 'drop'].includes(transaction.getMeta('uiEvent')))) {
+      if (type && clipboard) {
         const known = knownAnnotationIds(state);
         const outside = new Set<string>();
         state.doc.descendants((node, position) => {

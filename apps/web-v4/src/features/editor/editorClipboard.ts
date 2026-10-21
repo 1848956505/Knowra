@@ -5,7 +5,7 @@ import type { EditorClipboardAction, EditorEditResult } from './editorCommands';
 import { convertTexMathDelimiters, shouldPasteAsSource } from './editorMathPaste';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { selectCodeBlockContents } from './editorCodeCommands';
-import { expectsNativeKnowraClipboard, hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_COPY, KNOWRA_CLIPBOARD_CUT, KNOWRA_CLIPBOARD_PASTE,
+import { expectsNativeKnowraClipboard, hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_COPY, KNOWRA_CLIPBOARD_CUT, KNOWRA_CLIPBOARD_PASTE, KNOWRA_CLIPBOARD_PLAIN,
   parseKnowraClipboardSlice, recallKnowraClipboard, rememberKnowraClipboard } from './editorKnowraClipboard';
 
 export async function runEditorClipboardAction(editor: Editor, action: EditorClipboardAction, canMutate: () => boolean = () => true): Promise<EditorEditResult> {
@@ -66,12 +66,12 @@ async function pasteClipboardText(editor: Editor, canMutate: () => boolean): Pro
   if (shouldPasteAsSource(view.state)) {
     if (knownSlice) {
       const text = payload?.plain ?? clipboard.text;
-      const tr = insertKnowraSource(view.state, knownSlice, text) ?? view.state.tr.insertText(text).setMeta('uiEvent', 'paste');
+      const tr = insertKnowraSource(view.state, knownSlice, text) ?? view.state.tr.insertText(text).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PLAIN, true);
       view.dispatch(tr.setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(clipboard.text, knownSlice)).scrollIntoView());
       view.focus();
       return { ok: true };
     }
-    view.dispatch(view.state.tr.insertText(clipboard.text.replace(/\r\n?/g, '\n')).scrollIntoView());
+    view.dispatch(view.state.tr.insertText(clipboard.text.replace(/\r\n?/g, '\n')).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PLAIN, true).scrollIntoView());
     view.focus();
     return { ok: true };
   }

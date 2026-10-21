@@ -202,6 +202,21 @@ describe('正文 Knowra 标记与编辑器文档互转', () => {
     else expect(serialize()).not.toContain('==');
   });
 
+  it.each(['native', 'menu'])('代码内 %s 粘贴普通文字只扩展原重点，不凭空创建新重点', async mode => {
+    const { editor, view, serialize, parse } = await createEditor(`<!--k a s=code r=0-3 h=${knowraCheck('abc')}-->\n~~~\nabc\n~~~`);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+    if (mode === 'native') {
+      const data = { items: [], getData: (type: string) => type === 'text/plain' ? 'X' : '' } as unknown as DataTransfer;
+      view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data }));
+    } else {
+      vi.stubGlobal('navigator', { userAgent: navigator.userAgent, clipboard: { readText: async () => 'X' } });
+      expect(await runEditorClipboardAction(editor, 'paste')).toEqual({ ok: true });
+    }
+    expect(view.state.doc.textContent).toBe('aXbc');
+    expect(markedText(view.state.doc)).toEqual({ a: 'aXbc' });
+    expect(markedText(parse(serialize()))).toEqual({ a: 'aXbc' });
+  });
+
   it('复制章节：同一副本的行内、块级分段与排除项共用新 ID，再复制再换新', async () => {
     const { view, serialize, parse } = await createEditor('## 节 <!--k a s=section-->\n\n**<mark data-k="a">甲</mark>**<mark data-k="a">乙</mark>\n\n排除 <!--k- a-->\n\n末块 <!--k a s=blocks-->');
     const original = view.state.doc;

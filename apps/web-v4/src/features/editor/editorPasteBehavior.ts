@@ -6,7 +6,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { parserCtx, remarkCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { assertInlineImageFile } from './attachmentFiles';
-import { hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_PASTE, parseKnowraClipboardSlice, recallKnowraClipboard } from './editorKnowraClipboard';
+import { hasPastedKnowraMarks, insertKnowraSource, knowraClipboardIntent, KNOWRA_CLIPBOARD_PASTE, KNOWRA_CLIPBOARD_PLAIN, parseKnowraClipboardSlice, recallKnowraClipboard } from './editorKnowraClipboard';
 
 const MARKDOWN_BLOCK_PATTERNS = [
   /^\s{0,3}#{1,6}\s+/m,
@@ -88,7 +88,7 @@ export function createEditorPasteBehavior(
           }
           const text = payload?.plain ?? source;
           const marked = insertKnowraSource(view.state, slice, text);
-          view.dispatch((marked ?? view.state.tr.insertText(text.replace(/\r\n?/g, '\n')).setMeta('uiEvent', 'paste'))
+          view.dispatch((marked ?? view.state.tr.insertText(text.replace(/\r\n?/g, '\n')).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PLAIN, true))
             .setMeta(KNOWRA_CLIPBOARD_PASTE, knowraClipboardIntent(source, slice)).scrollIntoView());
           return true;
         }

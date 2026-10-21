@@ -63,7 +63,7 @@ test('Chromium gate collects Knowra copy/save/reload scenarios and propagates th
   const report = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
   assert.deepEqual(report.errors, []);
   const specs = report.suites.flatMap(suite => suite.specs);
-  assert.equal(specs.length, 4);
+  assert.equal(specs.length, 6);
   for (const spec of specs) {
     assert.equal(spec.file, 'editor-knowra-marks.spec.ts');
     assert.equal(spec.tests.length, 1);

@@ -17,7 +17,7 @@ ESM JavaScript 与 `.d.ts` 随源码发布，无独立编译步骤。此包保�
 通过 `@study-accelerator/shared/knowra-marks` 导入，规则见 `docs/知识库与试题模块/标注功能/重点标记内联化方案.md` 第 2 节。
 
 - `parseKnowraMarks`：返回行内标记、块级标记（含 `s=code` 代码区间）和不合法标记的问题列表。
-- 代码字面边界复用 CommonMark/GFM 解析器，覆盖缩进代码、引用/列表内围栏和跨行 code span；字面标签不派生重点、不从比较文本中剥除，插入落点也不得进入这些范围。
+- 字面边界复用编辑器的 CommonMark/GFM/公式解析器，覆盖缩进代码、引用/列表内围栏和跨行 code span；公式内容中的围栏不会吞掉后续正文。字面标签不派生重点、不从比较文本中剥除，插入落点也不得进入这些范围。
 - `stripKnowraMarks`：去掉全部有效标记，其余文字逐字不变；不合法标记当普通文字保留。`stripKnowraMarksMapped` 另附原文 → 去除后偏移的换算。
 - `insertKnowraMarks` / `formatKnowraMarkOpen` / `formatKnowraMarker` / `knowraCheck`：迁移与编辑器序列化使用。插入只做文本层校验，与强调、链接等结构的嵌套由调用方按语法树保证；`snap` 把落在转义、行内代码、实体中间或紧跟普通反斜杠的边界向外调整，`onInvalid` 跳过并报告单条不合法标记。
 

@@ -21,7 +21,9 @@ for (const mode of ['text', 'code'] as const) test(`内联重点复制（${mode}
     const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
   });
   await page.keyboard.press('ControlOrMeta+c');
-  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('abc');
+  await editor.locator('mark[data-knowra-mark="a"]').click();
+  await page.keyboard.press('End');
   await page.keyboard.press('ControlOrMeta+v');
   await expect(text).toHaveText('abcabc');
   await expect(editor.locator('mark[data-knowra-mark]')).toHaveCount(2);
@@ -70,4 +72,28 @@ for (const mode of ['menu-native', 'native-menu'] as const) test(`重点部分�
   await expect(editor).toHaveText('ac尾段b');
   expect(await editor.locator('mark[data-knowra-mark]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-knowra-mark')))).toEqual(['a', 'a']);
   await info.attach('inline-mark-cut-move', { body: saved.at(-1)!, contentType: 'text/markdown' });
+});
+
+for (const mode of ['native', 'menu'] as const) test(`代码内普通文本粘贴（${mode}）：扩展原重点且不产生新重点`, async ({ page, context }) => {
+  const saved: string[] = [];
+  await mockEditorWorkspace(page, saved, [], `<!--k a s=code r=0-3 h=${knowraCheck('abc')}-->\n~~~\nabc\n~~~`);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/#/materials/notes/note-1');
+  await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+  const code = page.locator('.ProseMirror [data-code-block] code');
+  await page.evaluate(() => navigator.clipboard.writeText('X'));
+  await code.locator('mark[data-knowra-mark="a"]').click();
+  await page.keyboard.press('Home'); await page.keyboard.press('ArrowRight');
+  if (mode === 'native') await page.keyboard.press('ControlOrMeta+v');
+  else {
+    await openEditorToolbarMenu(page, '编辑');
+    await page.getByRole('menuitem', { name: '粘贴', exact: true }).click();
+  }
+  await expect(code).toHaveText('aXbc');
+  await expect(code.locator('mark[data-knowra-mark]')).toHaveCount(1);
+  await expect.poll(() => parseKnowraMarks(saved.at(-1) ?? '').blocks.map(mark => mark.id)).toEqual(['a']);
+  await page.reload();
+  await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
+  await expect(code).toHaveText('aXbc');
+  await expect(code.locator('mark[data-knowra-mark="a"]')).toHaveText('aXbc');
 });
