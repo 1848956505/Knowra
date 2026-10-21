@@ -50,7 +50,8 @@ export const inlineAnnotationTests = [
   ...[
     ['四空格缩进代码', text => `    ${text}\n`],
     ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],
-    ['跨行 code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`]
+    ['跨行 code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`],
+    ['行内公式', text => `公式 $\\text{${text}}$`]
   ].map(([name, wrap]) => ({
     name: `字面标记正文编辑：${name}不派生伪重点，删除标签让知识证据及直接/间接题源过期`,
     run() {

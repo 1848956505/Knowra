@@ -15,7 +15,8 @@ const ids = marks => marks.map(mark => mark.id);
 for (const [name, wrap] of [
   ['四空格缩进代码', text => `    ${text}\n`],
   ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],
-  ['跨行 backtick code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`]
+  ['跨行 backtick code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`],
+  ['行内公式', text => `公式 $\\text{${text}}$`]
 ]) test(`${name}：字面标记不派生、不剥除，删除标签属于正文变化`, () => {
   const literal = '<mark data-k="a">literal</mark> <!--k b s=blocks--><!--k- c-->';
   const source = wrap(literal);
@@ -55,6 +56,21 @@ test('公式内容中的围栏样式文字不会吞掉公式后的真实重点',
     assert.deepEqual(ids(parseKnowraMarks(source).inline), ['real']);
     assert.equal(stripKnowraMarks(source), `${prefix}正文`);
     assert.equal(sameKnowraText(source, `${prefix}正文`), true);
+  }
+});
+
+test('行内公式只允许整体标记，single-dollar guard 退回的金额/文本仍可局部标记', () => {
+  const source = '公式 $x+y$';
+  const from = source.indexOf('x');
+  assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'a', from, to: from + 1 }] }), /protected/);
+  const marked = insertKnowraMarks(source, { inline: [{ id: 'a', from, to: from + 1 }], snap: true });
+  assert.equal(marked, '公式 <mark data-k="a">$x+y$</mark>');
+  assert.equal(stripKnowraMarks(marked), source);
+  for (const plain of ['$ x$', '$x $', '$x$2', '$5 和 $6']) {
+    const start = plain.search(/[x5]/);
+    const markedPlain = insertKnowraMarks(plain, { inline: [{ id: 'b', from: start, to: start + 1 }] });
+    assert.deepEqual(ids(parseKnowraMarks(markedPlain).inline), ['b']);
+    assert.equal(stripKnowraMarks(markedPlain), plain);
   }
 });
 

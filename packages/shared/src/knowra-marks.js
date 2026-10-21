@@ -55,6 +55,13 @@ function classifyLines(markdown, lines) {
       return;
     }
     if (node.type === 'inlineCode') codeSpans.push([node.position.start.offset, node.position.end.offset]);
+    if (node.type === 'inlineMath') {
+      const from = node.position.start.offset;
+      const to = node.position.end.offset;
+      const raw = markdown.slice(from, to);
+      // 与 editorMathMarkdown 的 single-dollar guard 一致：金额、边缘空白等退回普通正文。
+      if (raw.startsWith('$$') || (!/^\s|\s$/.test(raw.slice(1, -1)) && !/\d/.test(markdown[to] ?? ''))) codeSpans.push([from, to]);
+    }
     if (node.type === 'code') {
       const first = node.position.start.line - 1;
       const last = node.position.end.line - 1;
