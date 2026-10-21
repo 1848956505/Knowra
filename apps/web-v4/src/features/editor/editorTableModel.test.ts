@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Schema } from '@milkdown/kit/prose/model';
 import { EditorState, TextSelection } from '@milkdown/kit/prose/state';
 import { tableNodes, CellSelection } from '@milkdown/kit/prose/tables';
-import { getTableControlsState, tableControlCommand } from './editorTableModel';
+import { TABLE_MAX_COLUMNS, TABLE_MAX_ROWS, clampTableSize, getTableControlsState, moveTableColumn, moveTableRow, tableControlCommand } from './editorTableModel';
 
 const nodes = tableNodes({ tableGroup: 'block', cellContent: 'paragraph', cellAttributes: { alignment: { default: 'left' } } });
 const schema = new Schema({ nodes: {
@@ -81,6 +81,52 @@ describe('Markdown 表格控制', () => {
   });
 });
 
+function run(state: EditorState, command: ReturnType<typeof moveTableRow>) {
+  let next = state;
+  expect(command(state, tr => { next = state.apply(tr); })).toBe(true);
+  next.doc.check();
+  return next;
+}
+const rowTexts = (state: EditorState) => { const out: string[] = []; state.doc.child(1).forEach(row => out.push(row.textContent)); return out; };
+
+describe('拖拽移动行列', () => {
+  it('数据行移动后保持表头固定并选中移动后的整行，可独立撤销', () => {
+    const before = fixture();
+    const state = run(before, moveTableRow(1, 2));
+    expect(rowTexts(state)).toEqual(['名称数量', '梨3', '苹果2']);
+    expect((state.selection as CellSelection).isRowSelection()).toBe(true);
+    let undone = state;
+    expect(undo(state, tr => { undone = state.apply(tr); })).toBe(true);
+    expect(undone.doc.eq(before.doc)).toBe(true);
+  });
+  it('表头行不能被移动或越过，越界与原位无操作', () => {
+    const state = fixture();
+    for (const [from, to] of [[0, 1], [1, 0], [1, 1], [1, 3], [2, -1]]) expect(moveTableRow(from, to)(state)).toBe(false);
+  });
+  it('列移动时对齐随单元格移动，表头与数据同列同步', () => {
+    const aligned = apply(fixture(), 'align-right');
+    const state = run(aligned, moveTableColumn(0, 1));
+    expect(rowTexts(state)).toEqual(['数量名称', '2苹果', '3梨']);
+    state.doc.child(1).forEach(row => {
+      expect(row.child(0).attrs.alignment).toBe('left');
+      expect(row.child(1).attrs.alignment).toBe('right');
+    });
+    expect((state.selection as CellSelection).isColSelection()).toBe(true);
+    expect(moveTableColumn(0, 2)(state)).toBe(false);
+  });
+  it('非表格选区不执行', () => {
+    const base = fixture();
+    const state = base.apply(base.tr.setSelection(TextSelection.create(base.doc, 1)));
+    expect(moveTableRow(1, 2)(state)).toBe(false);
+    expect(moveTableColumn(0, 1)(state)).toBe(false);
+  });
+  it('插入尺寸被限制在支持范围', () => {
+    expect(clampTableSize(1, 0)).toEqual({ row: 2, col: 1 });
+    expect(clampTableSize(99, 99)).toEqual({ row: TABLE_MAX_ROWS, col: TABLE_MAX_COLUMNS });
+    expect(clampTableSize(Number.NaN, 4)).toEqual({ row: 2, col: 4 });
+  });
+});
+
 it('连续行列与对齐操作分别撤销重做，单元格选择不清空历史', () => {
   let state = fixture(); const snapshots = [state.doc];
   for (const action of ['row-after', 'column-after', 'align-center'] as const) { state = apply(state, action); snapshots.push(state.doc); }
@@ -113,4 +159,19 @@ it('多行多列选区的快捷插入位于所选范围下方或右侧并保留�
       table.forEach(row => expect(row.lastChild?.textContent).toBe(''));
     }
   }
+});
+
+ it('拒绝合并单元格的行移动，防止跨行数据错列', () => {
+  const p = (text: string) => schema.node('paragraph', null, schema.text(text));
+  const cell = (text: string, rowspan = 1) => schema.node('table_cell', { rowspan }, p(text));
+  const table = schema.node('table', null, [
+    schema.node('table_header_row', null, ['A', 'B'].map(text => schema.node('table_header', null, p(text)))),
+    schema.node('table_row', null, [cell('a', 2), cell('b')]),
+    schema.node('table_row', null, [cell('d')]),
+    schema.node('table_row', null, [cell('e'), cell('f')])
+  ]);
+  const doc = schema.node('doc', null, [table]);
+  const state = EditorState.create({ doc, selection: TextSelection.create(doc, 15) });
+  expect(moveTableRow(1, 3)(state)).toBe(false);
+  expect(moveTableColumn(0, 1)(state)).toBe(false);
 });

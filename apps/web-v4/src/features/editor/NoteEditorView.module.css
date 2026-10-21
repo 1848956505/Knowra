@@ -155,9 +155,6 @@
   transition: box-shadow var(--motion-fast);
 }
 .toolbar { display: flex; align-items: center; gap: 2px; min-height: 36px; padding: var(--space-1); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-/* 上下文行占真实布局高度，与格式栏一起吸顶，避免初始表头被悬浮控件遮住。 */
-.tableControlsDock { min-width: 0; padding: 4px; border-top: 1px solid var(--border-subtle); }
-.tableControlsDock:empty { display: none; }
 .toolbarStack[data-pinned] {
   /* 保持吸顶前后盒高一致，避免短横屏的滚动锚定抖动。 */
   margin-inline: calc(-1 * var(--paper-pad-x));

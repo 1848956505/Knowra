@@ -224,7 +224,8 @@ export function NoteEditorView({
   useEffect(() => setOverlappingAnnotationIds([]), [note?.id]);
   const autosave = useNoteAutosave({
     noteId: note?.id ?? 'missing-note',
-    draftScope: getNoteDraftScope(note?.spaceId),
+    // 列表摘要的占位正文不是恢复基线，等详情加载完成后再读取草稿。
+    draftScope: note?.contentLoaded === false ? undefined : getNoteDraftScope(note?.spaceId),
     remoteMarkdown: note?.rawMarkdown ?? '',
     remoteUpdatedAt: note?.updatedAt,
     canWrite: Boolean(note && canWrite),
@@ -308,6 +309,10 @@ export function NoteEditorView({
 
   const runCommand = (command: EditorCommand) => {
     if (!editorRef.current?.run(command)) return;
+    window.requestAnimationFrame(() => editorRef.current?.focus());
+  };
+  const insertTable = (rows: number, columns: number) => {
+    if (!editorRef.current?.insertTable?.(rows, columns)) return;
     window.requestAnimationFrame(() => editorRef.current?.focus());
   };
   const handleEditAction = async (action: EditorEditAction) => {
@@ -595,6 +600,7 @@ export function NoteEditorView({
         inspectorOpen={inspectorOpen}
         view={view}
         onRunCommand={runCommand}
+        onInsertTable={insertTable}
         onEditAction={(action) => { void handleEditAction(action); }}
         onViewAction={onViewAction}
         onFileAction={(action) => {

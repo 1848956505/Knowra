@@ -81,10 +81,12 @@ import { configureMathBlockDocument, mathBlockSerializerGuard, normalizeTrailing
 import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import styles from './MilkdownNoteEditor.module.css';
 import { EditorAnnotationActions } from './EditorAnnotationActions';
-import { EditorTableControls } from './EditorTableControls';
+import { EditorTableHandles } from './EditorTableHandles';
 import { EditorImageControls } from './EditorImageControls';
 import { configureImageSize, createEditorImageBehavior, IMAGE_RESOURCE_POLICY_EVENT, imageHtmlWithRenderedSizes } from './editorImageBehavior';
 import { editorTableBehavior } from './editorTableBehavior';
+import { TABLE_DEFAULT_SIZE, clampTableSize } from './editorTableModel';
+import { createTableColumnWidths } from './editorTableColumnWidths';
 import { noteLinkSchema, noteLinkDomBehavior, captureNoteLinkEdit, applyNoteLinkEdit, selectNoteLinkOccurrence, type NoteLinkEditSession } from './editorNoteLinks';
 import { parseNoteLinkUrl, type NoteLinkLocator } from '@study-accelerator/content-anchor';
 
@@ -353,6 +355,12 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         const editor = editorRef.current;
         return Boolean(editor && readyRef.current && selectEditorAnnotation(editor, annotationId));
       },
+      insertTable(rows, columns) {
+        const editor = editorRef.current;
+        if (!editor || readOnlyRef.current) return false;
+        restoreRememberedSelection(editor, lastSelectionRef.current);
+        return Boolean(editor.action(callCommand(insertTableCommand.key, clampTableSize(rows, columns))));
+      },
       insertImage(url, alt) {
         const editor = editorRef.current;
         if (!editor || readOnlyRef.current || !url) return false;
@@ -484,6 +492,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(mathInlineBehavior)
         .use(mathInlineInputRule)
         .use(editorTableBehavior)
+        .use(createTableColumnWidths(noteId))
         .use(createEditorImageBehavior(resourcePolicy ? source => resourcePolicyRef.current?.resolveImage(source) ?? null : undefined))
         .use(highlightRemark)
         .use(highlightSchema)
@@ -625,7 +634,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         onCompositionEndCapture={handleCompositionEnd}
       />
       {!readOnly && onCreateAnnotation ? <EditorAnnotationActions hostRef={hostRef} getView={getView} onCreate={onCreateAnnotation} onStatus={reportOperationStatus} onCommand={(command) => { const editor = editorRef.current; if (editor) { restoreRememberedSelection(editor, lastSelectionRef.current); if (command === 'internal-link' && noteLinkCallbacks.current.onRequestNoteLink) requestNoteLink(editor); else commandResolvers[command](editor); } }} /> : null}
-      {!readOnly ? <EditorTableControls hostRef={hostRef} getView={getView} /> : null}
+      {!readOnly ? <EditorTableHandles hostRef={hostRef} getView={getView} /> : null}
       {!readOnly ? <EditorImageControls hostRef={hostRef} getView={getView} /> : null}
       {operationStatus ? <p className={styles.operationStatus} role="status" data-pdf-exclude="true">{operationStatus}</p> : null}
       </>
@@ -678,7 +687,7 @@ const commandResolvers: Record<EditorCommand, (editor: Editor) => boolean> = {
     return insertMathInline(view.state, view.dispatch);
   },
   'horizontal-rule': (editor) => Boolean(editor.action(callCommand(insertHrCommand.key))),
-  table: (editor) => Boolean(editor.action(callCommand(insertTableCommand.key, { row: 3, col: 3 }))),
+  table: (editor) => Boolean(editor.action(callCommand(insertTableCommand.key, TABLE_DEFAULT_SIZE))),
   'delete-selection': runDeleteSelectionCommand,
   indent: runIndentCommand,
   outdent: runOutdentCommand,

@@ -13,6 +13,10 @@
     "./knowra-marks": {
       "types": "./src/knowra-marks.d.ts",
       "default": "./src/knowra-marks.js"
+    },
+    "./incremental-review": {
+      "types": "./src/incremental-review.d.ts",
+      "default": "./src/incremental-review.js"
     }
   },
   "scripts": {

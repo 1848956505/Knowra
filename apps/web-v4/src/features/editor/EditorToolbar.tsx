@@ -8,6 +8,7 @@ import {
 } from '../../components/icons/knowra';
 import type { EditorCommand } from './editorCommands';
 import type { EditorFileAction } from './editorCommands';
+import { EditorTableSizePicker } from './EditorTableSizePicker';
 import { renderEditorFileMenu } from './EditorFileMenu';
 import { renderEditorEditMenu } from './EditorEditMenu';
 import { renderEditorFormatMenu } from './EditorFormatMenu';
@@ -34,6 +35,7 @@ export interface EditorToolbarProps {
   onToggleFavorite(): void;
   onToggleInspector(): void;
   onInsertImage(): void;
+  onInsertTable(rows: number, columns: number): void;
 }
 
 export function EditorToolbar(props: EditorToolbarProps) {
@@ -70,7 +72,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <span className={styles.separator} aria-hidden="true" />
       <FormatButton label="无序列表" disabled={!props.canEditContent} onPress={command('bullet-list')}><ListIcon size={16} /></FormatButton>
       <FormatButton label="引用" disabled={!props.canEditContent} onPress={command('blockquote')}><QuoteIcon size={16} /></FormatButton>
-      <FormatButton label="插入表格" optional disabled={!props.canEditContent} onPress={command('table')}><TableIcon size={16} /></FormatButton>
+      <EditorTableSizePicker className={styles.optionalTool} disabled={!props.canEditContent} onInsert={props.onInsertTable}><TableIcon size={16} /></EditorTableSizePicker>
       <FormatButton label="插入图片" optional disabled={!props.canEditContent || props.canInsertImage === false} onPress={props.onInsertImage}><ImageIcon size={16} /></FormatButton>
       <span className={`${styles.toolbarSpacer} ${styles.compactHide}`} />
       <span className={`${styles.separator} ${styles.compactHide}`} aria-hidden="true" />
@@ -83,7 +85,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <PressableButton type="button" className={`${styles.plainButton} ${styles.compactHide}`} aria-label="更多文档操作（尚未接入）" title="更多文档操作将在后续接入" isDisabled><MoreVerticalIcon size={16} /></PressableButton>
       </div>
     </div>
-    <div className={styles.tableControlsDock} data-table-controls-dock />
     </div>
   );
 }

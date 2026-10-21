@@ -1,0 +1,31 @@
+/* 手柄是视口定位的叠层，不占文档布局；表格几何由组件从 DOM 实时读取。 */
+.layer { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.handle {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-popover);
+  background: var(--surface-page);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-secondary);
+  pointer-events: auto;
+  touch-action: none;
+}
+.handle[data-kind='row'] { cursor: grab; }
+.handle[data-kind='column'] { cursor: grab; }
+.dropLine { position: fixed; background: var(--accent-text); border-radius: 1px; pointer-events: none; }
+
+/* 触屏没有悬停，手柄放大到触控目标并避免遮挡正文。 */
+@media (max-width: 767px), (any-pointer: coarse) {
+  .handle { width: 44px; height: 44px; }
+}
+
+/* 列边界拖动区：只在悬停/聚焦时显示线条，不改变布局。 */
+.resizer { position: fixed; width: 6px; cursor: col-resize; pointer-events: auto; touch-action: none; border-radius: 3px; }
+.resizer:hover, .resizer:focus-visible { background: var(--accent-text); opacity: .55; outline: none; }
+@media (max-width: 767px), (any-pointer: coarse) { .resizer { display: none; } }
+
+/* 高度约束由工作区传入，滚动发生在定位浮层本身。 */
+.menuViewport { overflow-y: auto; overscroll-behavior: contain; }

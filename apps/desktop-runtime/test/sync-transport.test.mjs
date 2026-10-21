@@ -86,7 +86,6 @@ const scenarios = [
   { name: '同步 json throw 不改写', syncJsonFailure: true, jsonFailure: () => new Error('sync-json') },
   ...[{}, { data: null }, { data: false }, { data: 0 }, { data: '' }].map(payload => ({ name: `无有效 data ${JSON.stringify(payload)}`, payload, code: 'SYNC_INVALID_RESPONSE' })),
   { name: '数组 data 保留', payload: { data: [] } },
-  { name: '现有 null payload TypeError 保留', payload: null },
   { name: '401 固定文案优先服务端错误', status: 401, payload: { error: { code: 'OTHER', message: 'private detail' } }, code: 'AUTH_REQUIRED' },
   { name: '403 设备错误优先认证', status: 403, payload: { error: { code: 'SYNC_DEVICE_NOT_ENABLED', message: '设备待启用' } }, code: 'SYNC_DEVICE_NOT_ENABLED' },
   { name: '设备缺省文案', status: 403, payload: { error: { code: 'SYNC_DEVICE_NOT_ENABLED' } }, code: 'SYNC_DEVICE_NOT_ENABLED' },
@@ -95,7 +94,7 @@ const scenarios = [
   ...['12', 'Sun, 11 Oct 2026 00:00:05 GMT', 'Sun, 11 Oct 2020 00:00:00 GMT', 'invalid'].map(retryAfter => ({ name: `Retry-After ${retryAfter}`, status: 429, payload: {}, retryAfter, code: 'CLOUD_REQUEST_FAILED' }))
 ];
 
-test('同步传输与冻结旧实现的调用轨迹和结果完全一致', async t => {
+test('同步传输保留既有请求、网络错误和有效响应合同', async t => {
   t.mock.method(Date, 'now', () => Date.parse('2026-10-11T00:00:00Z'));
   for (const scenario of scenarios) await t.test(scenario.name, async () => {
     const before = await observe(createLegacySyncTransport, scenario);
@@ -103,6 +102,31 @@ test('同步传输与冻结旧实现的调用轨迹和结果完全一致', async
     assert.deepEqual(after, before);
     if (scenario.code) assert.equal(after.results[0].error.code, scenario.code);
   });
+});
+
+test('非对象 JSON 正文不会掩盖 HTTP 错误分类或重试间隔', async t => {
+  const cases = [
+    { status: 200, code: 'SYNC_INVALID_RESPONSE', message: '云端返回了无法识别的同步响应，请稍后重试。' },
+    { status: 401, code: 'AUTH_REQUIRED', message: '云端登录凭据无效或已失效，请重新输入。' },
+    { status: 403, code: 'AUTH_REQUIRED', message: '云端登录凭据无效或已失效，请重新输入。' },
+    { status: 404, code: 'CLOUD_REQUEST_FAILED', message: '云端请求失败（404）。' },
+    { status: 503, code: 'CLOUD_SERVICE_UNAVAILABLE', message: '云端服务暂不可用（503），请稍后重试。' }
+  ];
+  for (const payload of [null, false, true, 0, 42, '', 'invalid', []]) {
+    for (const { status, code, message } of cases) await t.test(`${status} / ${JSON.stringify(payload)}`, async () => {
+      const transport = createSyncTransport({
+        getServerUrl: () => 'https://example.test',
+        getAuthorization: () => '',
+        fetcher: async () => new Response(JSON.stringify(payload), {
+          status, headers: { 'Content-Type': 'application/json', 'Retry-After': '12' }
+        })
+      });
+      await assert.rejects(transport.request('status'), {
+        name: 'Error', code, message,
+        ...(status >= 400 ? { status, retryAfterMs: 12000 } : {})
+      });
+    });
+  }
 });
 
 test('传输公开入口的请求合同独立断言', async () => {
