@@ -25,17 +25,37 @@ export const KNOWRA_BLOCKS_ATTR = 'knowraBlocks';
 export interface KnowraBlockEntry { id: string; attrs: KnowraMarkAttrs; exclude?: boolean }
 export interface KnowraMarkProblem { stage: 'parse' | 'serialize'; id?: string; reason: string }
 
+const clipboardId = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(value);
+const clipboardAttrs = (value: unknown): value is KnowraMarkAttrs => value !== null && typeof value === 'object' && !Array.isArray(value)
+  && Object.entries(value).every(([key, item]) => /^[a-z][a-z0-9-]*$/.test(key) && typeof item === 'string');
+
+/** 剪贴板 HTML 不可信，只接收可由正文格式无损表达的块标记；未知合法属性继续保留。 */
+export function parseKnowraClipboardBlocks(source: string | null): KnowraBlockEntry[] | null {
+  try {
+    const parsed: unknown = JSON.parse(source ?? 'null');
+    if (!Array.isArray(parsed)) return null;
+    const entries = parsed.filter((entry): entry is KnowraBlockEntry => entry !== null && typeof entry === 'object'
+      && clipboardId(entry.id) && clipboardAttrs(entry.attrs) && (entry.exclude === undefined || typeof entry.exclude === 'boolean'));
+    return entries.length ? entries : null;
+  } catch { return null; }
+}
+
 export const knowraMarkSchema = $markSchema(KNOWRA_MARK, () => ({
   attrs: { id: { default: '' }, data: { default: {} } },
   excludes: '',
   inclusive: false,
   parseDOM: [{
     tag: 'mark[data-knowra-mark]',
+    // 普通高亮也使用 <mark>；剪贴板中的重点载体必须优先读回，不能退化成 highlight。
+    priority: 60,
     getAttrs: (dom) => {
       const element = dom as HTMLElement;
-      let data: KnowraMarkAttrs = {};
-      try { data = JSON.parse(element.getAttribute('data-knowra-attrs') ?? '{}') as KnowraMarkAttrs; } catch { /* 外部 HTML 的属性不可信，按空处理 */ }
-      return { id: element.getAttribute('data-knowra-mark'), data };
+      const id = element.getAttribute('data-knowra-mark');
+      if (!clipboardId(id)) return false;
+      try {
+        const data: unknown = JSON.parse(element.getAttribute('data-knowra-attrs') ?? '{}');
+        return clipboardAttrs(data) ? { id, data } : false;
+      } catch { return false; }
     }
   }],
   toDOM: (mark) => ['mark', {

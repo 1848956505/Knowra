@@ -6,6 +6,7 @@ import { $prose } from '@milkdown/kit/utils';
 import { parserCtx, remarkCtx } from '@milkdown/kit/core';
 import { parseMarkdownSlice } from './editorMarkdownSlice';
 import { assertInlineImageFile } from './attachmentFiles';
+import { hasPastedKnowraMarks, insertKnowraSource, KNOWRA_CLIPBOARD_PASTE, parseKnowraClipboardSlice, recallKnowraClipboard } from './editorKnowraClipboard';
 
 const MARKDOWN_BLOCK_PATTERNS = [
   /^\s{0,3}#{1,6}\s+/m,
@@ -78,7 +79,17 @@ export function createEditorPasteBehavior(
           const source = clipboardData.getData('text/plain');
           if (!source) return false;
           event.preventDefault();
-          view.dispatch(view.state.tr.insertText(source.replace(/\r\n?/g, '\n')).scrollIntoView());
+          // ProseMirror 在代码上下文会预先把 HTML 解析成纯文本，需用 schema 单独读回重点载体。
+          const payload = recallKnowraClipboard(source);
+          const html = payload?.html ?? clipboardData.getData('text/html');
+          let slice = preProcessedSlice;
+          if (html.includes('data-knowra-mark')) {
+            slice = parseKnowraClipboardSlice(view.state.schema, stripPastedInlineStyles(html));
+          }
+          const text = payload?.plain ?? source;
+          const marked = insertKnowraSource(view.state, slice, text);
+          view.dispatch((marked ?? view.state.tr.insertText(text.replace(/\r\n?/g, '\n')).setMeta('uiEvent', 'paste'))
+            .setMeta(KNOWRA_CLIPBOARD_PASTE, source).scrollIntoView());
           return true;
         }
         if (view.state.selection.$from.parent.type.spec.code) return false;
@@ -108,6 +119,13 @@ export function createEditorPasteBehavior(
           onStatus('已阻止不安全的 HTTP 图片链接，请改用 HTTPS 或本地附件');
           return true;
         }
+        const payload = recallKnowraClipboard(text);
+        if (payload) {
+          event.preventDefault();
+          view.dispatch(view.state.tr.replaceSelection(parseKnowraClipboardSlice(view.state.schema, payload.html))
+            .setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
+          return true;
+        }
 
         const vscodeData = clipboardData.getData('vscode-editor-data');
         const htmlHasCode = Boolean(html && new DOMParser().parseFromString(html, 'text/html').querySelector('pre, code'));
@@ -116,7 +134,7 @@ export function createEditorPasteBehavior(
           const slice = parseMarkdownSlice(ctx.get(parserCtx), texConverted);
           if (slice) {
             event.preventDefault();
-            view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+            view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
             return true;
           }
         }
@@ -129,15 +147,17 @@ export function createEditorPasteBehavior(
           const slice = parseMarkdownSlice(ctx.get(parserCtx), text);
           if (!slice) return false;
           event.preventDefault();
-          view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+          view.dispatch(view.state.tr.replaceSelection(slice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
           return true;
         }
 
         if (!html) return false;
         const cleanedSlice = removeSpuriousEmptyCodeBlocks(preProcessedSlice);
-        if (cleanedSlice === preProcessedSlice) return false;
+        // Milkdown 默认粘贴不带 uiEvent，纯文本节点还会继承目标 marks。
+        // 正文重点必须保留剪贴板载体，并让身份插件识别这次复制/移动。
+        if (cleanedSlice === preProcessedSlice && !hasPastedKnowraMarks(cleanedSlice)) return false;
         event.preventDefault();
-        view.dispatch(view.state.tr.replaceSelection(cleanedSlice).scrollIntoView());
+        view.dispatch(view.state.tr.replaceSelection(cleanedSlice).setMeta('uiEvent', 'paste').setMeta(KNOWRA_CLIPBOARD_PASTE, text).scrollIntoView());
         return true;
       }
     }

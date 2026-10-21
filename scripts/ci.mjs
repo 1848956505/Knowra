@@ -8,7 +8,8 @@ export const suites = Object.freeze({
   desktop: ['test:desktop'],
   chromium: [
     'test:e2e -w @study-accelerator/desktop-runtime',
-    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts'
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts',
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-knowra-marks.spec.ts'
   ]
 });
 

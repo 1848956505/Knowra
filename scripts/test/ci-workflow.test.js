@@ -17,7 +17,8 @@ test('CI partitions every npm test entry exactly once and keeps Chromium in addi
   assert.equal(new Set(original).size, original.length);
   assert.deepEqual(suites.chromium, [
     'test:e2e -w @study-accelerator/desktop-runtime',
-    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts'
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts',
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-knowra-marks.spec.ts'
   ]);
   const matrix = workflow.match(/suite: \[([^\]]+)\]/)[1].split(',').map(value => value.trim());
   assert.deepEqual(matrix, Object.keys(suites));
@@ -30,7 +31,7 @@ test('Chromium gate collects both editor recovery scenarios and propagates their
     calls.push(args);
     return { status: calls.length === 2 ? 1 : 0 };
   }), /editor-draft-recovery\.spec\.ts/);
-  assert.deepEqual(calls, suites.chromium.map(command => ['run', ...command.split(' ')]));
+  assert.deepEqual(calls, suites.chromium.slice(0, 2).map(command => ['run', ...command.split(' ')]));
 
   // 使用真实 Playwright 收集器，防止命令已登记但 testMatch 白名单漏掉文件。
   const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [
@@ -43,6 +44,28 @@ test('Chromium gate collects both editor recovery scenarios and propagates their
   assert.equal(specs.length, 2);
   for (const spec of specs) {
     assert.equal(spec.file, 'editor-draft-recovery.spec.ts');
+    assert.equal(spec.tests.length, 1);
+    assert.equal(spec.tests[0].expectedStatus, 'passed');
+  }
+});
+
+test('Chromium gate collects Knowra copy/save/reload scenarios and propagates their failure', () => {
+  const calls = [];
+  assert.throws(() => runSuite('chromium', (_command, args) => {
+    calls.push(args);
+    return { status: calls.length === 3 ? 1 : 0 };
+  }), /editor-knowra-marks\.spec\.ts/);
+  assert.deepEqual(calls, suites.chromium.map(command => ['run', ...command.split(' ')]));
+  const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', [
+    'run', ...suites.chromium[2].split(' '), '--list', '--reporter=json'
+  ], { cwd: new URL('../../', import.meta.url), encoding: 'utf8', env: process.env });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const report = JSON.parse(result.stdout.slice(result.stdout.indexOf('{')));
+  assert.deepEqual(report.errors, []);
+  const specs = report.suites.flatMap(suite => suite.specs);
+  assert.equal(specs.length, 4);
+  for (const spec of specs) {
+    assert.equal(spec.file, 'editor-knowra-marks.spec.ts');
     assert.equal(spec.tests.length, 1);
     assert.equal(spec.tests[0].expectedStatus, 'passed');
   }

@@ -1,13 +1,16 @@
+import { fromMarkdown } from 'mdast-util-from-markdown';
+import { gfm } from 'micromark-extension-gfm';
+import { gfmFromMarkdown } from 'mdast-util-gfm';
+
 // Knowra 正文内联标记：重点、挖空等以标记形式写在 Markdown 正文里（见《重点标记内联化方案》第 2 节）。
 // 行内 `<mark data-k="id" ...>文字</mark>`，块级 `<!--k id s=section ...-->`，标题局部排除 `<!--k- id-->`。
-// 此模块只做文本层扫描：不依赖 Markdown 解析器，不认识的属性与角色原样保留。
+// CommonMark/GFM 语法树提供代码字面边界，其余标记按源码偏移扫描；未知属性与角色原样保留。
 
 export const KNOWRA_MARKS_FORMAT = 1;
 
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
 const ATTR_KEY = /^[a-z][a-z0-9-]*$/;
-const FENCE_OPEN = /^(\s*)(`{3,}|~{3,})(.*)$/;
-const FENCE_CLOSE = /^\s*(`{3,}|~{3,})\s*$/;
+const FENCE_OPEN = /^( {0,3})(`{3,}|~{3,})(.*)$/;
 const ATX_HEADING = /^\s{0,3}#{1,6}(\s|$)/;
 const THEMATIC_BREAK = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
 const DELIMITERS = new Set(['*', '_', '~', '=']);
@@ -39,45 +42,48 @@ function lineTable(markdown) {
   }
 }
 
-/** 标出围栏代码块与 `$$` 公式块；其中的文字是字面内容，不参与标记扫描。 */
+/** 由 CommonMark/GFM 判定字面代码边界，包含缩进、引用/列表容器和跨行 code span。 */
 function classifyLines(markdown, lines) {
-  const fences = [];
-  let fence = null;
-  let math = false;
-  lines.forEach((line, index) => {
-    const text = markdown.slice(line.start, line.end);
-    if (fence) {
-      const close = FENCE_CLOSE.exec(text);
-      if (close && close[1][0] === fence.char && close[1].length >= fence.length) {
-        line.kind = 'fenceClose';
-        fence.contentEnd = line.start;
-        fence = null;
-      } else line.kind = 'code';
+  const fences = new Map();
+  const codeSpans = [];
+  const tree = fromMarkdown(markdown, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
+  function visit(node) {
+    if (node.type === 'inlineCode') codeSpans.push([node.position.start.offset, node.position.end.offset]);
+    if (node.type === 'code') {
+      const first = node.position.start.line - 1;
+      const last = node.position.end.line - 1;
+      for (let index = first; index <= last; index += 1) lines[index].kind = 'code';
+      const source = markdown.slice(node.position.start.offset, lines[first].end);
+      const open = FENCE_OPEN.exec(source);
+      if (open) {
+        lines[first].kind = 'fenceOpen';
+        // 逻辑代码由语法树去掉容器前缀和缩进，供 r/h 校验使用。
+        fences.set(first, { text: node.value });
+      }
       return;
     }
+    for (const child of node.children ?? []) visit(child);
+  }
+  visit(tree);
+  let math = false;
+  for (const line of lines) {
+    if (line.kind !== 'text') continue;
     if (math) {
       line.kind = 'math';
-      if (text.trim() === '$$') math = false;
-      return;
+      if (markdown.slice(line.start, line.end).trim() === '$$') math = false;
+    } else if (markdown.slice(line.start, line.end).trim() === '$$'
+      && !codeSpans.some(([start, end]) => start <= line.start && line.start < end)) {
+      line.kind = 'math';
+      math = true;
     }
-    const open = FENCE_OPEN.exec(text);
-    if (open && !(open[2][0] === '`' && open[3].includes('`'))) {
-      line.kind = 'fenceOpen';
-      fence = { line: index, char: open[2][0], length: open[2].length, indent: open[1].length, contentStart: line.next, contentEnd: markdown.length };
-      fences.push(fence);
-      return;
-    }
-    if (text.trim() === '$$') { line.kind = 'math'; math = true; }
-  });
-  return new Map(fences.map(item => [item.line, item]));
+  }
+  // 公式块中的反引号不应跨出公式保护正文；code span 中的 $$ 也不能打开公式块。
+  const mathLines = lines.filter(line => line.kind === 'math');
+  return { fences, codeSpans: codeSpans.filter(([start, end]) => !mathLines.some(line => start < line.next && line.start < end)) };
 }
 
-/** 代码块的逻辑内容：去掉开围栏的缩进，与编辑器看到的代码文字一致。 */
-function codeText(markdown, fence) {
-  const raw = markdown.slice(fence.contentStart, fence.contentEnd).replace(/\n$/, '');
-  if (!fence.indent) return raw;
-  return raw.split('\n').map(line => line.replace(new RegExp(`^ {0,${fence.indent}}`), '')).join('\n');
-}
+/** 代码块的逻辑内容，与编辑器看到的代码文字一致。 */
+function codeText(_markdown, fence) { return fence.text; }
 
 function parseOpenTag(tag) {
   const attrs = {};
@@ -120,7 +126,7 @@ function lineSuffixStart(text) {
  * 扫描一行正文：行内代码、普通注释、转义、实体和 HTML 标签是受保护区间（插入时边界不能落在其中）；
  * 同时收集 `<mark>` 开闭标签与 Knowra 注释。`<mark>` 必须在同一行内闭合。
  */
-function scanTextLine(markdown, line, state, sink) {
+function scanTextLine(markdown, line, state, sink, codeSpans) {
   const stack = [];
   let index = line.start;
   while (index < line.end) {
@@ -130,6 +136,14 @@ function scanTextLine(markdown, line, state, sink) {
       sink.protect(index, close + 3);
       state.comment = false;
       index = close + 3;
+      continue;
+    }
+    while (codeSpans[state.codeIndex]?.[1] <= index) state.codeIndex += 1;
+    const code = codeSpans[state.codeIndex];
+    if (code && code[0] <= index) {
+      const end = Math.min(code[1], line.end);
+      sink.protect(code[0], code[1], 'code');
+      index = end;
       continue;
     }
     const char = markdown[index];
@@ -205,8 +219,8 @@ function scanTextLine(markdown, line, state, sink) {
 
 function scan(markdown) {
   const lines = lineTable(markdown);
-  const fences = classifyLines(markdown, lines);
-  const state = { comment: false };
+  const { fences, codeSpans } = classifyLines(markdown, lines);
+  const state = { comment: false, codeIndex: 0 };
   const inline = [];
   const markers = [];
   const problems = [];
@@ -221,7 +235,7 @@ function scan(markdown) {
       inline: mark => inline.push({ ...mark, line: index, roles: rolesOf(mark.attrs) }),
       marker: marker => markers.push({ ...marker, line: index }),
       problem: problem => problems.push(problem)
-    });
+    }, codeSpans);
     protectedSpans.set(index, { spans, elements });
   });
   inline.sort((left, right) => left.start - right.start);
@@ -407,6 +421,7 @@ export function insertKnowraMarks(markdown, { inline = [], blocks = [], snap = f
     if (line.kind !== 'text' || to > line.end) throw new Error(`Inline mark ${id} must stay within one text line`);
     const { spans = [], elements = [] } = protectedSpans.get(index) ?? {};
     if (snap) { from = snapOutward(spans, from, 'start'); to = snapOutward(spans, to, 'end'); }
+    if (from < line.start || to > line.end) throw new Error(`Inline mark ${id} must stay within one text line`);
     // 紧跟在普通反斜杠后面的 `<` 会被当成转义，标签失效：起点前移包住反斜杠，终点前收排除它。
     const literalBackslashBefore = offset => markdown[offset - 1] === '\\' && !spans.some(([start, end, kind]) => kind === 'escape' && (end === offset || start === offset - 1));
     if (snap) {
@@ -455,6 +470,8 @@ export function insertKnowraMarks(markdown, { inline = [], blocks = [], snap = f
     }
     const marker = formatKnowraMarker(item.id, attrs, { exclude: item.exclude });
     const before = line.kind !== 'text' || /^\s*[|<]/.test(text) || THEMATIC_BREAK.test(text);
+    const position = before ? line.start : line.start + lineSuffixStart(text);
+    if (insideSpan(protectedSpans.get(item.line)?.spans ?? [], position)) throw new Error(`Block marker ${item.id} splits protected Markdown syntax`);
     if (before) { add(line.start, 0, `${text.match(/^\s*/)[0]}${marker}\n`); return; }
     if (!lineEnd.has(item.line)) lineEnd.set(item.line, []);
     lineEnd.get(item.line).push(marker);

@@ -1,6 +1,7 @@
 import { listItemAt, editorListAnchor, resolveEditorListRange } from './editorListAnnotations';
 import type { AnnotationEditIntent } from './annotationEditJournal';
 import { IDENTITY_META } from './editorBlockIdentity';
+import { hasPastedKnowraMarks, KNOWRA_CLIPBOARD_CUT, rememberNativeKnowraClipboard } from './editorKnowraClipboard';
 import { isHistoryTransaction } from '@milkdown/kit/prose/history';
 import { serializerCtx } from '@milkdown/kit/core';
 import { mapAnnotationRange, type TrackedAnnotationRange } from './annotationTransactionRanges';
@@ -137,15 +138,24 @@ export function createAnnotationHighlightBehavior(onSelect: (annotationIds: stri
           cut = { id: crypto.randomUUID(), text: view.state.doc.textBetween(view.state.selection.from, view.state.selection.to, '\n').trim(), ranges: [...(annotationPluginKey.getState(view.state)?.ranges ?? [])].filter(([, range]) => !range.missing && range.from >= view.state.selection.from && range.to <= view.state.selection.to).map(([id,range]) => ({id,range,quote:view.state.doc.textBetween(range.from,range.to,'\n','\uFFFC')})) };
           pendingIntent = { moveId: cut.id, moveKind: 'cut' };
           const serialized = view.serializeForClipboard(view.state.selection.content());
+          const html = Array.from(serialized.dom.childNodes, node => new XMLSerializer().serializeToString(node)).join('');
+          rememberNativeKnowraClipboard(view.state.selection.content(), serialized.text);
           event.clipboardData.clearData();
-          event.clipboardData.setData('text/html', Array.from(serialized.dom.childNodes, node => new XMLSerializer().serializeToString(node)).join(''));
+          event.clipboardData.setData('text/html', html);
           event.clipboardData.setData('text/plain', serialized.text);
           event.clipboardData.setData('application/x-knowra-move', cut.id);
           event.preventDefault();
-          view.dispatch(view.state.tr.deleteSelection().setMeta('uiEvent', 'cut').scrollIntoView());
+          view.dispatch(view.state.tr.deleteSelection().setMeta('uiEvent', 'cut')
+            .setMeta(KNOWRA_CLIPBOARD_CUT, hasPastedKnowraMarks(view.state.selection.content()) ? serialized.text : null).scrollIntoView());
           return true;
         },
-        copy() { cut = null; pendingIntent = {}; return false; },
+        copy(view) {
+          cut = null; pendingIntent = {};
+          const slice = view.state.selection.content();
+          const serialized = view.serializeForClipboard(slice);
+          rememberNativeKnowraClipboard(slice, serialized.text);
+          return false;
+        },
         paste(_view, event) {
           if (cut && cut.text && event.clipboardData?.getData('application/x-knowra-move') === cut.id && event.clipboardData.getData('text/plain').trim() === cut.text) { pendingIntent = { moveId: cut.id, moveKind: 'paste' }; moving = cut.ranges; }
           else pendingIntent = {};

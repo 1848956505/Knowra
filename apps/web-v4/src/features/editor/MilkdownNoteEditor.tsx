@@ -518,7 +518,8 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
           onChangeRef.current(nextMarkdown, { editIntent, identity: captureIdentitySnapshot(state, nextMarkdown) });
         }, (selection) => { lastSelectionRef.current = selection; }))
         .use(annotationMarkSchema)
-        .use(createBlockIdentityBehavior((state) => new Set(annotationPluginKey.getState(state)?.annotations.map((annotation) => annotation.id) ?? [])))
+        .use(createBlockIdentityBehavior((state) => new Set(annotationPluginKey.getState(state)?.annotations.map((annotation) => annotation.id) ?? []),
+          state => annotationPluginKey.getState(state)?.editIntent.moveKind === 'paste'))
         .use(annotationShadowBehavior)
         .use(annotationSerializerGuard)
         .use(knowraMarkSchema)

@@ -18,4 +18,13 @@ describe('clipboard helpers', () => {
     expect(runDocumentCommand('copy', { documentRef })).toBe(true);
     expect(documentRef.execCommand).toHaveBeenCalledWith('copy');
   });
+
+  it('reads HTML and text from the same clipboard item without guessing a carrier from plain text', async () => {
+    const navigatorRef = { clipboard: { read: async () => [{ types: ['text/plain', 'text/html'], getType: async (type: string) => ({ text: async () => type === 'text/html' ? '<mark data-knowra-mark="a">b</mark>' : 'b' }) }] } } as unknown as Navigator;
+    await expect(readClipboardText({ navigatorRef, includeHtml: true })).resolves.toEqual({ ok: true, text: 'b', html: '<mark data-knowra-mark="a">b</mark>' });
+    const readText = vi.fn();
+    const denied = { clipboard: { read: async () => { throw new Error('denied'); }, readText } } as unknown as Navigator;
+    await expect(readClipboardText({ navigatorRef: denied, includeHtml: true })).resolves.toEqual({ ok: false, reason: 'denied' });
+    expect(readText).not.toHaveBeenCalled();
+  });
 });

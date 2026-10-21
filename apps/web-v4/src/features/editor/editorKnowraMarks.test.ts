@@ -1,8 +1,12 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Editor, defaultValueCtx, editorViewCtx, parserCtx, remarkStringifyOptionsCtx, rootCtx, serializerCtx } from '@milkdown/kit/core';
 import { gfm } from '@milkdown/kit/preset/gfm';
+import { history } from '@milkdown/kit/plugin/history';
+import { clipboard } from '@milkdown/kit/plugin/clipboard';
+import { undo, redo } from '@milkdown/kit/prose/history';
+import { TextSelection } from '@milkdown/kit/prose/state';
 import type { Node as ProseNode } from '@milkdown/kit/prose/model';
-import { insertKnowraMarks, parseKnowraMarks, stripKnowraMarks } from '@study-accelerator/shared/knowra-marks';
+import { insertKnowraMarks, knowraCheck, parseKnowraMarks, stripKnowraMarks } from '@study-accelerator/shared/knowra-marks';
 import { commonmarkPreset } from './editorHardbreakMarks';
 import { noteLinkSchema } from './editorNoteLinks';
 import { createCodeBlockBehavior } from './editorCodeBlock';
@@ -12,14 +16,21 @@ import { mathInlineGuardRemark, mathRemark } from './editorMathMarkdown';
 import { highlightRemark, highlightSchema } from './editorHighlight';
 import { internalLinkRemark, internalLinkSchema } from './editorInternalLink';
 import { configureImageSize } from './editorImageBehavior';
-import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema } from './editorBlockIdentity';
+import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior } from './editorBlockIdentity';
+import { annotationPluginKey, createAnnotationHighlightBehavior } from './editorAnnotations';
+import { createEditorPasteBehavior } from './editorPasteBehavior';
+import { runEditorClipboardAction } from './editorClipboard';
 import { createKnowraMarksCodec, KNOWRA_BLOCKS_ATTR, KNOWRA_MARK, knowraMarkSchema, type KnowraMarkProblem } from './editorKnowraMarks';
 
 const globals = globalThis as Record<string, unknown>;
 globals.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
+globals.ClipboardEvent ??= class extends Event {
+  clipboardData: DataTransfer | null;
+  constructor(type: string, init?: { clipboardData?: DataTransfer }) { super(type); this.clipboardData = init?.clipboardData ?? null; }
+};
 
 const destroyers: Array<() => Promise<void>> = [];
-afterEach(async () => { for (const destroy of destroyers.splice(0)) await destroy(); });
+afterEach(async () => { for (const destroy of destroyers.splice(0)) await destroy(); vi.unstubAllGlobals(); });
 
 /** 与 MilkdownNoteEditor 相同的 schema、remark 与序列化包装（只取影响文档结构和 Markdown 的部分）。 */
 async function createEditor(markdown: string, problems: KnowraMarkProblem[] = []) {
@@ -48,10 +59,15 @@ async function createEditor(markdown: string, problems: KnowraMarkProblem[] = []
     .use(highlightRemark).use(highlightSchema).use(internalLinkRemark).use(internalLinkSchema)
     .use(annotationMarkSchema).use(annotationSerializerGuard)
     .use(knowraMarkSchema).use(createKnowraMarksCodec(problem => problems.push(problem)))
+    .use(createEditorPasteBehavior(() => {})).use(clipboard)
+    .use(createAnnotationHighlightBehavior(() => {}))
+    .use(createBlockIdentityBehavior(() => null, state => annotationPluginKey.getState(state)?.editIntent.moveKind === 'paste'))
+    .use(history)
     .config(configureBlockIdentitySchema)
     .create();
   destroyers.push(async () => { await editor.destroy(); root.remove(); });
   const view = editor.ctx.get(editorViewCtx);
+  view.setProps({ handleScrollToSelection: () => true });
   return {
     editor,
     view,
@@ -77,6 +93,148 @@ function blockMarks(doc: ProseNode) {
 }
 
 describe('正文 Knowra 标记与编辑器文档互转', () => {
+  it.each(['copy', 'cut'] as const)('编辑菜单 %s：保留重点载体，部分剪切保留身份，复制和再次粘贴得新身份', async action => {
+    const { editor, view } = await createEditor('<mark data-k="a">abc</mark>\n\n尾段');
+    let text = '';
+    vi.stubGlobal('navigator', { userAgent: navigator.userAgent, clipboard: { writeText: async (value: string) => { text = value; }, readText: async () => text } });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 3)));
+    expect(await runEditorClipboardAction(editor, action)).toEqual({ ok: true });
+    expect(text).toContain('data-k="a"');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    expect(await runEditorClipboardAction(editor, 'paste')).toEqual({ ok: true });
+    if (action === 'cut') expect(markedText(view.state.doc)).toEqual({ a: 'acb' });
+    else {
+      expect(markedText(view.state.doc).a).toBe('abc');
+      expect(Object.values(markedText(view.state.doc)).sort()).toEqual(['abc', 'b']);
+    }
+    expect(await runEditorClipboardAction(editor, 'paste')).toEqual({ ok: true });
+    expect(Object.keys(markedText(view.state.doc))).toHaveLength(action === 'cut' ? 2 : 3);
+  });
+
+  it('编辑菜单复制代码范围到代码内部：不粘贴 Markdown 标签，副本成为新重点', async () => {
+    const { editor, view } = await createEditor(`<!--k a s=code r=0-3 h=${knowraCheck('abc')}-->\n~~~\nabc\n~~~`);
+    let text = '';
+    vi.stubGlobal('navigator', { userAgent: navigator.userAgent, clipboard: { writeText: async (value: string) => { text = value; }, readText: async () => text } });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 3)));
+    expect(await runEditorClipboardAction(editor, 'copy')).toEqual({ ok: true });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+    expect(await runEditorClipboardAction(editor, 'paste')).toEqual({ ok: true });
+    expect(view.state.doc.textContent).toBe('abbc');
+    expect(Object.values(markedText(view.state.doc)).sort()).toEqual(['abc', 'b']);
+  });
+
+  it.each(['menu-native', 'native-menu'])('剪贴板入口互通 %s：部分剪切保留原重点，下一次粘贴生成副本', async mode => {
+    const { editor, view } = await createEditor('<mark data-k="a">abc</mark>\n\n尾段');
+    const values = new Map<string, string>();
+    const data = { items: [], clearData: () => values.clear(), setData: (type: string, value: string) => values.set(type, value), getData: (type: string) => values.get(type) ?? '' } as unknown as DataTransfer;
+    vi.stubGlobal('navigator', { userAgent: navigator.userAgent, clipboard: {
+      writeText: async (text: string) => { values.clear(); values.set('text/plain', text); }, readText: async () => values.get('text/plain') ?? '',
+      read: async () => [{ types: ['text/plain', ...(values.has('text/html') ? ['text/html'] : [])], getType: async (type: string) => ({ text: async () => values.get(type) ?? '' }) }]
+    } });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 3)));
+    if (mode === 'menu-native') expect(await runEditorClipboardAction(editor, 'cut')).toEqual({ ok: true });
+    else view.dom.dispatchEvent(new ClipboardEvent('cut', { clipboardData: data }));
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    const paste = async () => mode === 'menu-native' ? view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data })) : runEditorClipboardAction(editor, 'paste');
+    await paste();
+    expect(markedText(view.state.doc)).toEqual({ a: 'acb' });
+    await paste();
+    expect(Object.values(markedText(view.state.doc)).sort()).toEqual(['acb', 'b']);
+  });
+  it('不可信剪贴板：拒绝 null/数组/非法 ID/非字符串属性和损坏块条目，正文仍可粘贴保存', async () => {
+    const { view, serialize } = await createEditor('原文');
+    const html = '<p data-knowra-blocks=\'[null,{"id":"bad!","attrs":{}},{"id":"b","attrs":{"s":"blocks","future":"ok"}}]\'>'
+      + ['null', '[]', '{"t":1}'].map(data => `<mark data-knowra-mark="a" data-knowra-attrs='${data}'>字</mark>`).join('')
+      + '<mark data-knowra-mark="bad!">文</mark></p>';
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    expect(() => view.pasteHTML(html)).not.toThrow();
+    expect(markedText(view.state.doc)).toEqual({});
+    expect(view.state.doc.textContent).toContain('字字字文');
+    expect(() => serialize()).not.toThrow();
+  });
+  it('紧邻原文复制：副本成为新重点，撤销重做保持副本身份', async () => {
+    const { view, serialize, parse } = await createEditor('<mark data-k="a" data-t="key">abc</mark>');
+    const html = view.serializeForClipboard(view.state.doc.slice(1, 4)).dom.innerHTML;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 4)));
+    view.pasteHTML(html);
+    const covered = markedText(view.state.doc);
+    expect(covered.a).toBe('abc');
+    expect(Object.values(covered)).toEqual(['abc', 'abc']);
+    const copyId = Object.keys(covered).find(id => id !== 'a')!;
+    expect(copyId).toMatch(/^[A-Za-z0-9_-]{1,32}$/);
+    const saved = serialize();
+    expect(markedText(parse(saved))).toEqual(covered);
+    undo(view.state, view.dispatch);
+    expect(markedText(view.state.doc)).toEqual({ a: 'abc' });
+    redo(view.state, view.dispatch);
+    expect(markedText(view.state.doc)).toEqual(covered);
+  });
+
+  it.each(['code', 'inlineCode'])('粘贴到 %s：保留纯文字语义，复制代码范围仍生成新重点', async mode => {
+    const markdown = mode === 'code' ? `<!--k a s=code r=0-3 h=${knowraCheck('abc')}-->\n~~~\nabc\n~~~`
+      : '<mark data-k="a">`abc`</mark>';
+    const { view, serialize, parse } = await createEditor(markdown);
+    const html = view.serializeForClipboard(view.state.doc.slice(1, 4)).dom.innerHTML;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+    const data = { items: [], getData: (type: string) => type === 'text/html' ? html : type === 'text/plain' ? 'abc' : '' } as unknown as DataTransfer;
+    view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data }));
+    expect(view.state.doc.textContent).toBe('aabcbc');
+    const covered = markedText(view.state.doc);
+    expect(covered.a).toBe('abc');
+    expect(Object.values(covered)).toEqual(['abc', 'abc']);
+    if (mode === 'code') expect(markedText(parse(serialize()))).toEqual(covered);
+    else expect(serialize()).not.toContain('==');
+  });
+
+  it('复制章节：同一副本的行内、块级分段与排除项共用新 ID，再复制再换新', async () => {
+    const { view, serialize, parse } = await createEditor('## 节 <!--k a s=section-->\n\n**<mark data-k="a">甲</mark>**<mark data-k="a">乙</mark>\n\n排除 <!--k- a-->\n\n末块 <!--k a s=blocks-->');
+    const original = view.state.doc;
+    const html = view.serializeForClipboard(original.slice(0, original.content.size)).dom.innerHTML;
+    const paste = () => {
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+      view.pasteHTML(html);
+    };
+    paste();
+    const covered = markedText(view.state.doc);
+    expect(covered.a).toBe('甲乙');
+    expect(Object.values(covered)).toEqual(['甲乙', '甲乙']);
+    const copiedId = Object.keys(covered).find(id => id !== 'a')!;
+    const entries = blockMarks(view.state.doc);
+    expect(entries.filter(([, id]) => id === copiedId)).toHaveLength(3);
+    expect(markedText(parse(serialize()))).toEqual(covered);
+    paste();
+    expect(Object.values(markedText(view.state.doc))).toEqual(['甲乙', '甲乙', '甲乙']);
+  });
+
+  it('同一重点的部分文字剪切再粘贴仍共用原 ID，随后复制则产生新 ID', async () => {
+    const { view, serialize, parse } = await createEditor('<mark data-k="a">abc</mark>\n\n尾段');
+    const values = new Map<string, string>();
+    const data = { items: [], clearData: () => values.clear(), setData: (type: string, value: string) => values.set(type, value), getData: (type: string) => values.get(type) ?? '' } as unknown as DataTransfer;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 3)));
+    view.dom.dispatchEvent(new ClipboardEvent('cut', { clipboardData: data }));
+    expect(view.state.doc.textContent).toBe('ac尾段');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data }));
+    expect(markedText(view.state.doc)).toEqual({ a: 'acb' });
+    expect(markedText(parse(serialize()))).toEqual({ a: 'acb' });
+    view.dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data }));
+    expect(Object.values(markedText(view.state.doc)).sort()).toEqual(['acb', 'b']);
+  });
+
+  it('仅复制排除块不把副本继续关联原章节；拖动部分文字保留原重点 ID', async () => {
+    const { view } = await createEditor('## 章节 <!--k a s=section-->\n\n排除 <!--k- a-->\n\n<mark data-k="m">abc</mark>');
+    const headingSize = view.state.doc.child(0).nodeSize;
+    const excludedSize = view.state.doc.child(1).nodeSize;
+    const html = view.serializeForClipboard(view.state.doc.slice(headingSize, headingSize + excludedSize)).dom.innerHTML;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, view.state.doc.content.size - 1)));
+    view.pasteHTML(html);
+    expect(blockMarks(view.state.doc).map(([, id]) => id)).toEqual(['a', 'a']);
+    let from = -1;
+    view.state.doc.descendants((node, position) => { if (node.isText && node.text?.includes('abc')) from = position + 1; });
+    const piece = view.state.doc.slice(from, from + 1);
+    view.dispatch(view.state.tr.insert(headingSize + 1, piece.content).delete(from + 1, from + 2).setMeta('uiEvent', 'drop'));
+    expect(markedText(view.state.doc)).toEqual({ m: 'bac' });
+  });
   it('行内重点：解析成 mark，序列化逐字还原', async () => {
     const markdown = '勾股定理指出 <mark data-k="a1b2" data-t="key" data-l="core">两边平方和</mark>等于斜边平方\n';
     const { view, serialize } = await createEditor(markdown);

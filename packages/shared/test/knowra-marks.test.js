@@ -12,6 +12,42 @@ import {
 
 const ids = marks => marks.map(mark => mark.id);
 
+for (const [name, wrap] of [
+  ['四空格缩进代码', text => `    ${text}\n`],
+  ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],
+  ['跨行 backtick code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`]
+]) test(`${name}：字面标记不派生、不剥除，删除标签属于正文变化`, () => {
+  const literal = '<mark data-k="a">literal</mark> <!--k b s=blocks--><!--k- c-->';
+  const source = wrap(literal);
+  assert.deepEqual(parseKnowraMarks(source), { format: 1, inline: [], blocks: [], problems: [] });
+  assert.equal(stripKnowraMarks(source), source);
+  assert.equal(sameKnowraText(source, wrap('literal')), false);
+});
+
+test('跨行 code span：行内默认、snap 和块级插入均不能把真实标记写成字面文字', () => {
+  const source = '前 `开头\nliteral\n结尾` 后';
+  const from = source.indexOf('literal');
+  for (const snap of [false, true]) {
+    assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'a', from, to: from + 7 }], snap }), /protected|one text line/);
+    assert.throws(() => insertKnowraMarks(source, { inline: [{ id: 'a', from: from + 1, to: from + 2 }], snap }), /protected|one text line/);
+    const rejected = [];
+    assert.equal(insertKnowraMarks(source, { inline: [{ id: 'a', from, to: from + 7 }], snap, onInvalid: item => rejected.push(item.id) }), source);
+    assert.deepEqual(rejected, ['a']);
+  }
+  for (const line of [0, 1]) assert.throws(() => insertKnowraMarks(source, { blocks: [{ id: 'b', line, attrs: { s: 'blocks' } }] }), /protected/);
+  const valid = insertKnowraMarks(source, { blocks: [{ id: 'b', line: 2, attrs: { s: 'blocks' } }] });
+  assert.equal(parseKnowraMarks(valid).blocks.length, 1);
+  assert.equal(stripKnowraMarks(valid), source);
+});
+
+test('跨行 code span 与公式块各自封闭：内部定界符不能屏蔽后续真实标记', () => {
+  for (const prefix of ['前 `开头\n$$\n结束` 后\n', '$$\n`字面\n$$\n']) {
+    const source = `${prefix}<mark data-k="real">正文</mark>\n结尾\``;
+    assert.deepEqual(ids(parseKnowraMarks(source).inline), ['real']);
+    assert.equal(stripKnowraMarks(source), `${prefix}正文\n结尾\``);
+  }
+});
+
 test('行内重点：解析属性、角色与源码区间，去除后逐字还原', () => {
   const markdown = '勾股定理指出 <mark data-k="a1b2" data-t="key cloze" data-l="core">两边平方和</mark>。';
   const { inline, blocks, problems } = parseKnowraMarks(markdown);

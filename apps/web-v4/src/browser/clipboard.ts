@@ -1,15 +1,27 @@
 export interface ClipboardReadResult {
   ok: boolean;
   text?: string;
+  html?: string;
   reason?: 'unavailable' | 'denied';
 }
 
 interface ClipboardOptions {
   navigatorRef?: Navigator;
   documentRef?: Document;
+  includeHtml?: boolean;
 }
 
-export async function readClipboardText({ navigatorRef = globalThis.navigator }: ClipboardOptions = {}): Promise<ClipboardReadResult> {
+export async function readClipboardText({ navigatorRef = globalThis.navigator, includeHtml = false }: ClipboardOptions = {}): Promise<ClipboardReadResult> {
+  if (includeHtml && navigatorRef?.clipboard?.read) {
+    try {
+      const items = await navigatorRef.clipboard.read();
+      const item = items.find(value => value.types.includes('text/plain'));
+      if (!item) return { ok: true, text: '', html: '' };
+      const text = await (await item.getType('text/plain')).text();
+      const html = item.types.includes('text/html') ? await (await item.getType('text/html')).text() : '';
+      return { ok: true, text, html };
+    } catch { return { ok: false, reason: 'denied' }; }
+  }
   if (!navigatorRef?.clipboard?.readText) return { ok: false, reason: 'unavailable' };
   try {
     return { ok: true, text: await navigatorRef.clipboard.readText() };

@@ -36,6 +36,37 @@ const BASE = [
 ].join('\n');
 
 export const inlineAnnotationTests = [
+  ...[
+    ['四空格缩进代码', text => `    ${text}\n`],
+    ['引用内围栏代码', text => `> \`\`\`html\n> ${text}\n> \`\`\`\n`],
+    ['跨行 code span', text => `前文 \`\`开头\n${text}\n结束\`\` 后文\n`]
+  ].map(([name, wrap]) => ({
+    name: `字面标记正文编辑：${name}不派生伪重点，删除标签让知识证据及直接/间接题源过期`,
+    run() {
+      const module = createKnowledgeModule();
+      let note = createNote(module, wrap('<mark data-k="a">literal</mark>'));
+      assert.equal(inlineRows(module, note.id).length, 0);
+      const version = module.noteVersionService.listVersions({ noteId: note.id })[0];
+      const { item, evidence: [evidence] } = module.knowledgeItemService.createCandidate({
+        spaceId: SPACE, title: '字面代码', canonicalStatement: '代码标签是正文的一部分', knowledgeType: 'concept',
+        sourceMode: 'selection', evidence: [{ sourceType: 'noteVersion', noteVersionId: version.id }]
+      });
+      module.knowledgeItemService.confirmItem(item.id);
+      const objective = module.learningObjectiveService.createCandidate({ knowledgeItemId: item.id, objective: '能够解释代码标签', actionVerb: 'explain', cognitiveLevel: 'understand' });
+      module.learningObjectiveService.confirmObjective(objective.id);
+      const question = module.questionService.createQuestion({ stem: '代码标签是什么？', referenceAnswer: '正文', learningObjectiveIds: [objective.id], sources: [
+        { sourceType: 'noteVersion', sourceId: version.id }, { sourceType: 'knowledgeEvidence', sourceId: evidence.id }
+      ] });
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'valid');
+      assert.deepEqual(question.sources.map(source => source.status), ['active', 'active']);
+      const edited = wrap('literal');
+      assert.equal(isMarksOnlyChange(note.rawMarkdown, edited), false);
+      note = update(module, note, edited);
+      assert.equal(note.rawMarkdown, edited);
+      assert.equal(module.repositories.knowledgeEvidenceRepository.findById(evidence.id).status, 'stale');
+      assert.deepEqual(module.questionService.getQuestion(question.id).sources.map(source => source.status), ['stale', 'stale']);
+    }
+  })),
   {
     name: '内联重点：从正文标记派生元数据行，ID 由笔记与标记 ID 确定',
     run() {
