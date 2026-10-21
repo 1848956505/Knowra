@@ -186,46 +186,50 @@
 
 .simplePanel { padding: var(--inspector-pad-wide) var(--inspector-pad); }
 .simplePanel h3 { margin: 0 0 var(--inspector-section-gap); font-size: var(--inspector-title-size); }
-.outlinePanel { padding-top: 10px; }
-.outline {
-  display: grid;
-  gap: 3px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border-subtle);
-}
+.outlinePanel { padding: 8px 10px var(--inspector-pad); }
+/* 树形大纲：缩进按实际嵌套，每层祖先一条细引导线；级别号只在悬停/聚焦时出现在行尾。 */
+.outline { --outline-indent: 14px; display: grid; }
 .outline button {
   position: relative;
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
+  display: flex;
+  align-items: flex-start;
   gap: var(--space-2);
-  min-height: 38px;
-  padding: 6px 8px;
-  line-height: 1.45;
-}
-.outline button::before {
-  content: '';
-  width: 8px;
-  height: 1px;
-  position: absolute;
-  top: 50%;
-  left: -9px;
-  background: var(--border-subtle);
-}
-.outline button[data-level='2'] { margin-left: 12px; }
-.outline button[data-level='3'] { margin-left: 24px; }
-.outline button[data-level='4'] { margin-left: 36px; }
-.outline button[data-level='1'] .outlineText { font-weight: 600; }
-.outline button[data-level='2'] .outlineText { font-weight: 600; }
-.outline button[data-level='3'] .outlineText,
-.outline button[data-level='4'] .outlineText { color: var(--text-secondary); font-size: var(--font-size-meta); }
-
-.outlineLevel {
-  align-self: start;
-  padding-top: 3px;
+  min-height: 32px;
+  padding: 6px 8px 6px calc(10px + var(--outline-depth, 0) * var(--outline-indent));
   color: var(--text-secondary);
-  font: 500 var(--font-size-meta)/1 var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
-.outlineText { min-width: 0; overflow-wrap: anywhere; }
+.outline button[data-depth='0'] { color: var(--text-primary); font-size: 13px; font-weight: 550; }
+.outline button[data-depth='0']:not(:first-child) { margin-top: 4px; }
+.outline button:not([data-depth='0'])::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 15px;
+  width: calc(var(--outline-depth) * var(--outline-indent));
+  background: repeating-linear-gradient(90deg, var(--border-subtle) 0 1px, transparent 1px var(--outline-indent));
+  pointer-events: none;
+}
+.outline button:hover { color: var(--text-primary); }
+.outlineText {
+  min-width: 0;
+  flex: 1;
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.outlineLevel {
+  flex: 0 0 auto;
+  padding-top: 2px;
+  color: var(--text-muted);
+  font: 500 10.5px/1.4 var(--font-ui);
+  opacity: 0;
+  transition: opacity 120ms var(--motion-ease, ease);
+}
+.outline button:hover .outlineLevel,
+.outline button:focus-visible .outlineLevel { opacity: 1; }
 .emptyPanel { padding: var(--inspector-pad); border: 1px dashed var(--border-subtle); background: var(--surface-page); }
 
 .linksPanel .section:first-child { padding-top: var(--inspector-pad-wide); }
