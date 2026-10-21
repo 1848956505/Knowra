@@ -1,12 +1,15 @@
 import { spawnSync } from 'node:child_process';
 import { isDirectExecution } from './cli-entry.mjs';
 
-// 整套迁移到独立 runner；不改变任何测试入口、重试、超时或套件内部并发。
+// 整套迁移到独立 runner；保留原测试入口，并串行补跑合成编辑器恢复回归。
 export const suites = Object.freeze({
   api: ['test:api'],
   web: ['test:content-anchor', 'test:shared', 'test:web-core', 'test:web:legacy', 'test:web', 'test:scripts'],
   desktop: ['test:desktop'],
-  chromium: ['test:e2e -w @study-accelerator/desktop-runtime']
+  chromium: [
+    'test:e2e -w @study-accelerator/desktop-runtime',
+    'test:e2e -w @study-accelerator/web-v4 -- --config playwright.mobile-evidence.config.ts editor-draft-recovery.spec.ts'
+  ]
 });
 
 export function requireSuccessfulJobs(needs) {
