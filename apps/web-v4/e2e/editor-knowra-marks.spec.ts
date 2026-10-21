@@ -1,8 +1,22 @@
-import { expect } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 import { knowraCheck, parseKnowraMarks } from '@study-accelerator/shared/knowra-marks';
 import { test } from './fixtures/syntheticTest';
 import { mockEditorWorkspace } from './fixtures/editorWorkspace';
 import { openEditorToolbarMenu } from '../../../scripts/test-support/editor-menu.mjs';
+
+// 系统剪贴板由测试共享，避免不同浏览器上下文同时覆盖载体。
+test.describe.configure({ mode: 'serial' });
+
+const caretOffsetIn = (target: Locator) => target.evaluate(element => new Promise<number>(resolve => {
+  // 等待原生 selectionchange 和编辑器的选择监听都处理完，再打开会恢复选区的菜单。
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const selection = window.getSelection();
+    if (!selection?.isCollapsed || !selection.focusNode || !element.contains(selection.focusNode)) return resolve(-1);
+    const range = document.createRange(); range.selectNodeContents(element);
+    range.setEnd(selection.focusNode, selection.focusOffset);
+    resolve(range.toString().length);
+  }));
+}));
 
 for (const mode of ['text', 'code'] as const) test(`内联重点复制（${mode}）：粘贴生成新重点，保存重载保持两个身份`, async ({ page, context }, info) => {
   const saved: string[] = [];
@@ -24,6 +38,7 @@ for (const mode of ['text', 'code'] as const) test(`内联重点复制（${mode}
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('abc');
   await editor.locator('mark[data-knowra-mark="a"]').click();
   await page.keyboard.press('End');
+  await expect.poll(() => caretOffsetIn(text)).toBe(3);
   await page.keyboard.press('ControlOrMeta+v');
   await expect(text).toHaveText('abcabc');
   await expect(editor.locator('mark[data-knowra-mark]')).toHaveCount(2);
@@ -59,8 +74,10 @@ for (const mode of ['menu-native', 'native-menu'] as const) test(`重点部分�
     await page.getByRole('menuitem', { name: '剪切', exact: true }).click();
   } else await page.keyboard.press('ControlOrMeta+x');
   await expect(editor).toHaveText('ac尾段');
-  await editor.locator(':scope > p').last().click();
+  const tail = editor.locator(':scope > p').last();
+  await tail.click();
   await page.keyboard.press('End');
+  await expect.poll(() => caretOffsetIn(tail)).toBe(2);
   if (mode === 'native-menu') {
     await openEditorToolbarMenu(page, '编辑');
     await page.getByRole('menuitem', { name: '粘贴', exact: true }).click();
@@ -83,13 +100,7 @@ for (const mode of ['native', 'menu'] as const) test(`代码内普通文本粘�
   const code = page.locator('.ProseMirror [data-code-block] code');
   await page.evaluate(() => navigator.clipboard.writeText('X'));
   await code.locator('mark[data-knowra-mark="a"]').click();
-  const caretOffset = () => code.evaluate(element => {
-    const selection = window.getSelection();
-    if (!selection?.isCollapsed || !selection.focusNode || !element.contains(selection.focusNode)) return -1;
-    const range = document.createRange(); range.selectNodeContents(element);
-    range.setEnd(selection.focusNode, selection.focusOffset);
-    return range.toString().length;
-  });
+  const caretOffset = () => caretOffsetIn(code);
   await page.keyboard.press('Home');
   await expect.poll(caretOffset).toBe(0);
   await page.keyboard.press('ArrowRight');
