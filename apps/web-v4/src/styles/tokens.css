@@ -92,6 +92,7 @@
   --mobile-tabs-size: calc(54px + env(safe-area-inset-bottom));
   --control-size: 32px;
   --touch-target: 44px;
+  --touch-size: 44px;
   --font-ui: "Inter", "PingFang SC", "Noto Sans SC", "Noto Sans CJK SC", "Microsoft YaHei", "WenQuanYi Zen Hei", system-ui, sans-serif;
   --font-note: var(--font-ui);
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -275,4 +276,9 @@
 /* 触屏顶栏容纳原有 44px 按钮，桌面外栏则使用更紧凑的尺寸。 */
 @media (max-width: 767px), (any-pointer: coarse) {
   :root { --topbar-size: 44px; }
+}
+
+/* 平板档：触屏且宽度 ≥768px 时，可点区域取 40px；手机（<768px）保持 44px。 */
+@media (min-width: 768px) and (any-pointer: coarse) {
+  :root { --touch-size: 40px; --touch-target: 40px; }
 }

@@ -43,14 +43,16 @@ async function settleAnimations(locator: Locator) {
 }
 async function expectTouchTarget(locator: Locator) {
   await settleAnimations(locator);
+  // 手机（<768px）44px；平板触屏档（≥768px）40px，见 styles/tokens.css 的 --touch-size。
+  const minTarget = (locator.page().viewportSize()?.width ?? 0) >= 768 ? 40 : 44;
   const rect = (await locator.boundingBox())!;
   test.info().annotations.push({ type: 'touch-target', description: JSON.stringify({
     label: await locator.getAttribute('aria-label') ?? (await locator.textContent())?.trim(),
     rawWidth: rect.width, rawHeight: rect.height, precision: '0.001 CSS px'
   }) });
   // Chromium 的矩形相减可能返回 43.999984741；只消除千分之一像素内的浮点噪声。
-  expect(Number(rect.width.toFixed(3))).toBeGreaterThanOrEqual(44);
-  expect(Number(rect.height.toFixed(3))).toBeGreaterThanOrEqual(44);
+  expect(Number(rect.width.toFixed(3))).toBeGreaterThanOrEqual(minTarget);
+  expect(Number(rect.height.toFixed(3))).toBeGreaterThanOrEqual(minTarget);
 }
 async function expectInViewport(page: Page, locator: Locator) {
   await settleAnimations(locator);

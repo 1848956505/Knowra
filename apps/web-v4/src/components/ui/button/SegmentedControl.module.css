@@ -51,7 +51,7 @@
 .underline .segment[data-focus-visible] { outline-offset: -2px; border-radius: var(--radius-control); box-shadow: var(--focus-ring); }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .segment { min-height: var(--index-size-44); }
-  .iconOnly, .compactGroup .iconOnly { width: var(--index-size-44); }
-  .compactGroup .segment, .comfortableGroup .segment { min-height: var(--index-size-44); }
+  .segment { min-height: var(--touch-size); }
+  .iconOnly, .compactGroup .iconOnly { width: var(--touch-size); }
+  .compactGroup .segment, .comfortableGroup .segment { min-height: var(--touch-size); }
 }

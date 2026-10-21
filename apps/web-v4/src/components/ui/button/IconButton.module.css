@@ -93,5 +93,5 @@
 .base:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
 
 @media (max-width: 767px), (any-pointer: coarse) {
-  .base { min-width: 44px; min-height: 44px; }
+  .base { min-width: var(--touch-size); min-height: var(--touch-size); }
 }
