@@ -3,6 +3,8 @@ import { calculateContentHash } from '@study-accelerator/content-anchor';
 import type { Note, NoteVersion, NoteVersionPage, NoteVersionPageOptions, NoteVersionPrunePreview, NoteVersionSummary } from '@study-accelerator/web-core';
 import { Button, Dialog, DialogBody, DialogClose, DialogFooter, PressableButton } from '../../components/ui';
 import { TextDiff } from '../../components/ui/TextDiff';
+import { ClockIcon, NoteIcon } from '../../components/icons/knowra';
+import { InspectorSection } from './inspector/InspectorSection';
 import styles from './EditorInspector.module.css';
 
 interface Props {
@@ -19,6 +21,13 @@ interface Props {
 
 function dateLabel(value: string) {
   return new Date(value).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+}
+
+/** 列表行只显示到秒；跨年时补年份，完整时间放在 title。 */
+function shortDateLabel(value: string) {
+  const date = new Date(value);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleString('zh-CN', { ...(sameYear ? {} : { year: 'numeric' }), month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
 /** Group only the presentation. Every immutable source snapshot stays available. */
@@ -114,34 +123,38 @@ export function VersionHistoryPanel({ note, markdown, canWrite, onListVersions, 
   }
 
   const row = (version: NoteVersionSummary) => <PressableButton key={version.id} type="button" aria-pressed={selected?.id === version.id} onPress={() => void select(version)}>
-    <span>{version.contentHash === currentHash ? '当前正文' : '历史正文'}</span>
-    <time dateTime={version.createdAt}>{dateLabel(version.createdAt)}</time>
+    <span data-current={version.contentHash === currentHash || undefined}>{version.contentHash === currentHash ? '当前正文' : '历史正文'}</span>
+    <time dateTime={version.createdAt} title={dateLabel(version.createdAt)}>{shortDateLabel(version.createdAt)}</time>
   </PressableButton>;
 
-  return <section className={`${styles.simplePanel} ${styles.versionPanel}`} aria-label="历史记录">
-    <div className={styles.versionSummary}><strong>{total} 条历史记录</strong><span>相邻修改间隔 5 分钟内归组，可展开全部快照。来源快照持续保留。</span>{onPreviewVersionPrune ? <Button onPress={() => void onPreviewVersionPrune(note.id).then(setPrunePreview).catch(reason => setError(reason instanceof Error ? reason.message : '清理预览失败'))}>清理预览</Button> : null}</div>
-    {markdown !== note.rawMarkdown ? <p role="status">当前草稿尚未保存；差异对比包含这部分修改。</p> : null}
-    {error && !restoreOpen ? <p className={styles.versionError} role="alert">{error}</p> : null}
-    {message ? <p role="status">{message}</p> : null}
-    {listLoading ? <p role="status">正在加载历史记录…</p> : null}
-    {!listLoading && versions.length === 0 && !error ? <p className={styles.emptyPanel}>暂无历史记录。</p> : null}
-    <div className={styles.versionList} aria-label="版本列表">
-      {groups.map((group) => <div key={group[0].id} className={styles.versionGroup}>
-        {row(group[0])}
-        {group.length > 1 ? <details><summary>展开本组其余 {group.length - 1} 条快照</summary>{group.slice(1).map(row)}</details> : null}
-      </div>)}
-    </div>
-    {cursor ? <Button isPending={listLoading} onPress={() => void loadMore()}>加载更早记录</Button> : null}
-    {detailLoading ? <p role="status">正在加载版本正文…</p> : null}
-    {!selected && !detailLoading && versions.length ? <p className={styles.emptyPanel}>选择一条记录查看正文或比较差异。</p> : null}
-    {selected ? <>
+  return <section className={styles.versionPanel} aria-label="历史记录">
+    <InspectorSection icon={<ClockIcon size={18} />} title={`${total} 条历史记录`}
+      action={onPreviewVersionPrune ? <Button size="mini" onPress={() => void onPreviewVersionPrune(note.id).then(setPrunePreview).catch(reason => setError(reason instanceof Error ? reason.message : '清理预览失败'))}>清理预览</Button> : undefined}>
+      <p className={styles.versionHint}>相邻修改间隔 5 分钟内归组，可展开全部快照。来源快照持续保留。</p>
+      {markdown !== note.rawMarkdown ? <p className={styles.versionNotice} role="status">当前草稿尚未保存；差异对比包含这部分修改。</p> : null}
+      {error && !restoreOpen ? <p className={styles.versionError} role="alert">{error}</p> : null}
+      {message ? <p className={styles.versionNotice} role="status">{message}</p> : null}
+      {listLoading ? <p className={styles.versionHint} role="status">正在加载历史记录…</p> : null}
+      {!listLoading && versions.length === 0 && !error ? <p className={styles.emptyPanel}>暂无历史记录。</p> : null}
+      {versions.length ? <div className={styles.versionList} aria-label="版本列表">
+        {groups.map((group) => <div key={group[0].id} className={styles.versionGroup}>
+          {row(group[0])}
+          {group.length > 1 ? <details><summary>展开本组其余 {group.length - 1} 条快照</summary>{group.slice(1).map(row)}</details> : null}
+        </div>)}
+      </div> : null}
+      {cursor ? <Button variant="ghost" size="mini" className={styles.versionMore} isPending={listLoading} onPress={() => void loadMore()}>加载更早记录</Button> : null}
+    </InspectorSection>
+    {detailLoading ? <p className={styles.panelStatus} role="status">正在加载版本正文…</p> : null}
+    {!selected && !detailLoading && versions.length ? <p className={styles.versionPlaceholder}>选择一条记录查看正文或比较差异。</p> : null}
+    {selected ? <InspectorSection icon={<NoteIcon size={18} />} title="所选版本">
+      <p className={styles.versionHint}>{dateLabel(selected.createdAt)} · {selected.content.length.toLocaleString('zh-CN')} 字符</p>
       <div className={styles.versionActions}>
-        <Button onPress={() => setCompare((value) => !value)}>{compare ? '查看历史正文' : '与当前正文对比'}</Button>
-        <Button isDisabled={!canWrite || !onRestoreVersion || pending || selected.content === markdown} onPress={() => setRestoreOpen(true)}>恢复此版本</Button>
-        <Button isDisabled={!canWrite || !onSaveVersionAs || pending} onPress={() => void act('saveAs')}>另存为新笔记</Button>
+        <Button size="mini" onPress={() => setCompare((value) => !value)}>{compare ? '查看历史正文' : '与当前正文对比'}</Button>
+        <Button size="mini" isDisabled={!canWrite || !onRestoreVersion || pending || selected.content === markdown} onPress={() => setRestoreOpen(true)}>恢复此版本</Button>
+        <Button variant="ghost" size="mini" isDisabled={!canWrite || !onSaveVersionAs || pending} onPress={() => void act('saveAs')}>另存为新笔记</Button>
       </div>
-      {compare ? <TextDiff before={selected.content} after={markdown} beforeLabel="所选历史正文" afterLabel="当前正文（含草稿）" /> : <article className={styles.versionPreview} aria-label="版本正文预览"><header><strong>正文快照</strong><span>{selected.content.length.toLocaleString('zh-CN')} 字符</span></header><pre>{selected.content || '（空白版本）'}</pre></article>}
-    </> : null}
+      {compare ? <TextDiff before={selected.content} after={markdown} beforeLabel="所选历史正文" afterLabel="当前正文（含草稿）" /> : <article className={styles.versionPreview} aria-label="版本正文预览"><pre>{selected.content || '（空白版本）'}</pre></article>}
+    </InspectorSection> : null}
     <Dialog title="恢复历史正文" isOpen={restoreOpen} onOpenChange={setRestoreOpen} isPending={pending}>
       <DialogBody><p>先保存当前草稿，再恢复所选正文。恢复前的内容仍可在历史记录中找回；标题、目录和标签保持现状。关联标注会重新检查位置。</p>{error ? <p className={styles.versionError} role="alert">{error}</p> : null}</DialogBody>
       <DialogFooter><DialogClose variant="ghost">取消</DialogClose><Button variant="primary" isPending={pending} isDisabled={!canWrite} onPress={() => void act('restore')}>确认恢复</Button></DialogFooter>
