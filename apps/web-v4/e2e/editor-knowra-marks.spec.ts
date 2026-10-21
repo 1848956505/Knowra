@@ -36,8 +36,10 @@ for (const mode of ['text', 'code'] as const) test(`内联重点复制（${mode}
   });
   await page.keyboard.press('ControlOrMeta+c');
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('abc');
-  await editor.locator('mark[data-knowra-mark="a"]').click();
-  await page.keyboard.press('End');
+  await editor.locator('mark[data-knowra-mark="a"]').evaluate(mark => {
+    const range = document.createRange(); range.selectNodeContents(mark); range.collapse(false);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+  });
   await expect.poll(() => caretOffsetIn(text)).toBe(3);
   await page.keyboard.press('ControlOrMeta+v');
   await expect(text).toHaveText('abcabc');
@@ -74,9 +76,13 @@ for (const mode of ['menu-native', 'native-menu'] as const) test(`重点部分�
     await page.getByRole('menuitem', { name: '剪切', exact: true }).click();
   } else await page.keyboard.press('ControlOrMeta+x');
   await expect(editor).toHaveText('ac尾段');
+  await expect(page.getByRole('menu')).toHaveCount(0);
   const tail = editor.locator(':scope > p').last();
-  await tail.click();
-  await page.keyboard.press('End');
+  await editor.focus();
+  await tail.evaluate(paragraph => {
+    const range = document.createRange(); range.selectNodeContents(paragraph); range.collapse(false);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+  });
   await expect.poll(() => caretOffsetIn(tail)).toBe(2);
   if (mode === 'native-menu') {
     await openEditorToolbarMenu(page, '编辑');
@@ -99,12 +105,13 @@ for (const mode of ['native', 'menu'] as const) test(`代码内普通文本粘�
   await expect(page.locator('[data-editor-ready]')).toHaveAttribute('data-editor-ready', 'true');
   const code = page.locator('.ProseMirror [data-code-block] code');
   await page.evaluate(() => navigator.clipboard.writeText('X'));
-  await code.locator('mark[data-knowra-mark="a"]').click();
-  const caretOffset = () => caretOffsetIn(code);
-  await page.keyboard.press('Home');
-  await expect.poll(caretOffset).toBe(0);
-  await page.keyboard.press('ArrowRight');
-  await expect.poll(caretOffset).toBe(1);
+  await page.locator('.ProseMirror').focus();
+  await code.locator('mark[data-knowra-mark="a"]').evaluate(mark => {
+    // 本例验证粘贴；直接放置浏览器光标，避免点击坐标与 Home 的选择同步时序影响前置条件。
+    const range = document.createRange(); range.setStart(mark.firstChild!, 1); range.collapse(true);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+  });
+  await expect.poll(() => caretOffsetIn(code)).toBe(1);
   if (mode === 'native') await page.keyboard.press('ControlOrMeta+v');
   else {
     await openEditorToolbarMenu(page, '编辑');
