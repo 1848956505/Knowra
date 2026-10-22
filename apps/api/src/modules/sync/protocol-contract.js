@@ -8,8 +8,10 @@ export const KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY = 'knowledge-lifecycle-v1';
 export const KNOWLEDGE_AGENT_PROVENANCE_SYNC_CAPABILITY = 'knowledge-provenance-agent-v1';
 // mcp 执行模式（外部 AI 客户端经本机 MCP 提议的候选）的来源摘要：同理，旧端无法校验，必须在握手阶段拒绝。
 export const KNOWLEDGE_MCP_PROVENANCE_SYNC_CAPABILITY = 'knowledge-provenance-mcp-v1';
+// 重点内联化：schemaVersion 3 的重点由正文标记派生，旧端会拒绝这类记录，必须在握手阶段要求两端都升级。
+export const INLINE_ANNOTATIONS_SYNC_CAPABILITY = 'inline-annotations-v1';
 export const REQUIRED_SYNC_CAPABILITIES = Object.freeze([
-  'note-ai-visibility-v1', 'asset-lifecycle-v1', 'atomic-entities-v2', 'knowledge-items-v1', KNOWLEDGE_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_AGENT_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_MCP_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY, TRAINING_SYNC_CAPABILITY
+  'note-ai-visibility-v1', 'asset-lifecycle-v1', 'atomic-entities-v2', 'knowledge-items-v1', KNOWLEDGE_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_AGENT_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_MCP_PROVENANCE_SYNC_CAPABILITY, KNOWLEDGE_LIFECYCLE_SYNC_CAPABILITY, TRAINING_SYNC_CAPABILITY, INLINE_ANNOTATIONS_SYNC_CAPABILITY
 ]);
 export const SYNC_CAPABILITIES = Object.freeze([...REQUIRED_SYNC_CAPABILITIES, 'attachment-transfer-v1'].sort());
 export const syncContract = () => ({ entitySchemaVersion: SYNC_ENTITY_SCHEMA_VERSION, capabilities: [...SYNC_CAPABILITIES] });

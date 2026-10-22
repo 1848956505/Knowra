@@ -12,7 +12,9 @@ export function parseNoteLinkUrl(url) {
     const targetNoteId = decodeURIComponent(match[1]);
     if (!targetNoteId || targetNoteId.length > 200 || /[\u0000-\u001f\u007f]/.test(targetNoteId)) return null;
     return { targetNoteId, occurrenceId: match[2] };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function createNoteLinkUrl(targetNoteId, occurrenceId) {
@@ -26,7 +28,9 @@ export function extractNoteLinks(markdown) {
   const source = String(markdown ?? '');
   const tree = fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
   const definitions = new Map();
-  walk(tree, node => { if (node.type === 'definition' && !definitions.has(node.identifier)) definitions.set(node.identifier, node.url); });
+  walk(tree, node => {
+    if (node.type === 'definition' && !definitions.has(node.identifier)) definitions.set(node.identifier, node.url);
+  });
   const occurrences = [];
   const targetIds = new Set();
   function visit(node, block = tree, inLink = false) {
@@ -39,8 +43,14 @@ export function extractNoteLinks(markdown) {
         targetIds.add(parsed.targetNoteId);
         const label = text(node);
         const { before, after } = visibleContext(block, node);
-        occurrences.push({ ...parsed, url, sourceStart: node.position.start.offset, sourceEnd: node.position.end.offset,
-          label, context: contextSnippet(before, label, after) });
+        occurrences.push({
+          ...parsed,
+          url,
+          sourceStart: node.position.start.offset,
+          sourceEnd: node.position.end.offset,
+          label,
+          context: contextSnippet(before, label, after)
+        });
       }
       inLink = true;
     }
@@ -62,15 +72,27 @@ export function resolveNoteLinkOccurrence(markdown, locator) {
   return matches.length === 1 && matches[0].targetNoteId === locator.targetNoteId ? matches[0] : null;
 }
 
-function walk(node, action) { action(node); for (const child of node.children ?? []) walk(child, action); }
-function text(node) { return node.value ?? (node.children ?? []).map(text).join(''); }
+function walk(node, action) {
+  action(node);
+  for (const child of node.children ?? []) walk(child, action);
+}
+function text(node) {
+  return node.type === 'html' ? '' : (node.value ?? (node.children ?? []).map(text).join(''));
+}
 function visibleContext(block, target) {
-  let before = '', after = '', found = false;
+  let before = '',
+    after = '',
+    found = false;
   function visit(node) {
-    if (node === target) { found = true; return; }
+    if (node === target) {
+      found = true;
+      return;
+    }
     if (['html', 'definition', 'image', 'imageReference'].includes(node.type)) return;
-    if (node.value !== undefined) { if (found) after += node.value; else before += node.value; }
-    else for (const child of node.children ?? []) visit(child);
+    if (node.value !== undefined) {
+      if (found) after += node.value;
+      else before += node.value;
+    } else for (const child of node.children ?? []) visit(child);
   }
   visit(block);
   return { before, after };

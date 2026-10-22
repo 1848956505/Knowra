@@ -9,13 +9,21 @@ test('整篇目标 ID 与引用位置身份独立，重开保留显示文字及�
   const parsed = extractNoteLinks(markdown);
   assert.deepEqual(parsed.targetIds, ['目标/笔记']);
   assert.equal(parsed.occurrences.length, 2);
-  assert.deepEqual(parsed.occurrences.map(item => item.label), ['原名字', '原名字']);
+  assert.deepEqual(
+    parsed.occurrences.map(item => item.label),
+    ['原名字', '原名字']
+  );
   assert.match(parsed.occurrences[1].context, /另一处/);
-  assert.equal(resolveNoteLinkOccurrence('新增段落。\n\n' + markdown, parsed.occurrences[1]).occurrenceId, 'occ-second');
+  assert.equal(
+    resolveNoteLinkOccurrence('新增段落。\n\n' + markdown, parsed.occurrences[1]).occurrenceId,
+    'occ-second'
+  );
   assert.deepEqual(parseNoteLinkUrl(url), { targetNoteId: '目标/笔记', occurrenceId: 'occ-first' });
 });
 test('代码、图片、HTML、外链和标题文字不产生引用；历史 ID 保留', () => {
-  const parsed = extractNoteLinks(`\`[代码](${url})\`\n\n~~~md\n[代码](${url})\n[[code-id]]\n~~~\n\n![图](${url})\n\n[外链](https://example.test) [[legacy-id]]\n\n目标/笔记`);
+  const parsed = extractNoteLinks(
+    `\`[代码](${url})\`\n\n~~~md\n[代码](${url})\n[[code-id]]\n~~~\n\n![图](${url})\n\n[外链](https://example.test) [[legacy-id]]\n\n目标/笔记`
+  );
   assert.deepEqual(parsed.targetIds, ['legacy-id']);
   assert.equal(parsed.occurrences.length, 0);
 });
@@ -45,4 +53,12 @@ test('同段上下文只显示可见文字，不带相邻链接协议或位置ID
   const result = extractNoteLinks(`[甲](${url}) 前文 [乙](${createNoteLinkUrl('另一目标', 'occ-second')}) 后文`);
   assert.match(result.occurrences[1].context, /甲.*前文.*乙.*后文/);
   assert.ok(!result.occurrences.some(item => /knowra:|occ-first|occ-second/.test(item.context)));
+});
+
+test('重点标记包裹的内部链接使用纯文字标签并保持源码位置', () => {
+  const source = `[<mark data-k="m1" t="key">第一处文字</mark>](${url})`;
+  const [occurrence] = extractNoteLinks(source).occurrences;
+  assert.equal(occurrence.label, '第一处文字');
+  assert.equal(occurrence.context, '第一处文字');
+  assert.equal(source.slice(occurrence.sourceStart, occurrence.sourceEnd), source);
 });

@@ -5,6 +5,7 @@ import {
   insertKnowraMarks,
   knowraCheck,
   parseKnowraMarks,
+  knowraMarkSpans,
   sameKnowraText,
   stripKnowraMarks,
   stripKnowraMarksMapped
@@ -314,4 +315,11 @@ test('sameKnowraText：只差标记视为相同正文', () => {
   assert.equal(sameKnowraText('甲乙', '甲乙丙'), false);
   assert.equal(sameKnowraText('<mark>普通</mark>', '普通'), false);
   assert.equal(sameKnowraText(null, ''), false);
+});
+
+test('knowraMarkSpans：去掉这些区间后正好得到去标记正文', () => {
+  const markdown = '## 题 <!--k s1 s=section-->\n\n甲<mark data-k="a">乙</mark>丙\n\n<!--k b1 s=blocks-->\n```\nx\n```';
+  let output = '', cursor = 0;
+  for (const { start, end } of knowraMarkSpans(markdown)) { output += markdown.slice(cursor, start); cursor = end; }
+  assert.equal(output + markdown.slice(cursor), stripKnowraMarks(markdown));
 });

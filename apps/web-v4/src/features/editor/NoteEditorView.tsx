@@ -54,6 +54,7 @@ import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
 import { useEditorInspectorData } from './useEditorInspectorData';
 import { useEditorAnnotationWrites } from './useEditorAnnotationWrites';
+import { useInlineAnnotationWrites } from './useInlineAnnotationWrites';
 import { INLINE_IMAGE_ACCEPT } from './attachmentFiles';
 import { useEditorAttachments } from './useEditorAttachments';
 import { EditorAttachmentFeedback } from './EditorAttachmentFeedback';
@@ -84,7 +85,13 @@ export interface NoteEditorViewProps {
   onCreateFolder(): void;
   onImportMarkdown(): void;
   onRenameNote(title: string): Promise<void>;
-  onSaveMarkdown(noteId: string, markdown: string, expectedUpdatedAt?: string, baseMarkdown?: string, annotationMapping?: import('@study-accelerator/web-core').AnnotationMapping): Promise<Note>;
+  onSaveMarkdown(
+    noteId: string,
+    markdown: string,
+    expectedUpdatedAt?: string,
+    baseMarkdown?: string,
+    annotationMapping?: import('@study-accelerator/web-core').AnnotationMapping
+  ): Promise<Note>;
   onDraftStateChange?(hasLocalChanges: boolean, error?: string | null): void;
   extendedWritesEnabled?: boolean;
   onSaveAs(): Promise<void>;
@@ -116,7 +123,10 @@ export interface NoteEditorViewProps {
   onRestoreAnnotation?(annotationId: string, expectedRevision?: number): Promise<Annotation>;
   onUpdateAnnotationAnchor(annotationId: string, input: UpdateAnnotationAnchorInput): Promise<Annotation>;
   onUpdateAnnotation?(annotationId: string, input: UpdateAnnotationInput): Promise<Annotation>;
-  onConfirmAnnotationRange?(annotationId: string, input: import('@study-accelerator/web-core').ConfirmAnnotationRangeInput): Promise<Annotation>;
+  onConfirmAnnotationRange?(
+    annotationId: string,
+    input: import('@study-accelerator/web-core').ConfirmAnnotationRangeInput
+  ): Promise<Annotation>;
   onPreviewAnnotation?(annotationId: string): Promise<AnnotationPreview>;
   onGetAnnotationKnowledgeLinks?(annotationId: string): Promise<AnnotationKnowledgeLinks>;
   onCreateKnowledgeCandidate?(annotation: Annotation): Promise<void>;
@@ -124,12 +134,31 @@ export interface NoteEditorViewProps {
   onExtractWithAssistant?(noteId: string): void;
   knowledgeWriteDisabledReason?: string;
   onPreviewAnalysisScope?(input: AnalysisScopeInput): Promise<AnalysisScopePreview>;
-  onCreateAnalysisScope?(input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }): Promise<{ id: string }>;
+  onCreateAnalysisScope?(
+    input: AnalysisScopeInput & { previewHash: string; idempotencyKey: string }
+  ): Promise<{ id: string }>;
   onListAnalysisScopes?(spaceId: string): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot[]>;
-  onTrashAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
-  onRestoreAnalysisScope?(id: string, input: { spaceId: string; expectedUpdatedAt: string }): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
-  onCreateAnnotationExclusion?(annotationId: string, input: { expectedRevision: number; noteContentHash: string; anchor: import('@study-accelerator/web-core').ContentAnchor }): Promise<{ annotation: Annotation }>;
-  onDeleteAnnotationExclusion?(annotationId: string, exclusionId: string, expectedRevision: number): Promise<{ annotation: Annotation }>;
+  onTrashAnalysisScope?(
+    id: string,
+    input: { spaceId: string; expectedUpdatedAt: string }
+  ): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
+  onRestoreAnalysisScope?(
+    id: string,
+    input: { spaceId: string; expectedUpdatedAt: string }
+  ): Promise<import('@study-accelerator/web-core').AnalysisScopeSnapshot>;
+  onCreateAnnotationExclusion?(
+    annotationId: string,
+    input: {
+      expectedRevision: number;
+      noteContentHash: string;
+      anchor: import('@study-accelerator/web-core').ContentAnchor;
+    }
+  ): Promise<{ annotation: Annotation }>;
+  onDeleteAnnotationExclusion?(
+    annotationId: string,
+    exclusionId: string,
+    expectedRevision: number
+  ): Promise<{ annotation: Annotation }>;
   onFileStatus(message: string): void;
   onViewAction(action: EditorViewAction): void;
   onToggleFavorite(): void;
@@ -211,8 +240,14 @@ export function NoteEditorView({
 }: NoteEditorViewProps) {
   const desktopTitlebar = useDesktopTitlebar();
   const {
-    documentStageRef, paperRef, toolbarAnchorRef, toolbarRef, toolbarPinned, documentEdge,
-    saveCurrentScrollPosition, restoreCurrentScrollPosition
+    documentStageRef,
+    paperRef,
+    toolbarAnchorRef,
+    toolbarRef,
+    toolbarPinned,
+    documentEdge,
+    saveCurrentScrollPosition,
+    restoreCurrentScrollPosition
   } = useEditorViewport(note?.id);
   const editorRef = useRef<EditorCommandTarget>(null);
   const documentHeaderRef = useRef<EditorDocumentHeaderHandle>(null);
@@ -231,38 +266,69 @@ export function NoteEditorView({
     canWrite: Boolean(note && canWrite),
     onSave: onSaveMarkdown
   });
-  useEffect(() => registerDesktopSave(async (mode) => {
-    const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown();
-    if (markdown !== undefined && markdown !== autosave.getLatestMarkdown()) {
-      autosave.updateDraft(markdown, { immediate: true });
-    }
-    if (mode !== 'recovery' && markdown !== undefined && (autosave.hasLocalChanges || markdown !== note?.rawMarkdown)) {
-      await autosave.saveNow(markdown);
-    }
-  }, 0), [autosave, note?.rawMarkdown, view.showSourceEditor]);
+  useEffect(
+    () =>
+      registerDesktopSave(async mode => {
+        const markdown = view.showSourceEditor ? autosave.getLatestMarkdown() : editorRef.current?.getMarkdown();
+        if (markdown !== undefined && markdown !== autosave.getLatestMarkdown()) {
+          autosave.updateDraft(markdown, { immediate: true });
+        }
+        if (
+          mode !== 'recovery' &&
+          markdown !== undefined &&
+          (autosave.hasLocalChanges || markdown !== note?.rawMarkdown)
+        ) {
+          await autosave.saveNow(markdown);
+        }
+      }, 0),
+    [autosave, note?.rawMarkdown, view.showSourceEditor]
+  );
 
   const extractionEnvironment = useExtractionEnvironment();
   const savedActions = useEditorSavedActions({
-    note, canWrite, showSourceEditor: view.showSourceEditor, extractionScope: extractionEnvironment.scopeKey,
-    editorRef, autosave, onPreviewAnalysisScope, onCreateKnowledgeCandidate,
-    onExtractWithAssistant, onSaveVersionAs, onFileStatus
+    note,
+    canWrite,
+    showSourceEditor: view.showSourceEditor,
+    extractionScope: extractionEnvironment.scopeKey,
+    editorRef,
+    autosave,
+    onPreviewAnalysisScope,
+    onCreateKnowledgeCandidate,
+    onExtractWithAssistant,
+    onSaveVersionAs,
+    onFileStatus
   });
   const draftMarkdown = autosave.draftMarkdown;
   const canEditContent = canWrite && view.contentMode === 'edit' && !view.showSourceEditor;
   const noteLinks = useEditorNoteLinks({
-    note, canWrite, canEditContent, refreshKey: notes, editorRef, autosave,
-    onGetNoteLinkRelations, onOpenNote, onFileStatus,
-    saveCurrentScrollPosition, restoreCurrentScrollPosition
+    note,
+    canWrite,
+    canEditContent,
+    refreshKey: notes,
+    editorRef,
+    autosave,
+    onGetNoteLinkRelations,
+    onOpenNote,
+    onFileStatus,
+    saveCurrentScrollPosition,
+    restoreCurrentScrollPosition
   });
   useEffect(() => {
     onDraftStateChange?.(autosave.hasLocalChanges, autosave.saveError);
   }, [autosave.hasLocalChanges, autosave.saveError, onDraftStateChange]);
   useEffect(() => () => onDraftStateChange?.(false), [onDraftStateChange]);
   const {
-    attachments, setAttachments, attachmentsLoading,
-    linkedNotes, linkedNotesLoading,
-    annotations, setAnnotations, annotationsLoading,
-    focusedAnnotationId, setFocusedAnnotationId
+    attachments,
+    setAttachments,
+    attachmentsLoading,
+    linkedNotes,
+    linkedNotesLoading,
+    annotations,
+    setAnnotations,
+    annotationsLoading,
+    annotationsReady,
+    focusedAnnotationId,
+    setFocusedAnnotationId
   } = useEditorInspectorData({
     noteId: note?.id,
     refreshKey: note?.updatedAt,
@@ -274,23 +340,100 @@ export function NoteEditorView({
   });
 
   const editorAttachments = useEditorAttachments({
-    noteId: note?.id, canWrite, showSourceEditor: view.showSourceEditor, extendedWritesEnabled,
-    editorRef, autosave, attachments, setAttachments, attachmentActions,
-    onListAttachments, onUploadAttachment, onRenameAttachment, onDeleteAttachment, onFileStatus
+    noteId: note?.id,
+    canWrite,
+    showSourceEditor: view.showSourceEditor,
+    extendedWritesEnabled,
+    editorRef,
+    autosave,
+    attachments,
+    setAttachments,
+    attachmentActions,
+    onListAttachments,
+    onUploadAttachment,
+    onRenameAttachment,
+    onDeleteAttachment,
+    onFileStatus
   });
 
-  const { createCurrentAnnotation, reanchorAnnotation, excludeCurrentBlock } = useEditorAnnotationWrites({
-    note, canEditContent, editorRef, autosave, onListAnnotations, onCreateAnnotation,
-    onUpdateAnnotationAnchor, onCreateAnnotationExclusion, onFileStatus,
+  const {
+    createCurrentAnnotation: createLegacyAnnotation,
+    reanchorAnnotation: reanchorLegacyAnnotation,
+    excludeCurrentBlock: excludeLegacyBlock
+  } = useEditorAnnotationWrites({
+    note,
+    canEditContent,
+    editorRef,
+    autosave,
+    onListAnnotations,
+    onCreateAnnotation,
+    onUpdateAnnotationAnchor,
+    onCreateAnnotationExclusion,
+    onFileStatus,
     onCreated: created => {
       setAnnotations(current => [...current.filter(item => item.id !== created.id), created]);
       setFocusedAnnotationId(created.id);
     },
     onUpdated: (updated, focus) => {
-      setAnnotations(current => current.map(item => item.id === updated.id ? updated : item));
+      setAnnotations(current => current.map(item => (item.id === updated.id ? updated : item)));
       if (focus) setFocusedAnnotationId(updated.id);
     }
   });
+
+  // 重点内联化：没有活跃旧重点的笔记改为直接修改正文标记；还有旧重点的笔记仍走旧链路，等迁移后切换。
+  const inlineWrites = useInlineAnnotationWrites({
+    note,
+    canEditContent,
+    editorRef,
+    autosave,
+    annotations,
+    annotationsLoading,
+    annotationsReady,
+    onListAnnotations,
+    onUpdateAnnotation,
+    setAnnotations,
+    setFocusedAnnotationId,
+    onFileStatus
+  });
+  // 用最新一次渲染的分流结果：列表加载期间先等加载完成（最多 5 秒），再决定走正文标记还是旧链路。
+  const inlineWritesRef = useRef(inlineWrites);
+  inlineWritesRef.current = inlineWrites;
+  const annotationsLoadingRef = useRef(annotationsLoading);
+  annotationsLoadingRef.current = annotationsLoading;
+  const annotationContextRef = useRef({ noteId: note?.id, canEditContent });
+  if (
+    annotationContextRef.current.noteId !== note?.id ||
+    annotationContextRef.current.canEditContent !== canEditContent
+  )
+    annotationContextRef.current = { noteId: note?.id, canEditContent };
+  useEffect(
+    () => () => {
+      annotationContextRef.current = { ...annotationContextRef.current };
+    },
+    []
+  );
+  const createCurrentAnnotation = async (
+    scope: 'selection' | 'blocks' | 'section' | 'list' = 'selection',
+    importance: 'normal' | 'important' | 'core' = 'normal'
+  ) => {
+    const context = annotationContextRef.current;
+    for (
+      let waited = 0;
+      context === annotationContextRef.current && annotationsLoadingRef.current && waited < 5000;
+      waited += 50
+    )
+      await new Promise(resolve => setTimeout(resolve, 50));
+    if (context !== annotationContextRef.current) throw new Error('笔记或编辑状态已变化，请重新选择重点');
+    if (annotationsLoadingRef.current || !inlineWritesRef.current.ready)
+      throw new Error('重点列表尚未成功加载，请稍后重试');
+    if (inlineWritesRef.current.enabled) return inlineWritesRef.current.create(scope, importance);
+    return createLegacyAnnotation(scope, importance);
+  };
+  const annotationById = (annotationId: string) => annotations.find(item => item.id === annotationId);
+  const reanchorAnnotation = (annotation: Annotation) =>
+    inlineWrites.owns(annotation) ? inlineWrites.reanchor(annotation) : reanchorLegacyAnnotation(annotation);
+  const excludeCurrentBlock = (annotation: Annotation) =>
+    inlineWrites.owns(annotation) ? inlineWrites.exclude(annotation) : excludeLegacyBlock(annotation);
 
   useEffect(() => {
     setEditPanelMode(null);
@@ -350,7 +493,7 @@ export function NoteEditorView({
     await autosave.saveNow(markdown);
   };
   const replaceAnnotation = (updated: Annotation) => {
-    setAnnotations((current) => current.map((item) => item.id === updated.id ? updated : item));
+    setAnnotations(current => current.map(item => (item.id === updated.id ? updated : item)));
   };
   const selectAnnotation = (annotationId: string) => {
     setOverlappingAnnotationIds([]);
@@ -365,7 +508,7 @@ export function NoteEditorView({
     }
     void saveImmediately()
       .then(() => onOpenNote(targetNoteId))
-      .catch((error) => onFileStatus(error instanceof Error ? error.message : '切换前保存失败'));
+      .catch(error => onFileStatus(error instanceof Error ? error.message : '切换前保存失败'));
   };
   const handleFileAction = async (action: EditorFileAction) => {
     switch (action) {
@@ -417,8 +560,13 @@ export function NoteEditorView({
     const mod = event.metaKey || event.ctrlKey;
     if (!mod) return;
     const key = event.key.toLowerCase();
-    if (((event.metaKey && event.ctrlKey && !event.altKey) || (event.ctrlKey && event.altKey && !event.metaKey))
-      && !event.shiftKey && key === 'i' && canEditContent && extendedWritesEnabled) {
+    if (
+      ((event.metaKey && event.ctrlKey && !event.altKey) || (event.ctrlKey && event.altKey && !event.metaKey)) &&
+      !event.shiftKey &&
+      key === 'i' &&
+      canEditContent &&
+      extendedWritesEnabled
+    ) {
       event.preventDefault();
       event.stopPropagation();
       imageInputRef.current?.click();
@@ -432,32 +580,35 @@ export function NoteEditorView({
       setEditPanelMode('replace');
     } else if (key === 's' && canWrite) {
       event.preventDefault();
-      void handleFileAction(event.shiftKey ? 'save-as' : 'save')
-        .catch((error) => onFileStatus(error instanceof Error ? error.message : '保存失败'));
+      void handleFileAction(event.shiftKey ? 'save-as' : 'save').catch(error =>
+        onFileStatus(error instanceof Error ? error.message : '保存失败')
+      );
     }
   };
 
-  const tabs = note ? <EditorTabs
-    notes={openNotes.length > 0 ? openNotes : [note]}
-    activeNoteId={note.id}
-    canWrite={canWrite}
-    windowTitlebar={Boolean(desktopTitlebar.host)}
-    onOpenNote={openNoteSafely}
-    onCloseNote={(closingNoteId) => {
-      if (closingNoteId !== note.id || !canWrite) {
-        onCloseNote(closingNoteId);
-        return;
-      }
-      saveCurrentScrollPosition();
-      void saveImmediately()
-        .then(() => onCloseNote(closingNoteId))
-        .catch((error) => onFileStatus(error instanceof Error ? error.message : '关闭前保存失败'));
-    }}
-    onCloseOtherNotes={onCloseOtherNotes}
-    onReorderNotes={onReorderNotes}
-    onCopyTabPath={onCopyTabPath}
-    onCreateNote={onCreateNote}
-  /> : null;
+  const tabs = note ? (
+    <EditorTabs
+      notes={openNotes.length > 0 ? openNotes : [note]}
+      activeNoteId={note.id}
+      canWrite={canWrite}
+      windowTitlebar={Boolean(desktopTitlebar.host)}
+      onOpenNote={openNoteSafely}
+      onCloseNote={closingNoteId => {
+        if (closingNoteId !== note.id || !canWrite) {
+          onCloseNote(closingNoteId);
+          return;
+        }
+        saveCurrentScrollPosition();
+        void saveImmediately()
+          .then(() => onCloseNote(closingNoteId))
+          .catch(error => onFileStatus(error instanceof Error ? error.message : '关闭前保存失败'));
+      }}
+      onCloseOtherNotes={onCloseOtherNotes}
+      onReorderNotes={onReorderNotes}
+      onCopyTabPath={onCopyTabPath}
+      onCreateNote={onCreateNote}
+    />
+  ) : null;
 
   return (
     <EditorPageLayout
@@ -472,8 +623,12 @@ export function NoteEditorView({
       tabs={tabs}
       onReturnToList={() => {
         saveCurrentScrollPosition();
-        if (!canWrite) { onReturnToList?.(); return; }
-        void saveImmediately().then(() => onReturnToList?.())
+        if (!canWrite) {
+          onReturnToList?.();
+          return;
+        }
+        void saveImmediately()
+          .then(() => onReturnToList?.())
           .catch(error => onFileStatus(error instanceof Error ? error.message : '返回前保存失败'));
       }}
       onToggleInspector={onToggleInspector}
@@ -508,8 +663,12 @@ export function NoteEditorView({
           noteLinkRelations={noteLinks.relations.relations}
           noteLinkRelationsLoading={noteLinks.relations.loading}
           noteLinkRelationsError={noteLinks.relations.error}
-          onOpenLinkedOccurrence={(sourceId, locator) => { void noteLinks.openLinkedNote(sourceId, locator); }}
-          onOpenLinkedNote={id => { void noteLinks.openLinkedNote(id); }}
+          onOpenLinkedOccurrence={(sourceId, locator) => {
+            void noteLinks.openLinkedNote(sourceId, locator);
+          }}
+          onOpenLinkedNote={id => {
+            void noteLinks.openLinkedNote(id);
+          }}
           annotations={annotations}
           annotationsLoading={annotationsLoading}
           focusedAnnotationId={focusedAnnotationId}
@@ -538,15 +697,40 @@ export function NoteEditorView({
           onCreateAnnotation={createCurrentAnnotation}
           onSelectAnnotation={selectAnnotation}
           onDeleteAnnotation={async (annotationId, expectedRevision) => {
-            const deleted = await onDeleteAnnotation(annotationId, expectedRevision);
-            setAnnotations((current) => current.filter((item) => item.id !== annotationId));
-            setFocusedAnnotationId((current) => current === annotationId ? null : current);
+            const inline = annotationById(annotationId);
+            const deleted = inlineWrites.owns(inline)
+              ? await inlineWrites.remove(inline)
+              : await onDeleteAnnotation(annotationId, expectedRevision);
+            setAnnotations(current => current.filter(item => item.id !== annotationId));
+            setFocusedAnnotationId(current => (current === annotationId ? null : current));
             return deleted;
           }}
-          onRestoreAnnotation={onRestoreAnnotation ? async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision)) : undefined}
+          onRestoreAnnotation={async (annotationId, expectedRevision) => {
+            if (inlineWrites.canRestore(annotationId)) {
+              await inlineWrites.restore(annotationId);
+              return;
+            }
+            if (!onRestoreAnnotation) throw new Error('当前环境不支持恢复重点');
+            replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision));
+          }}
           onReanchorAnnotation={reanchorAnnotation}
-          onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
-          onConfirmAnnotationRange={onConfirmAnnotationRange ? async (id, input) => replaceAnnotation(await onConfirmAnnotationRange(id, input)) : undefined}
+          onUpdateAnnotation={
+            onUpdateAnnotation
+              ? async (annotationId, input) => {
+                  const inline = annotationById(annotationId);
+                  if (inlineWrites.owns(inline)) {
+                    await inlineWrites.update(inline, input);
+                    return;
+                  }
+                  replaceAnnotation(await onUpdateAnnotation(annotationId, input));
+                }
+              : undefined
+          }
+          onConfirmAnnotationRange={
+            onConfirmAnnotationRange
+              ? async (id, input) => replaceAnnotation(await onConfirmAnnotationRange(id, input))
+              : undefined
+          }
           onPreviewAnnotation={onPreviewAnnotation}
           onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}
           onCreateKnowledgeCandidate={savedActions.createKnowledgeCandidate}
@@ -559,11 +743,20 @@ export function NoteEditorView({
           onTrashAnalysisScope={onTrashAnalysisScope}
           onRestoreAnalysisScope={onRestoreAnalysisScope}
           onCreateAnnotationExclusion={excludeCurrentBlock}
-          onDeleteAnnotationExclusion={onDeleteAnnotationExclusion ? async (annotationId, exclusionId, expectedRevision) => replaceAnnotation((await onDeleteAnnotationExclusion(annotationId, exclusionId, expectedRevision)).annotation) : undefined}
+          onDeleteAnnotationExclusion={
+            onDeleteAnnotationExclusion
+              ? async (annotationId, exclusionId, expectedRevision) =>
+                  replaceAnnotation(
+                    (await onDeleteAnnotationExclusion(annotationId, exclusionId, expectedRevision)).annotation
+                  )
+              : undefined
+          }
           onNavigateHeading={(_heading, index) => {
             const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
             if (editorRef.current?.navigateToHeading(index, behavior)) return;
-            const heading = paperRef.current?.querySelectorAll<HTMLElement>('.ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4')[index];
+            const heading = paperRef.current?.querySelectorAll<HTMLElement>(
+              '.ProseMirror h1, .ProseMirror h2, .ProseMirror h3, .ProseMirror h4'
+            )[index];
             heading?.scrollIntoView({
               block: 'start',
               behavior
@@ -601,10 +794,12 @@ export function NoteEditorView({
         view={view}
         onRunCommand={runCommand}
         onInsertTable={insertTable}
-        onEditAction={(action) => { void handleEditAction(action); }}
+        onEditAction={action => {
+          void handleEditAction(action);
+        }}
         onViewAction={onViewAction}
-        onFileAction={(action) => {
-          void handleFileAction(action).catch((error) => {
+        onFileAction={action => {
+          void handleFileAction(action).catch(error => {
             onFileStatus(error instanceof Error ? error.message : '文件操作失败');
           });
         }}
@@ -619,12 +814,13 @@ export function NoteEditorView({
         accept={INLINE_IMAGE_ACCEPT}
         aria-label="选择要插入的图片"
         disabled={!canEditContent || !extendedWritesEnabled}
-        onChange={(event) => {
+        onChange={event => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';
-          if (file) void editorAttachments.insertImageFile(file).catch((error) => {
-            onFileStatus(error instanceof Error ? error.message : '图片上传失败');
-          });
+          if (file)
+            void editorAttachments.insertImageFile(file).catch(error => {
+              onFileStatus(error instanceof Error ? error.message : '图片上传失败');
+            });
         }}
       />
       <EditorFindReplacePanel
@@ -633,17 +829,25 @@ export function NoteEditorView({
         onClose={() => setEditPanelMode(null)}
         onStatus={onFileStatus}
       />
-      {noteLinks.navigationNotice ? <div className={styles.linkNotice} role="status">
-        <span>引用位置或来源版本已变化，已打开来源笔记</span>
-        <Button variant="ghost" size="mini" onPress={() => noteLinks.dismissNavigationNotice()}>关闭提示</Button>
-      </div> : null}
-      {noteLinks.editSession ? <EditorNoteLinkDialog
-        session={noteLinks.editSession} spaceId={note.spaceId ?? ''} search={onSearchLinkNotes}
-        folderPath={id => buildFolderPath(id ? foldersById[id] ?? null : null, foldersById)}
-        canWrite={canEditContent}
-        onClose={noteLinks.closeLink}
-        onApply={noteLinks.applyLink}
-      /> : null}
+      {noteLinks.navigationNotice ? (
+        <div className={styles.linkNotice} role="status">
+          <span>引用位置或来源版本已变化，已打开来源笔记</span>
+          <Button variant="ghost" size="mini" onPress={() => noteLinks.dismissNavigationNotice()}>
+            关闭提示
+          </Button>
+        </div>
+      ) : null}
+      {noteLinks.editSession ? (
+        <EditorNoteLinkDialog
+          session={noteLinks.editSession}
+          spaceId={note.spaceId ?? ''}
+          search={onSearchLinkNotes}
+          folderPath={id => buildFolderPath(id ? (foldersById[id] ?? null) : null, foldersById)}
+          canWrite={canEditContent}
+          onClose={noteLinks.closeLink}
+          onApply={noteLinks.applyLink}
+        />
+      ) : null}
       <EditorDocumentRepairDialog
         markdown={draftMarkdown}
         open={repairDialogOpen}
@@ -661,18 +865,26 @@ export function NoteEditorView({
         error={autosave.saveError}
         discardOpen={discardDraftOpen}
         onDiscardOpenChange={setDiscardDraftOpen}
-        onRetry={() => { void autosave.saveNow().catch(error => onFileStatus(error instanceof Error ? error.message : '保存失败')); }}
+        onRetry={() => {
+          void autosave.saveNow().catch(error => onFileStatus(error instanceof Error ? error.message : '保存失败'));
+        }}
         onExport={() => {
           const fileName = buildExportFileName(`${note.title}-冲突草稿`, 'md');
           downloadTextFile(fileName, autosave.getLatestMarkdown(), 'text/markdown;charset=utf-8');
           onFileStatus(`已导出本地冲突草稿：${fileName}`);
         }}
         onReload={() => {
-          void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(error instanceof Error ? error.message : '草稿写入失败'));
+          void noteDraftRecovery
+            .flush()
+            .then(() => window.location.reload())
+            .catch(error => onFileStatus(error instanceof Error ? error.message : '草稿写入失败'));
         }}
         onDiscard={() => {
           autosave.discardRecoveredDraft();
-          void noteDraftRecovery.flush().then(() => window.location.reload()).catch(error => onFileStatus(String(error)));
+          void noteDraftRecovery
+            .flush()
+            .then(() => window.location.reload())
+            .catch(error => onFileStatus(String(error)));
         }}
       />
       <EditorContentPanes
@@ -682,24 +894,30 @@ export function NoteEditorView({
         sourceProps={{
           markdown: draftMarkdown,
           readOnly: !canWrite,
-          onChange: (markdown) => {
+          onChange: markdown => {
             autosave.updateDraft(markdown, { immediate: true });
             editorRef.current?.setMarkdown(markdown);
           },
           onSave: () => {
             void saveImmediately()
               .then(() => onFileStatus('源码已保存'))
-              .catch((error) => onFileStatus(error instanceof Error ? error.message : '源码保存失败'));
-          },
+              .catch(error => onFileStatus(error instanceof Error ? error.message : '源码保存失败'));
+          }
         }}
         contextMenuProps={{
           enabled: note.contentLoaded && !view.showSourceEditor,
           canEdit: canEditContent,
           extendedWritesEnabled,
           onRunCommand: runCommand,
-          onEditAction: (action) => { void handleEditAction(action); },
+          onEditAction: action => {
+            void handleEditAction(action);
+          },
           onInsertImage: () => imageInputRef.current?.click(),
-          onCreateAnnotation: () => { void createCurrentAnnotation('selection').catch((error) => onFileStatus(error instanceof Error ? error.message : '创建标注失败')); },
+          onCreateAnnotation: () => {
+            void createCurrentAnnotation('selection').catch(error =>
+              onFileStatus(error instanceof Error ? error.message : '创建标注失败')
+            );
+          }
         }}
         editorProps={{
           ref: editorRef,
@@ -712,7 +930,7 @@ export function NoteEditorView({
           focusedAnnotationId,
           blockIdentity: note.annotationStructure?.identity ?? null,
           onChange: autosave.updateDraft,
-          onSelectAnnotation: (ids) => {
+          onSelectAnnotation: ids => {
             if (ids.length === 1) {
               setOverlappingAnnotationIds([]);
               setFocusedAnnotationId(ids[0]);
@@ -723,10 +941,12 @@ export function NoteEditorView({
           },
           onStatus: onFileStatus,
           onRequestNoteLink: noteLinks.requestLink,
-          onOpenNoteLink: locator => { void noteLinks.openLinkedNote(locator.targetNoteId); },
+          onOpenNoteLink: locator => {
+            void noteLinks.openLinkedNote(locator.targetNoteId);
+          },
           noteLinkStatuses: noteLinks.statuses,
           onReady: noteLinks.onReady,
-          onUploadImage: editorAttachments.uploadEditorImage,
+          onUploadImage: editorAttachments.uploadEditorImage
         }}
       />
     </EditorPageLayout>

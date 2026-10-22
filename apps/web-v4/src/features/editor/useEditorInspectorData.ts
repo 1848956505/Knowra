@@ -24,6 +24,7 @@ export function useEditorInspectorData({
   const [linkedNotesLoading, setLinkedNotesLoading] = useState(false);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationsLoading, setAnnotationsLoading] = useState(false);
+  const [annotationsReadyNote, setAnnotationsReadyNote] = useState<string | undefined>();
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | null>(null);
   const annotationRequestRef = useRef(0);
   const annotationNoteRef = useRef<string | undefined>(undefined);
@@ -33,14 +34,24 @@ export function useEditorInspectorData({
     setAttachments([]);
     if (!noteId || !inspectorOpen) {
       setAttachmentsLoading(false);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     setAttachmentsLoading(true);
     void onListAttachments(noteId)
-      .then((items) => { if (active) setAttachments(items); })
-      .catch((error) => { if (active) onError(error instanceof Error ? error.message : '附件加载失败'); })
-      .finally(() => { if (active) setAttachmentsLoading(false); });
-    return () => { active = false; };
+      .then(items => {
+        if (active) setAttachments(items);
+      })
+      .catch(error => {
+        if (active) onError(error instanceof Error ? error.message : '附件加载失败');
+      })
+      .finally(() => {
+        if (active) setAttachmentsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [inspectorOpen, noteId, onError, onListAttachments]);
 
   useEffect(() => {
@@ -53,14 +64,29 @@ export function useEditorInspectorData({
     }
     if (!noteId) {
       setAnnotationsLoading(false);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
+    setAnnotationsReadyNote(undefined);
     setAnnotationsLoading(true);
     void onListAnnotations(noteId)
-      .then((items) => { if (active && requestId === annotationRequestRef.current) setAnnotations(items); })
-      .catch((error) => { if (active && requestId === annotationRequestRef.current) onError(error instanceof Error ? error.message : '正文标注加载失败'); })
-      .finally(() => { if (active && requestId === annotationRequestRef.current) setAnnotationsLoading(false); });
-    return () => { active = false; };
+      .then(items => {
+        if (active && requestId === annotationRequestRef.current) {
+          setAnnotations(items);
+          setAnnotationsReadyNote(noteId);
+        }
+      })
+      .catch(error => {
+        if (active && requestId === annotationRequestRef.current)
+          onError(error instanceof Error ? error.message : '正文标注加载失败');
+      })
+      .finally(() => {
+        if (active && requestId === annotationRequestRef.current) setAnnotationsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [noteId, refreshKey, onError, onListAnnotations]);
 
   useEffect(() => {
@@ -68,20 +94,37 @@ export function useEditorInspectorData({
     setLinkedNotes([]);
     if (!noteId || !inspectorOpen) {
       setLinkedNotesLoading(false);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     setLinkedNotesLoading(true);
     void onGetLinkedNotes(noteId)
-      .then((items) => { if (active) setLinkedNotes(items); })
-      .catch((error) => { if (active) onError(error instanceof Error ? error.message : '关联链接加载失败'); })
-      .finally(() => { if (active) setLinkedNotesLoading(false); });
-    return () => { active = false; };
+      .then(items => {
+        if (active) setLinkedNotes(items);
+      })
+      .catch(error => {
+        if (active) onError(error instanceof Error ? error.message : '关联链接加载失败');
+      })
+      .finally(() => {
+        if (active) setLinkedNotesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [inspectorOpen, noteId, onError, onGetLinkedNotes]);
 
   return {
-    attachments, setAttachments, attachmentsLoading,
-    linkedNotes, linkedNotesLoading,
-    annotations, setAnnotations, annotationsLoading,
-    focusedAnnotationId, setFocusedAnnotationId
+    attachments,
+    setAttachments,
+    attachmentsLoading,
+    linkedNotes,
+    linkedNotesLoading,
+    annotations,
+    setAnnotations,
+    annotationsLoading,
+    annotationsReady: Boolean(noteId && annotationsReadyNote === noteId && !annotationsLoading),
+    focusedAnnotationId,
+    setFocusedAnnotationId
   };
 }

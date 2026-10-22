@@ -2,7 +2,7 @@ import { pendingRange } from '../annotation-range-preview.js';
 import crypto from 'node:crypto';
 import { calculateContentHash, projectMarkdown, resolveAnchor } from '@study-accelerator/content-anchor';
 import { createAppError } from '../../../../errors/app-error.js';
-import { buildResolvedSegments, normalizeScopeInput, stableStringify } from '../annotation-scope-service.js';
+import { buildResolvedSegments, inlineContributions, normalizeScopeInput, stableStringify } from '../annotation-scope-service.js';
 
 const fail = (code, message, statusCode = 400) => createAppError(code, message, statusCode);
 const newId = (prefix) => `${prefix}-${crypto.randomUUID()}`;
@@ -37,7 +37,9 @@ export function createAsyncAnnotationScopeService({
   async function previewAnnotation(id) {
     const annotation = await requireAnnotation(id);
     const note = await requireNote(annotation.noteId);
-    const resolution = annotation.anchorStatus === 'resolved' && annotation.schemaVersion === 2 && annotation.anchor
+    // v3 的位置在正文标记里，状态由保存时派生。
+    const resolution = annotation.schemaVersion === 3 ? { status: annotation.anchorStatus ?? 'resolved', reason: annotation.anchorReason ?? null }
+      : annotation.anchorStatus === 'resolved' && annotation.schemaVersion === 2 && annotation.anchor
       ? resolveAnchor(note.rawMarkdown, annotation.anchor)
       : { status: annotation.anchorStatus ?? 'needsReview', reason: annotation.anchorReason ?? 'legacyUnverified' };
     return {
@@ -105,6 +107,7 @@ export function createAsyncAnnotationScopeService({
     const noteById = new Map(notes.map((note) => [note.id, note]));
     const omittedItems = [];
     const contributions = [];
+    const inlineExclusions = [];
 
     if (normalized.mode === 'all') {
       for (const note of notes) if (note.rawMarkdown.length > 0) contributions.push({ noteId: note.id, start: 0, end: note.rawMarkdown.length, annotationId: null });
@@ -112,6 +115,7 @@ export function createAsyncAnnotationScopeService({
       for (const annotation of annotations) {
         if (annotation.lifecycleStatus !== 'active') continue;
         if (annotation.scopeType === 'list' && annotation.anchor?.tracking?.empty) throw fail('ANALYSIS_SCOPE_EMPTY', '空列表项不能用于分析', 409);
+        if (annotation.schemaVersion === 3) { inlineContributions(annotation, noteById.get(annotation.noteId), contributions, inlineExclusions, omittedItems); continue; }
         if (annotation.schemaVersion !== 2 || !annotation.anchor) { omittedItems.push({ annotationId: annotation.id, reason: 'legacyUnverified' }); continue; }
         const resolution = annotation.anchorStatus && annotation.anchorStatus !== 'resolved' ? { status: annotation.anchorStatus, reason: annotation.anchorReason } : resolveAnchor(noteById.get(annotation.noteId).rawMarkdown, annotation.anchor);
         if (resolution.status !== 'resolved') { omittedItems.push({ annotationId: annotation.id, reason: resolution.reason }); continue; }
@@ -126,7 +130,7 @@ export function createAsyncAnnotationScopeService({
     }
 
     const persistentExclusions = [];
-    for (const annotation of annotations.filter((item) => ['section', 'list'].includes(item.scopeType))) {
+    for (const annotation of annotations.filter((item) => ['section', 'list'].includes(item.scopeType) && item.schemaVersion !== 3)) {
       for (const exclusion of await exclusionRepository.list({ parentAnnotationId: annotation.id })) {
         if (normalized.overrideExclusionIds.includes(exclusion.id)) continue;
         if (exclusion.anchor?.unresolved) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '局部排除位置待确认，请先修复排除范围', 409);
@@ -138,7 +142,7 @@ export function createAsyncAnnotationScopeService({
         persistentExclusions.push(...exclusion.anchor.segments.map((segment) => ({ noteId: annotation.noteId, start: segment.start, end: segment.end, exclusionId: exclusion.id })));
       }
     }
-    const allExclusions = [...persistentExclusions, ...normalized.onceExclusions];
+    const allExclusions = [...persistentExclusions, ...inlineExclusions.filter((item) => !normalized.overrideExclusionIds.includes(item.exclusionId)), ...normalized.onceExclusions];
     const segments = buildResolvedSegments(contributions, allExclusions, noteById, versionByNote);
     if (segments.length === 0) throw fail('ANALYSIS_SCOPE_EMPTY', '当前选择没有可分析内容', 400);
     for (const note of notes) {

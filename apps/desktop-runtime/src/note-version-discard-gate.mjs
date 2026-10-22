@@ -29,7 +29,8 @@ export function readPrivateHistoryReferences(db) {
 export function createUnsyncedHistoryDiscardGate(db) {
   if (readMeta(db, 'entityUpload') || readMeta(db, 'entityConflict') || db.prepare('SELECT 1 FROM sync_uploads LIMIT 1').get()) return () => false;
   const synced = new Set(), versionHashes = new Set();
-  for (const row of db.prepare("SELECT collection,id,payload FROM sync_base WHERE collection IN ('noteVersions','annotationRevisions') AND payload != 'null'").iterate()) {
+  // 已同步的记录由云端按同一策略回收，本机只回收从未上传的记录（重点与排除区间同理）。
+  for (const row of db.prepare("SELECT collection,id,payload FROM sync_base WHERE collection IN ('noteVersions','annotationRevisions','contentAnnotations','annotationExclusions') AND payload != 'null'").iterate()) {
     synced.add(JSON.stringify([row.collection, row.id]));
     if (row.collection === 'noteVersions') {
       const version = JSON.parse(row.payload);

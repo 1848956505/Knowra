@@ -1,3 +1,4 @@
+import { inlineAnnotationSourceRanges } from './inline-annotation-ranges.js';
 import { pendingRange } from './annotation-range-preview.js';
 import crypto from 'node:crypto';
 import { calculateContentHash, projectMarkdown, resolveAnchor } from '@study-accelerator/content-anchor';
@@ -36,7 +37,9 @@ export function createAnnotationScopeService({
   function previewAnnotation(id) {
     const annotation = requireAnnotation(id);
     const note = requireNote(annotation.noteId);
-    const resolution = annotation.anchorStatus === 'resolved' && annotation.schemaVersion === 2 && annotation.anchor
+    // v3 的位置在正文标记里，状态由保存时派生。
+    const resolution = annotation.schemaVersion === 3 ? { status: annotation.anchorStatus ?? 'resolved', reason: annotation.anchorReason ?? null }
+      : annotation.anchorStatus === 'resolved' && annotation.schemaVersion === 2 && annotation.anchor
       ? resolveAnchor(note.rawMarkdown, annotation.anchor)
       : { status: annotation.anchorStatus ?? 'needsReview', reason: annotation.anchorReason ?? 'legacyUnverified' };
     return {
@@ -133,6 +136,7 @@ export function createAnnotationScopeService({
     const noteById = new Map(notes.map((note) => [note.id, note]));
     const omittedItems = [];
     const contributions = [];
+    const inlineExclusions = [];
 
     if (normalized.mode === 'all') {
       for (const note of notes) {
@@ -142,6 +146,7 @@ export function createAnnotationScopeService({
       for (const annotation of annotations) {
         if (annotation.lifecycleStatus !== 'active') continue;
         if (annotation.scopeType === 'list' && annotation.anchor?.tracking?.empty) throw fail('ANALYSIS_SCOPE_EMPTY', '空列表项不能用于分析', 409);
+        if (annotation.schemaVersion === 3) { inlineContributions(annotation, noteById.get(annotation.noteId), contributions, inlineExclusions, omittedItems); continue; }
         if (annotation.schemaVersion !== 2 || !annotation.anchor) {
           omittedItems.push({ annotationId: annotation.id, reason: 'legacyUnverified' });
           continue;
@@ -165,7 +170,7 @@ export function createAnnotationScopeService({
     }
 
     const persistentExclusions = [];
-    for (const annotation of annotations.filter((item) => ['section', 'list'].includes(item.scopeType))) {
+    for (const annotation of annotations.filter((item) => ['section', 'list'].includes(item.scopeType) && item.schemaVersion !== 3)) {
       for (const exclusion of exclusionRepository.list({ parentAnnotationId: annotation.id })) {
         if (normalized.overrideExclusionIds.includes(exclusion.id)) continue;
         if (exclusion.anchor?.unresolved) throw fail('ANNOTATION_EXCLUSION_CONFLICT', '局部排除位置待确认，请先修复排除范围', 409);
@@ -177,7 +182,7 @@ export function createAnnotationScopeService({
         persistentExclusions.push(...exclusion.anchor.segments.map((segment) => ({ noteId: annotation.noteId, start: segment.start, end: segment.end, exclusionId: exclusion.id })));
       }
     }
-    const allExclusions = [...persistentExclusions, ...normalized.onceExclusions];
+    const allExclusions = [...persistentExclusions, ...inlineExclusions.filter((item) => !normalized.overrideExclusionIds.includes(item.exclusionId)), ...normalized.onceExclusions];
     const segments = buildResolvedSegments(contributions, allExclusions, noteById, versionByNote);
     if (segments.length === 0) throw fail('ANALYSIS_SCOPE_EMPTY', '当前选择没有可分析内容', 400);
 
@@ -263,6 +268,18 @@ export function normalizeScopeInput(input) {
     selections: Array.isArray(input.selections) ? input.selections.filter((item) => item?.noteId && item?.anchor) : [],
     onceExclusions: Array.isArray(input.onceExclusions) ? input.onceExclusions.filter(validInterval) : []
   };
+}
+
+/** v3（内联重点）：从正文标记算出片段；标记已从正文删除或代码段待确认时列为未纳入。 */
+export function inlineContributions(annotation, note, contributions, exclusions, omittedItems) {
+  if (annotation.anchorStatus && annotation.anchorStatus !== 'resolved') {
+    omittedItems.push({ annotationId: annotation.id, reason: annotation.anchorReason ?? 'needsReview' });
+    return;
+  }
+  const located = inlineAnnotationSourceRanges(note.rawMarkdown, annotation.anchor?.markId);
+  if (!located?.ranges.length) { omittedItems.push({ annotationId: annotation.id, reason: 'sourceDeleted' }); return; }
+  for (const range of located.ranges) contributions.push({ noteId: note.id, start: range.start, end: range.end, annotationId: annotation.id });
+  for (const range of located.excluded) exclusions.push({ noteId: note.id, start: range.start, end: range.end, exclusionId: `inline:${annotation.anchor.markId}` });
 }
 
 export function buildResolvedSegments(contributions, exclusions, noteById, versionByNote) {

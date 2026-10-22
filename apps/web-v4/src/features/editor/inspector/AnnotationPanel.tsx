@@ -37,7 +37,7 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
     setPendingIds(next);
   }
   const [error, setError] = useState('');
-  const [undo, setUndo] = useState<{ id: string; revision?: number } | null>(null);
+  const [undo, setUndo] = useState<{ id: string; revision?: number; inline?: boolean } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [scopeFilter, setScopeFilter] = useState('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -110,7 +110,7 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
       <MenuItem id="archive" isDanger isDisabled={pending || !props.canWrite} onAction={() => void run(annotation.id, async () => {
         const deleted = await props.onDeleteAnnotation(annotation.id, annotation.revision);
         setSelectedIds(ids => ids.filter(id => id !== annotation.id));
-        setUndo({ id: annotation.id, revision: deleted?.revision ?? (annotation.revision ?? 1) + 1 });
+        setUndo({ id: annotation.id, revision: deleted?.revision ?? (annotation.revision ?? 1) + 1, inline: annotation.schemaVersion === 3 });
         window.setTimeout(() => setUndo(current => current?.id === annotation.id ? null : current), 10000);
       })}>取消重点</MenuItem>
     </Menu>;
@@ -151,7 +151,7 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
       </SegmentedControl>
       {sectionFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' ? <div className={styles.annotationFilterSummary}>已筛选 {[sectionFilter, statusFilter, kindFilter].filter((value) => value !== 'all').length} 项 <PressableButton type="button" onPress={() => { setSectionFilter('all'); setStatusFilter('all'); setKindFilter('all'); }}>清除</PressableButton></div> : null}
       {props.overlappingAnnotationIds?.length ? <div className={styles.annotationOverlapSummary} role="status">此处有 {props.overlappingAnnotationIds.length} 条重点，已在下方标出。<PressableButton type="button" onPress={props.onClearOverlappingAnnotations}>清除定位</PressableButton></div> : null}
-      {undo && props.onRestoreAnnotation ? <p role="status" className={styles.annotationFilterSummary}>重点已移入回收站。 <PressableButton type="button" onPress={() => void run(undo.id, async () => { await props.onRestoreAnnotation?.(undo.id, undo.revision); setUndo(null); })}>撤销</PressableButton></p> : null}
+      {undo && props.onRestoreAnnotation ? <p role="status" className={styles.annotationFilterSummary}>{undo.inline ? '已取消重点。' : '重点已移入回收站。'} <PressableButton type="button" onPress={() => void run(undo.id, async () => { await props.onRestoreAnnotation?.(undo.id, undo.revision); setUndo(null); })}>撤销</PressableButton></p> : null}
       <div className={styles.annotationList} ref={listRef}>
         {props.annotationsLoading ? <p className={styles.emptyPanel} role="status">正在加载正文标注…</p> : visible.length === 0 ? <p className={styles.emptyPanel}>{currentAnnotations.length ? '没有符合筛选条件的重点。' : '暂无重点，选中正文或打开块菜单即可标记。'}</p> : null}
         {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {

@@ -12,7 +12,52 @@ const revision = (number, age = DAY, extra = {}) => ({ id: `annotation-revision-
 const version = (number, age = 40 * DAY) => ({ id: `v${number}`, noteId: 'n', content: `正文${number}`,
   contentHash: calculateContentHash(`正文${number}`), createdAt: new Date(now - age).toISOString() });
 
+const deletedAnnotation = (id, age, extra = {}) => ({ id, noteId: 'n', revision: 2, lifecycleStatus: 'deleted',
+  deletedAt: new Date(now - age).toISOString(), updatedAt: new Date(now - age).toISOString(), quoteText: id, ...extra });
+
 export const historyRetentionTests = [
+  { name: '已取消超过 7 天的重点连同排除区间与修订回收；未满 7 天、仍活跃或被引用的保留', run() {
+    const state = createEmptyLocalState();
+    state.notes = [{ id: 'n', rawMarkdown: '正文' }];
+    state.contentAnnotations = [
+      deletedAnnotation('annotation-old', 8 * DAY),
+      deletedAnnotation('annotation-recent', 6 * DAY),
+      deletedAnnotation('annotation-evidence', 30 * DAY),
+      deletedAnnotation('annotation-scope', 30 * DAY),
+      deletedAnnotation('annotation-private', 30 * DAY),
+      deletedAnnotation('annotation-undated', 30 * DAY, { deletedAt: null, updatedAt: null }),
+      { id: 'annotation-active', noteId: 'n', revision: 1, lifecycleStatus: 'active', updatedAt: new Date(now - 90 * DAY).toISOString() }
+    ];
+    state.annotationExclusions = [{ id: 'exclusion-old', parentAnnotationId: 'annotation-old', anchor: {} }];
+    state.annotationRevisions = [
+      revision(1, 9 * DAY, { id: 'annotation-revision-old-1', annotationId: 'annotation-old', operation: 'created' }),
+      revision(2, 8 * DAY, { id: 'annotation-revision-old-2', annotationId: 'annotation-old', operation: 'deleted' })
+    ];
+    state.knowledgeEvidence = [{ id: 'e', sourceType: 'annotation', annotationId: 'annotation-evidence', noteId: 'n' }];
+    state.analysisScopeSnapshots = [{ id: 's', selections: [{ annotationId: 'annotation-scope' }] }];
+    const plan = planHistoryRetention(state, { now, externalReferences: [JSON.stringify({ annotationId: 'annotation-private' })] });
+    assert.deepEqual([...plan.removedAnnotations], ['annotation-old']);
+    assert.deepEqual([...plan.removedExclusions], ['exclusion-old']);
+    const result = applyHistoryRetentionPlan(state, plan);
+    assert.deepEqual(result.contentAnnotations.map(item => item.id).sort(), ['annotation-active', 'annotation-evidence', 'annotation-private', 'annotation-recent', 'annotation-scope', 'annotation-undated']);
+    assert.deepEqual(result.annotationExclusions, []);
+    assert.deepEqual(result.annotationRevisions, []);
+    assert.equal(plan.summary.contentAnnotations.removed, 1);
+  } },
+  { name: '重点的排除区间或修订不能回收（被引用或未同步门禁）时整条保留', run() {
+    const state = createEmptyLocalState();
+    state.notes = [{ id: 'n', rawMarkdown: '正文' }];
+    state.contentAnnotations = [deletedAnnotation('annotation-a', 30 * DAY), deletedAnnotation('annotation-b', 30 * DAY)];
+    state.annotationExclusions = [{ id: 'exclusion-a', parentAnnotationId: 'annotation-a', anchor: {} }];
+    state.annotationRevisions = [revision(1, 30 * DAY, { id: 'annotation-revision-b-1', annotationId: 'annotation-b' })];
+    state.knowledgeArtifactProvenance = [{ sources: [{ annotationRevisions: [{ annotationId: 'annotation-b', revision: 1 }] }] }];
+    const plan = planHistoryRetention(state, { now, canDiscard: collection => collection !== 'annotationExclusions' });
+    assert.equal(plan.removedAnnotations.size, 0);
+    assert.equal(plan.removedExclusions.size, 0);
+    const synced = planHistoryRetention({ ...state, annotationExclusions: [], knowledgeArtifactProvenance: [] }, { now, canDiscard: collection => collection !== 'contentAnnotations' });
+    assert.equal(synced.removedAnnotations.size, 0, '已同步的重点只由云端回收');
+  } },
+
   { name: '标注恢复点同时受时间采样、数量、年龄及字节限制，来源引用例外保留', run() {
     const records = Array.from({ length: 35 }, (_, i) => revision(i + 1, i * 11 * 60000));
     records.push(revision(100, 8 * DAY), revision(101, 9 * DAY));

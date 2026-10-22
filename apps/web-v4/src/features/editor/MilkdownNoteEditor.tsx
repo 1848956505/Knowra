@@ -5,7 +5,6 @@ import {
   editorViewCtx,
   editorViewOptionsCtx,
   parserCtx,
-  remarkStringifyOptionsCtx,
   rootCtx
 } from '@milkdown/kit/core';
 import {
@@ -64,6 +63,11 @@ import {
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
 import { createKnowraMarksCodec, knowraMarkSchema } from './editorKnowraMarks';
+import { configureNoteMarkdownStringify } from './editorMarkdownStringify';
+import {
+  createInlineAnnotation, excludeBlockFromInlineAnnotation, inlineAnnotationHighlightBehavior, inlineMarkIdOf, isInlineAnnotation,
+  reanchorInlineAnnotation, removeInlineAnnotation, restoreInlineAnnotation, selectInlineAnnotation, setInlineAnnotationRows, updateInlineAnnotation
+} from './editorInlineAnnotations';
 import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema, createBlockIdentityBehavior, IDENTITY_META, stripIdentityFromHtml, withoutIdentity } from './editorBlockIdentity';
 import { annotationShadowBehavior, applyBlockIdentity, captureIdentitySnapshot, type AnnotationIdentitySnapshot } from './annotationShadow';
 import type { Annotation } from '@study-accelerator/web-core';
@@ -110,6 +114,13 @@ export interface MilkdownNoteEditorProps {
   onStatus?(message: string): void;
   onReady?(): void | Promise<void>;
   onUploadImage?(file: File): Promise<{ url: string; alt: string }>;
+}
+
+
+/** 旧链路插件只处理旧重点；v3（正文标记）由内联重点插件显示。 */
+function applyEditorAnnotations(editor: Editor, annotations: Annotation[], focusedId: string | null) {
+  setEditorAnnotations(editor, annotations.filter(annotation => !isInlineAnnotation(annotation)), focusedId);
+  setInlineAnnotationRows(editor.ctx.get(editorViewCtx), annotations, focusedId);
 }
 
 export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEditorProps>(
@@ -258,6 +269,13 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       }, 30);
     };
 
+    const inlineView = () => {
+      const editor = editorRef.current;
+      if (!editor || !readyRef.current) throw new Error('编辑器尚未就绪，请稍后再试');
+      if (readOnlyRef.current) throw new Error('阅读模式下无法修改重点');
+      return editor.ctx.get(editorViewCtx);
+    };
+
     useImperativeHandle(ref, () => ({
       run(command) {
         const editor = editorRef.current;
@@ -349,11 +367,22 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
       },
       setAnnotations(nextAnnotations, focusedId = null) {
         const editor = editorRef.current;
-        if (editor && readyRef.current) setEditorAnnotations(editor, nextAnnotations, focusedId);
+        if (editor && readyRef.current) applyEditorAnnotations(editor, nextAnnotations, focusedId);
       },
       selectAnnotation(annotationId) {
         const editor = editorRef.current;
-        return Boolean(editor && readyRef.current && selectEditorAnnotation(editor, annotationId));
+        if (!editor || !readyRef.current) return false;
+        const inline = annotationsRef.current.find(item => item.id === annotationId && isInlineAnnotation(item));
+        if (inline) return selectInlineAnnotation(editor.ctx.get(editorViewCtx), inlineMarkIdOf(inline) ?? '');
+        return selectEditorAnnotation(editor, annotationId);
+      },
+      inlineAnnotations: {
+        create(scope, importance) { return createInlineAnnotation(inlineView(), scope, importance); },
+        remove(markId) { return removeInlineAnnotation(inlineView(), markId); },
+        restore(snapshot) { restoreInlineAnnotation(inlineView(), snapshot); },
+        update(markId, patch) { updateInlineAnnotation(inlineView(), markId, patch); },
+        reanchor(markId, scope) { restoreRememberedSelection(editorRef.current!, lastSelectionRef.current); reanchorInlineAnnotation(inlineView(), markId, scope); },
+        exclude(markId) { restoreRememberedSelection(editorRef.current!, lastSelectionRef.current); excludeBlockFromInlineAnnotation(inlineView(), markId); }
       },
       insertTable(rows, columns) {
         const editor = editorRef.current;
@@ -449,32 +478,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
               spellcheck: 'true'
             }
           });
-          ctx.update(remarkStringifyOptionsCtx, (options) => {
-            type MarkdownHandler = NonNullable<typeof options.handlers>['text'];
-            const delimited = (open: string, close = open): MarkdownHandler => (
-              node, _parent, state, info
-            ) => {
-              const exit = state.enter('emphasis');
-              const tracker = state.createTracker(info);
-              let value = tracker.move(open);
-              value += tracker.move(state.containerPhrasing(node, {
-                before: value,
-                after: close,
-                ...tracker.current()
-              }));
-              value += tracker.move(close);
-              exit();
-              return value;
-            };
-            return {
-              ...options,
-              handlers: {
-                ...options.handlers,
-                highlight: delimited('=='),
-                internalLink: delimited('[[', ']]')
-              }
-            };
-          });
+          configureNoteMarkdownStringify(ctx);
           // Document transactions publish synchronously through the annotation plugin.
           // A debounced Markdown listener can replay an older document over a newer draft.
         })
@@ -523,6 +527,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         .use(annotationShadowBehavior)
         .use(annotationSerializerGuard)
         .use(knowraMarkSchema)
+        .use(inlineAnnotationHighlightBehavior)
         .use(createKnowraMarksCodec())
         .use(turnIntoTaskListCommand)
         .use(taskListClickBehavior)
@@ -544,7 +549,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         identityView.dispatch(identityView.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
         applyBlockIdentity(identityView, editorMarkdownRef.current, blockIdentityRef.current);
         readyRef.current = true;
-        setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
+        applyEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
         const selection = editor.ctx.get(editorViewCtx).state.selection;
         lastSelectionRef.current = { from: selection.from, to: selection.to };
         await onReadyRef.current?.();
@@ -590,7 +595,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         editor.action(replaceAllMarkdown(markdown, true));
         view.dispatch(view.state.tr.setMeta(IDENTITY_META, true).setMeta('addToHistory', false));
         applyBlockIdentity(view, markdown, blockIdentityRef.current);
-        setEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
+        applyEditorAnnotations(editor, annotationsRef.current, focusedAnnotationIdRef.current);
       }
       finally { applyingRemoteRef.current = false; }
       latestLocalMarkdownRef.current = markdown;
@@ -606,7 +611,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
     useEffect(() => {
       const editor = editorRef.current;
       if (!editor || !readyRef.current) return;
-      setEditorAnnotations(editor, annotations, focusedAnnotationId);
+      applyEditorAnnotations(editor, annotations, focusedAnnotationId);
     }, [annotations, focusedAnnotationId]);
 
     const getView = useCallback(() => readyRef.current ? editorRef.current?.ctx.get(editorViewCtx) ?? null : null, []);
