@@ -99,7 +99,14 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'config/env.schema.ts',
     'config/storage.config.ts',
     'http/response.ts',
-    'http/cors.ts'
+    'http/cors.ts',
+    'modules/knowledge/domain/knowledge-item.ts',
+    'modules/knowledge/domain/knowledge-evidence.ts',
+    'modules/knowledge/domain/learning-objective.ts',
+    'modules/knowledge/domain/exam-profile.ts',
+    'modules/knowledge/domain/exam-focus.ts',
+    'modules/knowledge/domain/question.ts',
+    'modules/knowledge/domain/question-source.ts'
   ]) {
     assert.ok(Object.hasOwn(result.metafile.inputs, `apps/api/src/${file}`), file);
   }
