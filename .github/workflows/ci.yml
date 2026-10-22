@@ -166,6 +166,15 @@ jobs:
           npx playwright install --with-deps chromium
           google-chrome --version
 
+      # 临时诊断：首个失败立即停止并输出 TAP 详情，不重试失败来追求绿灯。
+      - name: Diagnose offline editor failure (temporary)
+        if: matrix.suite == 'chromium'
+        run: |
+          for attempt in {1..12}; do
+            echo "Offline editor diagnostic attempt ${attempt}"
+            node --test --test-reporter=tap --test-concurrency=1 apps/desktop-runtime/test/e2e/offline-editor.test.mjs
+          done
+
       - name: Run isolated test suite
         env:
           CI_SUITE: ${{ matrix.suite }}

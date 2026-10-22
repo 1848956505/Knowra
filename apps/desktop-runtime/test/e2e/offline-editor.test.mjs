@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
 
-test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务并重新打开', { timeout: 60000 }, async t => {
+async function runOfflineEditorTest(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-offline-e2e-'));
   const browser = await chromium.launch({
     ...(process.env.V4_BROWSER_CHANNEL === 'chrome' ? { channel: 'chrome' } : {})
@@ -169,4 +169,22 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   assert.equal(after.deviceId, before.deviceId);
   assert.deepEqual(problems, []);
   if (screenshots) await page.screenshot({ path: path.join(screenshots, 'offline-restored.png') });
-});
+}
+
+test(
+  '真实 V4 页面断外网编辑、保存状态、强制终止运行服务并重新打开',
+  { timeout: 60000 },
+  reportFailureImmediately(runOfflineEditorTest)
+);
+
+// 临时诊断：在 runner 超时之前保留原错误；不吞掉或改变测试失败。
+function reportFailureImmediately(run) {
+  return async t => {
+    try {
+      return await run(t);
+    } catch (error) {
+      console.error('[offline-editor 原始失败]', error);
+      throw error;
+    }
+  };
+}
