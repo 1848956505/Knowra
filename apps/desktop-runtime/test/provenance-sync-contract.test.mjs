@@ -48,6 +48,7 @@ test('schema8拒绝缺失/旧/未来/伪造协商，所有数据入口在修改�
     { ...syncContract(), capabilities: syncContract().capabilities.filter(value => value !== 'knowledge-lifecycle-v1') },
     { ...syncContract(), capabilities: syncContract().capabilities.filter(value => value !== 'knowledge-provenance-agent-v1') },
     { ...syncContract(), capabilities: syncContract().capabilities.filter(value => value !== 'knowledge-provenance-mcp-v1') },
+    { ...syncContract(), capabilities: syncContract().capabilities.filter(value => value !== 'inline-annotations-v1') },
     { ...syncContract(), entitySchemaVersion: 9 }, { ...syncContract(), capabilities: [...syncContract().capabilities, 'unknown-v1'] }]) {
     assert.throws(() => f.service.bootstrap(input), { code: 'SYNC_CLIENT_UPGRADE_REQUIRED' });
     assert.throws(() => f.service.changes({ ...input, cursor: 'old' }), { code: 'SYNC_CLIENT_UPGRADE_REQUIRED' });

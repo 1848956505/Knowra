@@ -1,4 +1,5 @@
 import { calculateContentHash } from '../knowledge/domain/note-version.js';
+import { inlineAnnotationSourceRanges } from '../knowledge/application/inline-annotation-ranges.js';
 
 const SNIPPET_CHARS = 1000;
 const MAX_LIMIT = 8;
@@ -43,27 +44,35 @@ export async function listAnnotatedRanges({ access, repository, grantId, args })
   const current = [], unavailable = [];
   for (const annotation of all) {
     if (annotation.lifecycleStatus !== 'active') continue;
+    // v3（内联重点）的位置在正文标记里：从当前版本正文现算，取第一段，其余段落以 truncated 提示。
+    if (annotation.schemaVersion === 3) {
+      const located = annotation.anchorStatus === 'resolved' ? inlineAnnotationSourceRanges(content, annotation.anchor?.markId) : null;
+      const first = located?.ranges[0];
+      if (first && boundary(content, first.start) && boundary(content, first.end)) current.push({ annotation, start: first.start, end: first.end, more: located.ranges.length > 1 });
+      else unavailable.push(annotation);
+      continue;
+    }
     const usable = annotation.anchorStatus === 'resolved' && annotation.noteContentHash === contentHash
       && Number.isSafeInteger(annotation.fromPosition) && Number.isSafeInteger(annotation.toPosition)
       && annotation.fromPosition >= 0 && annotation.fromPosition < annotation.toPosition && annotation.toPosition <= content.length
       && boundary(content, annotation.fromPosition) && boundary(content, annotation.toPosition);
-    (usable ? current : unavailable).push(annotation);
+    if (usable) current.push({ annotation, start: annotation.fromPosition, end: annotation.toPosition, more: false });
+    else unavailable.push(annotation);
   }
-  const matched = current.filter(annotation => rankOf(annotation) >= minRank)
-    .sort((a, b) => rankOf(b) - rankOf(a) || a.fromPosition - b.fromPosition || a.id.localeCompare(b.id));
+  const matched = current.filter(item => rankOf(item.annotation) >= minRank)
+    .sort((a, b) => rankOf(b.annotation) - rankOf(a.annotation) || a.start - b.start || a.annotation.id.localeCompare(b.annotation.id));
   const offset = args.offset ?? 0, limit = args.limit ?? MAX_LIMIT;
   const page = matched.slice(offset, offset + limit);
   const sourceRefs = [], annotations = [];
-  for (const annotation of page) {
-    const start = annotation.fromPosition;
-    let end = Math.min(annotation.toPosition, start + SNIPPET_CHARS);
+  for (const { annotation, start, end: fullEnd, more } of page) {
+    let end = Math.min(fullEnd, start + SNIPPET_CHARS);
     while (end > start && !boundary(content, end)) end--;
     if (end <= start) continue;
     const text = content.slice(start, end);
     sourceRefs.push({ noteId: note.id, noteVersionId: version.id, contentHash, start, end, quoteHash: calculateContentHash(text) });
     annotations.push({ annotationId: annotation.id, importance: annotation.importance ?? 'unrated', kind: annotation.kind,
       scopeType: annotation.scopeType, headingPath: (annotation.headingPath ?? []).slice(0, 6).map(item => String(item).slice(0, 120)),
-      start, end, truncated: end < annotation.toPosition, text });
+      start, end, truncated: end < fullEnd || more, text });
   }
   return { resultJson: { noteId: note.id, title: note.title, noteVersionId: version.id, total: matched.length, offset,
     hasMore: offset + page.length < matched.length, unavailableCount: unavailable.length, annotations }, sourceRefs };

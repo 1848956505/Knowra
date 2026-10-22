@@ -65,6 +65,7 @@ export interface KnowraBlockInsertion {
 export function knowraCheck(text: string): string;
 export function parseKnowraMarks(markdown: unknown): KnowraMarks;
 export function stripKnowraMarks(markdown: unknown): string;
+export function knowraMarkSpans(markdown: unknown): Array<{ start: number; end: number }>;
 export function sameKnowraText(left: unknown, right: unknown): boolean;
 export function stripKnowraMarksMapped(markdown: unknown): { markdown: string; toClean(offset: number): number };
 export function formatKnowraMarkOpen(id: string, attrs?: Record<string, string | null | undefined>): string;

@@ -1,5 +1,5 @@
 import { assertNoKnowledgeArtifactProvenanceDowngrade } from '../knowledge/domain/knowledge-artifact-provenance-state.js';
-import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds } from '../knowledge/domain/history-retention.js';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, HISTORY_RETENTION_COLLECTIONS } from '../knowledge/domain/history-retention.js';
 import { readPostgresHistoryRetentionReferences } from '../../infrastructure/history-retention-references.js';
 import { assertSnapshotBinding, snapshotBinding } from './protocol-contract.js';
 import { createBatchSyncService } from './batch-service.js';
@@ -95,7 +95,7 @@ export function createPostgresSyncRuntime(client, ownerId) {
           const references = await historyReferences(tx);
           if (references !== null) {
             const retained = applyHistoryRetentionPlan(after, planHistoryRetention(after, { noteIds, externalReferences: references }));
-            if (retained.noteVersions.length !== after.noteVersions.length || retained.annotationRevisions.length !== after.annotationRevisions.length) {
+            if (HISTORY_RETENTION_COLLECTIONS.some(name => (retained[name]?.length ?? 0) !== (after[name]?.length ?? 0))) {
               await applyPostgresState(tx, after, retained);
               after = retained;
             }

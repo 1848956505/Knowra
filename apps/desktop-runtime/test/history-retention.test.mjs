@@ -51,3 +51,24 @@ for (const sqlite of [false, true]) test(`${sqlite ? 'SQLite 离线' : 'JSON 在
   assert.equal(knowledge.contentAnnotationService.getAnnotation(annotation.id).comment, '批注 29');
   assert.ok(store.state.annotationRevisions.length <= 11, '十条普通恢复点加当前修订，不无限保留人工过程');
 });
+
+test('SQLite 离线：取消超过 7 天的内联重点只回收从未上传的，已同步的交给云端', t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-14T12:00:00.000Z') });
+  const root = temporaryDirectory(t);
+  const store = createSqliteDataStore(path.join(root, 'local.sqlite'));
+  t.after(() => store.close?.());
+  const knowledge = createAppContext({ dataStore: store, storageRootDir: root }).modules.knowledge;
+  const space = knowledge.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+  let note = knowledge.noteService.createNote({ spaceId: space.id, title: '内联回收', rawMarkdown: '甲<mark data-k="m1" data-t="key">乙</mark>丙<mark data-k="m2" data-t="key">丁</mark>' });
+  note = knowledge.noteService.updateNote(note.id, { rawMarkdown: '甲乙丙丁', expectedUpdatedAt: note.updatedAt });
+  const [first, second] = ['m1', 'm2'].map(markId => store.state.contentAnnotations.find(item => item.anchor?.markId === markId));
+  assert.equal(first.lifecycleStatus, 'deleted');
+  // m2 已同步过：本机不能回收，只能等云端回收后下发墓碑。
+  store.metadataTransaction(db => db.prepare('INSERT INTO sync_base VALUES (?, ?, ?, ?)').run('contentAnnotations', second.id, 1, JSON.stringify(second)));
+  t.mock.timers.setTime(Date.parse('2026-10-22T12:00:00.000Z'));
+  knowledge.noteService.updateNote(note.id, { rawMarkdown: '甲乙丙丁戊', expectedUpdatedAt: knowledge.noteService.getNote(note.id).updatedAt });
+  assert.equal(store.state.contentAnnotations.some(item => item.id === first.id), false, '从未上传的已取消重点在本机回收');
+  assert.equal(store.state.contentAnnotations.some(item => item.id === second.id), true, '已同步的重点保留');
+  assert.equal(store.state.annotationRevisions.some(item => item.annotationId === first.id), false);
+});
+

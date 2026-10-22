@@ -319,6 +319,11 @@ function removalsOf(text) {
   return merged;
 }
 
+/** 全部有效标记本身占用的源码区间（已排序、合并）：标签、行尾注释连同前导空格、单独成行的注释整行。 */
+export function knowraMarkSpans(markdown) {
+  return removalsOf(typeof markdown === 'string' ? markdown : '').map(([start, end]) => ({ start, end }));
+}
+
 /** 去掉全部有效的 Knowra 标记，其余文字逐字不变。不合法的标记当作普通文字保留。 */
 export function stripKnowraMarks(markdown) {
   return stripKnowraMarksMapped(markdown).markdown;

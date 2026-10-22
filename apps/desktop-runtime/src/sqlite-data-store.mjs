@@ -2,7 +2,7 @@ import { createSqliteTaskWorkspaceStore } from './task-workspaces/sqlite-store.m
 import { compactAcknowledgedOutbox } from './outbox-retention.mjs';
 import { reclaimFreeSpace } from './sqlite-space-reclaim.mjs';
 import { readPrivateHistoryReferences, createUnsyncedHistoryDiscardGate } from './note-version-discard-gate.mjs';
-import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds } from '../../api/src/modules/knowledge/domain/history-retention.js';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, HISTORY_RETENTION_COLLECTIONS } from '../../api/src/modules/knowledge/domain/history-retention.js';
 import { cloneJsonData } from '../../api/src/infrastructure/json-clone.js';
 import {
   validateSqliteDeletionFacts, initializeDeletionFacts, assertNoDeletedEntities,
@@ -143,7 +143,7 @@ export function createSqliteDataStore(filePath, { beforeCommit = () => {} } = {}
       const retained = applyHistoryRetentionPlan(state, planHistoryRetention(state, {
         noteIds, externalReferences: readPrivateHistoryReferences(db), canDiscard: createUnsyncedHistoryDiscardGate(db)
       }));
-      for (const name of ['noteVersions', 'annotationRevisions']) state[name].splice(0, state[name].length, ...retained[name]);
+      for (const name of HISTORY_RETENTION_COLLECTIONS) state[name].splice(0, state[name].length, ...retained[name]);
     }
     const valid = validatePersistedLocalState({ ...state, schemaVersion: LOCAL_DATA_SCHEMA_VERSION });
     assertNoKnowledgeArtifactProvenanceDowngrade(committed, valid);

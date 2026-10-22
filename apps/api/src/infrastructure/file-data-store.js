@@ -1,7 +1,7 @@
 import { createEmptyTaskWorkspaceSnapshot, createJsonTaskWorkspaceStore } from './task-workspace-json-store.js';
 import { validateTaskWorkspaceSnapshot, rebindTaskWorkspaceSnapshot } from '../modules/task-workspaces/storage-validation.js';
 import { createJsonActionStore } from '../modules/ai/action-state.js';
-import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, historyRetentionBasis } from '../modules/knowledge/domain/history-retention.js';
+import { planHistoryRetention, applyHistoryRetentionPlan, changedHistoryNoteIds, historyRetentionBasis, HISTORY_RETENTION_COLLECTIONS } from '../modules/knowledge/domain/history-retention.js';
 import { extractionPageRows } from '../modules/ai/knowledge-extraction-task-page.js';
 import { taskKey, validateExtractionTask, validateExtractionTaskState } from '../modules/ai/knowledge-extraction-task-contract.js';
 import { knowledgeExtractionCommitKey, validateKnowledgeExtractionCommit, validateKnowledgeExtractionCommitState } from '../modules/ai/knowledge-extraction-commit-contract.js';
@@ -262,7 +262,7 @@ export function createFileDataStore(filePath, {
       const references = getHistoryRetentionReferences();
       if (!transaction?.skipHistoryRetention && noteIds.size && references !== null) {
         const retained = applyHistoryRetentionPlan(nextState, planHistoryRetention(nextState, { noteIds, externalReferences: references }));
-        for (const name of ['noteVersions', 'annotationRevisions']) replaceCollection(nextState[name], retained[name]);
+        for (const name of HISTORY_RETENTION_COLLECTIONS) replaceCollection(nextState[name], retained[name]);
       }
       // 只用于断言；不可变历史在校验期间只读，不再产生随即丢弃的整库历史副本。
       assertPersistedLocalState({ schemaVersion: LOCAL_DATA_SCHEMA_VERSION, ...nextState });

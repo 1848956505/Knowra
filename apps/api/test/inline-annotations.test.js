@@ -4,8 +4,12 @@ import { calculateContentHash, anchorFromProjectedRange, projectMarkdown } from 
 import { createKnowledgeModule } from '../src/modules/knowledge/index.js';
 import { inlineAnnotationId, inlineMarksOf, isMarksOnlyChange, planInlineAnnotations } from '../src/modules/knowledge/application/inline-annotations.js';
 import { prepareBatchState } from '../src/modules/sync/batch-domain.js';
+import { listAnnotatedRanges } from '../src/modules/ai/annotation-read-tool.js';
+import { pruneTouchedNoteVersions } from '../src/modules/sync/version-retention.js';
+import { applyPostgresState } from '../src/modules/sync/postgres-batch.js';
+import { createEmptyLocalState } from '../src/infrastructure/local-data-schema.js';
 import { knowraCheck } from '@study-accelerator/shared/knowra-marks';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createAppContext } from '../src/app.factory.js';
@@ -244,6 +248,73 @@ export const inlineAnnotationTests = [
     }
   },
   {
+    name: '内联重点：取消超过 7 天后，下次保存这篇笔记时从 JSON 存储回收，修订一并清理',
+    run() {
+      const root = mkdtempSync(path.join(tmpdir(), 'knowra-inline-prune-'));
+      try {
+        const file = path.join(root, 'data.json');
+        let module = createAppContext({ dataStore: createFileDataStore(file), storageRootDir: root }).modules.knowledge;
+        const space = module.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+        let note = module.noteService.createNote({ id: `note-${randomUUID()}`, spaceId: space.id, title: '回收', rawMarkdown: '甲<mark data-k="m1" data-t="key">乙</mark>丙' });
+        note = module.noteService.updateNote(note.id, { rawMarkdown: '甲乙丙', expectedUpdatedAt: note.updatedAt });
+        const id = inlineAnnotationId(note.id, 'm1');
+        assert.equal(module.repositories.contentAnnotationRepository.findById(id).lifecycleStatus, 'deleted');
+        // 模拟取消发生在 8 天前。
+        const data = JSON.parse(readFileSync(file, 'utf8'));
+        const old = new Date(Date.now() - 8 * 86400000).toISOString();
+        for (const item of data.contentAnnotations) if (item.id === id) Object.assign(item, { deletedAt: old, updatedAt: old });
+        writeFileSync(file, JSON.stringify(data));
+        module = createAppContext({ dataStore: createFileDataStore(file), storageRootDir: root }).modules.knowledge;
+        const current = module.noteService.getNote(note.id);
+        module.noteService.updateNote(note.id, { rawMarkdown: '甲乙丙丁', expectedUpdatedAt: current.updatedAt });
+        const reopened = createAppContext({ dataStore: createFileDataStore(file), storageRootDir: root }).modules.knowledge;
+        assert.equal(reopened.repositories.contentAnnotationRepository.findById(id), null);
+        assert.equal(reopened.repositories.annotationRevisionRepository.list().filter(item => item.annotationId === id).length, 0);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: '分析范围：v3 重点按正文标记切出片段，片段不含标签，章节排除生效，标记删除后列为未纳入',
+    run() {
+      const module = createKnowledgeModule();
+      const markdown = ['## 第一章 <!--k sec1 s=section-->', '', '正文<mark data-k="m1" data-l="core">两边平方</mark>和', '', '### 子节 <!--k- sec1-->', '', '子节正文', '', '## 第二章', '', '尾段'].join('\n');
+      let note = createNote(module, markdown);
+      const ids = ['sec1', 'm1'].map(markId => inlineAnnotationId(note.id, markId));
+      const preview = module.annotationScopeService.previewAnalysisScope({ spaceId: SPACE, mode: 'marked', annotationIds: ids });
+      const text = preview.segments.map(segment => segment.markdown).join('|');
+      assert.ok(!/<mark|<!--k/.test(text), text);
+      assert.ok(text.includes('## 第一章') && text.includes('两边平方'));
+      assert.ok(!text.includes('第二章') && !text.includes('### 子节'), '章节在下一个同级标题处结束，排除的子节标题不纳入');
+      for (const segment of preview.segments) assert.equal(note.rawMarkdown.slice(segment.start, segment.end), segment.markdown, '偏移可直接用于来源校验');
+      assert.deepEqual(preview.omittedItems, []);
+
+      note = update(module, note, note.rawMarkdown.replace(/<mark data-k="m1"[^>]*>/, '').replace('</mark>', ''));
+      const after = module.annotationScopeService.previewAnalysisScope({ spaceId: SPACE, mode: 'marked', annotationIds: [ids[0]] });
+      assert.ok(after.segments.length > 0);
+      const deleted = module.repositories.contentAnnotationRepository.findById(ids[1]);
+      assert.equal(deleted.lifecycleStatus, 'deleted');
+    }
+  },
+  {
+    name: 'AI 重点读取：v3 重点从当前版本正文现算位置，返回不含标签的原文与可校验的来源',
+    async run() {
+      const module = createKnowledgeModule();
+      const note = createNote(module, '甲段落\n\n乙<mark data-k="m1" data-l="core">核心内容</mark>丙\n\n丁段落 <!--k b1 s=blocks-->');
+      const [version] = module.noteVersionService.listVersions({ noteId: note.id });
+      const access = { verifyRead: async () => ({ note, version, contentHash: version.contentHash }) };
+      const result = await listAnnotatedRanges({ access, repository: module.repositories.contentAnnotationRepository, grantId: 'g', args: { noteId: note.id } });
+      assert.equal(result.resultJson.total, 2);
+      assert.equal(result.resultJson.unavailableCount, 0);
+      const [core, block] = result.resultJson.annotations;
+      assert.equal(core.text, '核心内容');
+      assert.equal(core.importance, 'core');
+      assert.equal(block.text, '丁段落');
+      for (const ref of result.sourceRefs) assert.ok(!/<mark|<!--k/.test(version.content.slice(ref.start, ref.end)));
+    }
+  },
+  {
     name: '派生计划：没有标记也没有活跃 v3 行时不做任何事',
     run() {
       assert.deepEqual(planInlineAnnotations({ id: 'n', spaceId: SPACE, rawMarkdown: '普通正文 <mark>高亮</mark>' }, null, []), []);
@@ -281,6 +352,40 @@ export const inlineAnnotationPostgresTests = process.env.KNOWRA_SYNC_TEST_DATABA
       note = await k.noteService.updateNote(note.id, { rawMarkdown: `${note.rawMarkdown}补充。`, expectedUpdatedAt: note.updatedAt });
       assert.equal((await k.repositories.knowledgeEvidenceRepository.findById(evidence.id)).status, 'stale');
       assert.equal((await k.contentAnnotationService.getAnnotation(id)).anchorStatus, 'resolved');
+    } finally {
+      await app?.close?.();
+      await database?.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+}, {
+  name: '真实 PostgreSQL：云端批次回收取消超过 7 天的重点，连同排除区间与修订写入删除',
+  async run() {
+    const { createPostgresTestDatabase } = await import('../../../scripts/test-support/postgres-test-database.mjs');
+    const { createPostgresAppContext } = await import('../src/postgres-app.factory.js');
+    const root = mkdtempSync(path.join(tmpdir(), 'knowra-inline-prune-pg-'));
+    let database, app;
+    try {
+      database = await createPostgresTestDatabase();
+      app = await createPostgresAppContext({ databaseUrl: database.databaseUrl, storageRootDir: root });
+      const k = app.modules.knowledge;
+      const space = await k.knowledgeSpaceService.createDefaultKnowledgeSpace({ userId: 'demo' });
+      let note = await k.noteService.createNote({ id: randomUUID(), spaceId: space.id, title: randomUUID(), rawMarkdown: '甲<mark data-k="m1" data-t="key">乙</mark>丙' });
+      note = await k.noteService.updateNote(note.id, { rawMarkdown: '甲乙丙', expectedUpdatedAt: note.updatedAt });
+      const id = inlineAnnotationId(note.id, 'm1');
+      const row = await k.contentAnnotationService.getAnnotation(id);
+      assert.equal(row.lifecycleStatus, 'deleted');
+      const old = new Date(Date.now() - 8 * 86400000).toISOString();
+      await app.prisma.contentAnnotation.update({ where: { id }, data: { deletedAt: new Date(old), updatedAt: new Date(old) } });
+      const state = { ...createEmptyLocalState(),
+        notes: [await k.noteService.getNote(note.id)], noteVersions: await k.noteVersionService.listVersions({ noteId: note.id }),
+        contentAnnotations: await k.repositories.contentAnnotationRepository.list({ noteId: note.id, includeDeleted: true }),
+        annotationRevisions: (await k.repositories.annotationRevisionRepository.list()).filter(item => item.annotationId === id) };
+      const after = pruneTouchedNoteVersions(state, [{ collection: 'notes', id: note.id, value: state.notes.find(item => item.id === note.id) }]);
+      assert.equal(after.contentAnnotations.some(item => item.id === id), false, '回收计划包含这条重点');
+      await app.prisma.$transaction(tx => applyPostgresState(tx, state, after));
+      assert.equal(await app.prisma.contentAnnotation.findUnique({ where: { id } }), null);
+      assert.equal(await app.prisma.annotationRevision.count({ where: { annotationId: id } }), 0);
     } finally {
       await app?.close?.();
       await database?.close();
