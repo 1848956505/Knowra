@@ -9,7 +9,10 @@
     "checkJs": true,
     "noEmit": true,
     "strict": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.js"]
+  "include": ["src/**/*.js", "src/**/*.ts"]
 }

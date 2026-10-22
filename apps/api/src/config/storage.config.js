@@ -1,15 +1,2 @@
-import { normalizeEnv } from './env.schema.js';
-
-export function createStorageConfig(env = process.env) {
-  const normalizedEnv = normalizeEnv(env);
-
-  return {
-    persistenceDriver: normalizedEnv.PERSISTENCE_DRIVER,
-    databaseUrl: normalizedEnv.DATABASE_URL,
-    directUrl: normalizedEnv.DIRECT_URL,
-    mode: normalizedEnv.STORAGE_MODE,
-    uploadsDir: normalizedEnv.STORAGE_UPLOADS_DIR,
-    exportsDir: normalizedEnv.STORAGE_EXPORTS_DIR,
-    tempDir: normalizedEnv.STORAGE_TEMP_DIR
-  };
-}
+// 迁移兼容入口；实现与类型定义位于同名 TS 文件。
+export { createStorageConfig } from './storage.config.ts';

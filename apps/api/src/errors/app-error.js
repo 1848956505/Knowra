@@ -1,20 +1,2 @@
-export class AppError extends Error {
-  constructor(message, {
-    code = 'APPLICATION_ERROR',
-    statusCode = 400,
-    cause
-  } = {}) {
-    super(message, cause ? { cause } : undefined);
-    this.name = 'AppError';
-    this.code = code;
-    this.statusCode = statusCode;
-  }
-}
-
-export function createAppError(code, message, statusCode = 400, options = {}) {
-  return new AppError(message, {
-    ...options,
-    code,
-    statusCode
-  });
-}
+// 迁移兼容入口；旧 JS 调用方继续复用同一个错误类。
+export { AppError, createAppError } from './app-error.ts';
