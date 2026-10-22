@@ -71,7 +71,14 @@ function validatePersistedDocument(input, reuseImmutableHistory = false) {
     allowMissingOptionalCollections: true,
     reuseImmutableHistory: reuseImmutableHistory && document.schemaVersion === LOCAL_DATA_SCHEMA_VERSION
   });
-  if ((document.schemaVersion ?? 1) < 7) migrateLegacyKnowledgeArtifactProvenance(state);
+  if ((document.schemaVersion ?? 1) < 7) {
+    // validateCollections 已初始化全部集合并验证每条记录；保留旧 JS 校验器的推断边界。
+    migrateLegacyKnowledgeArtifactProvenance(
+      /** @type {typeof state & import('../modules/knowledge/domain/knowledge-artifact-provenance-state.ts').ProvenanceMigrationState} */ (
+        state
+      )
+    );
+  }
   normalizeLegacyNoteReferences(state, {
     repairBrokenReferences: document.schemaVersion === undefined
   });
@@ -98,7 +105,14 @@ export function validateLocalSnapshot(snapshot) {
   const state = validateCollections(data, {
     allowMissingOptionalCollections: true
   });
-  if ((document.schemaVersion ?? 1) < 7) migrateLegacyKnowledgeArtifactProvenance(state);
+  if ((document.schemaVersion ?? 1) < 7) {
+    // validateCollections 已初始化全部集合并验证每条记录；保留旧 JS 校验器的推断边界。
+    migrateLegacyKnowledgeArtifactProvenance(
+      /** @type {typeof state & import('../modules/knowledge/domain/knowledge-artifact-provenance-state.ts').ProvenanceMigrationState} */ (
+        state
+      )
+    );
+  }
   normalizeLegacyNoteReferences(state, {
     repairBrokenReferences: document.schemaVersion === undefined
   });
