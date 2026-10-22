@@ -1,3 +1,5 @@
+import type { AnnotationStructure } from '@study-accelerator/content-anchor';
+import type { Note, NoteConstructorInput, NoteDeletionPackage } from '../src/modules/knowledge/domain/note.ts';
 import type { ServerResponse } from 'node:http';
 import type { ResponseWriter } from '../src/http/response.ts';
 import type { Folder } from '../src/modules/knowledge/domain/folder.ts';
@@ -84,5 +86,11 @@ export type MigratedContractAssertions = [
       string | null | undefined
     >
   >,
-  Assert<null extends ResolveProvenanceSourceInput['noteVersion'] ? true : false>
+  Assert<null extends ResolveProvenanceSourceInput['noteVersion'] ? true : false>,
+  Assert<Equal<NoteConstructorInput['rawMarkdown'], unknown>>,
+  Assert<Equal<Note['rawMarkdown'], string>>,
+  Assert<Equal<Note['annotationStructure'], AnnotationStructure>>,
+  Assert<Equal<Note['deletionPackage'], NoteDeletionPackage | null>>,
+  Assert<Equal<Note['updatedAt'], string | null>>,
+  Assert<{ id: string; title: string; rawMarkdown: string } extends NoteConstructorInput ? true : false>
 ];
