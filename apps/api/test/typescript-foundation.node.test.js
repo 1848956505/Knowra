@@ -94,8 +94,105 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
       js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);"
     }
   });
-  for (const file of ['errors/app-error.ts', 'config/env.schema.ts', 'config/storage.config.ts']) {
+  for (const file of [
+    'errors/app-error.ts',
+    'config/env.schema.ts',
+    'config/storage.config.ts',
+    'http/response.ts',
+    'http/cors.ts'
+  ]) {
     assert.ok(Object.hasOwn(result.metafile.inputs, `apps/api/src/${file}`), file);
   }
   assert.ok(result.outputFiles[0].contents.length > 0);
+});
+
+test('HTTP and preview compatibility entries preserve TS export identity', async () => {
+  for (const name of ['http/response', 'http/cors', 'presentation/markdown-preview']) {
+    const legacy = await import(`../src/${name}.js`);
+    const migrated = await import(`../src/${name}.ts`);
+    assert.deepEqual(Object.keys(legacy), Object.keys(migrated));
+    for (const key of Object.keys(legacy)) assert.equal(legacy[key], migrated[key]);
+  }
+});
+
+function recordResponse() {
+  return {
+    status: undefined,
+    headers: {},
+    content: undefined,
+    setHeader(name, value) {
+      this.headers[name] = value;
+    },
+    writeHead(status, headers = {}) {
+      this.status = status;
+      Object.assign(this.headers, headers);
+    },
+    end(content) {
+      this.content = content;
+    }
+  };
+}
+
+test('typed response helpers preserve JSON envelopes and binary security headers', async () => {
+  const { sendJson, sendError, sendBinary } = await import('../src/http/response.ts');
+  const response = recordResponse();
+  sendJson(response, 201, { data: { id: 'synthetic' } });
+  assert.equal(response.status, 201);
+  assert.equal(response.content, '{"data":{"id":"synthetic"}}');
+  sendError(response, 409, 'CONFLICT', 'message');
+  assert.equal(response.content, '{"error":{"code":"CONFLICT","message":"message"}}');
+  const content = Buffer.from('synthetic');
+  sendBinary(response, 200, content, ' TEXT/HTML; charset=utf-8 ', '测试\r\n".html');
+  assert.equal(response.content, content);
+  assert.deepEqual(response.headers, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': content.byteLength,
+    'Content-Disposition': 'attachment; filename="_____.html"; filename*=UTF-8\'\'%E6%B5%8B%E8%AF%95___.html',
+    'Content-Security-Policy': 'sandbox',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  sendBinary(response, 200, content, 'image/png');
+  assert.equal(response.headers['Content-Type'], 'image/png');
+  assert.match(response.headers['Content-Disposition'], /^inline; filename="attachment.bin"/);
+});
+
+test('typed CORS helpers preserve parsing, preflight and wildcard behavior', async () => {
+  const { parseCorsAllowedOrigins, applyCorsHeaders, handleCorsPreflight } = await import('../src/http/cors.ts');
+  assert.deepEqual(parseCorsAllowedOrigins(), []);
+  assert.deepEqual(parseCorsAllowedOrigins(null), ['null']);
+  assert.deepEqual(parseCorsAllowedOrigins([' a ', '', 2]), ['a', '2']);
+  assert.deepEqual(parseCorsAllowedOrigins(' a, , b '), ['a', 'b']);
+  const response = recordResponse();
+  assert.equal(applyCorsHeaders(response, { headers: {} }, ['*']), false);
+  assert.equal(handleCorsPreflight({ request: { method: 'OPTIONS', headers: {} }, response }), false);
+  const request = { method: 'OPTIONS', headers: { origin: 'https://example.test' } };
+  assert.equal(handleCorsPreflight({ request, response }), true);
+  assert.equal(response.status, 403);
+  assert.deepEqual(JSON.parse(response.content), {
+    error: { code: 'CORS_ORIGIN_FORBIDDEN', message: 'CORS origin is not allowed' }
+  });
+  const allowed = recordResponse();
+  assert.equal(handleCorsPreflight({ request, response: allowed, allowedOrigins: [request.headers.origin] }), true);
+  assert.equal(allowed.status, 204);
+  assert.equal(allowed.content, undefined);
+  assert.equal(allowed.headers.Vary, 'Origin');
+  assert.equal(allowed.headers['Access-Control-Allow-Origin'], request.headers.origin);
+  const wildcard = recordResponse();
+  assert.equal(applyCorsHeaders(wildcard, request, ['*']), true);
+  assert.equal(wildcard.headers['Access-Control-Allow-Origin'], '*');
+  assert.equal(Object.hasOwn(wildcard.headers, 'Vary'), false);
+});
+
+test('typed Markdown preview preserves empty, escaped and fallback heading output', async () => {
+  const { extractMarkdownHeadings, renderMarkdownPreview } = await import('../src/presentation/markdown-preview.ts');
+  assert.equal(renderMarkdownPreview(null), '<p class="preview-empty">Nothing to preview yet.</p>');
+  assert.deepEqual(extractMarkdownHeadings('# !!!\r\n## 中文 标题'), [
+    { level: 1, title: '!!!', id: 'section-1' },
+    { level: 2, title: '中文 标题', id: '中文-标题' }
+  ]);
+  assert.equal(renderMarkdownPreview('# !!!\n\n<script>'), '<h1 id="section-1">!!!</h1><p>&lt;script&gt;</p>');
+  assert.equal(
+    renderMarkdownPreview('![image](http://example.test/a.png)'),
+    '<p><span class="preview-blocked-image">[已阻止不安全图片：image]</span></p>'
+  );
 });
