@@ -1,0 +1,2 @@
+# 仅用于第五章 Python 自动化测试示例；Knowra 应用依赖仍由 npm 管理。
+pytest==8.4.2
