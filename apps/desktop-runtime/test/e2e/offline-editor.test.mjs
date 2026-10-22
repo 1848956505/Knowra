@@ -1,3 +1,4 @@
+import { withFailureDiagnostics } from './helpers/failure-diagnostics.mjs';
 import { withWorkspaceStatus } from './helpers/workspace-status.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -9,7 +10,13 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
 
-test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务并重新打开', { timeout: 60000 }, async t => {
+test(
+  '真实 V4 页面断外网编辑、保存状态、强制终止运行服务并重新打开',
+  { timeout: 60000 },
+  withFailureDiagnostics(offlineEditor)
+);
+
+async function offlineEditor(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-offline-e2e-'));
   const browser = await chromium.launch({
     ...(process.env.V4_BROWSER_CHANNEL === 'chrome' ? { channel: 'chrome' } : {})
@@ -169,4 +176,4 @@ test('真实 V4 页面断外网编辑、保存状态、强制终止运行服务�
   assert.equal(after.deviceId, before.deviceId);
   assert.deepEqual(problems, []);
   if (screenshots) await page.screenshot({ path: path.join(screenshots, 'offline-restored.png') });
-});
+}
