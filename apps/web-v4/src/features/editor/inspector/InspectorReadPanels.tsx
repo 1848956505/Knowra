@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 import { MathText } from '../../../components/math/MathText';
 import type { Tag } from '@study-accelerator/web-core';
 import { Button } from '../../../components/ui';
@@ -80,6 +80,7 @@ export function OutlinePanel({ outline, onNavigate }: {
   outline: InspectorHeading[];
   onNavigate(heading: InspectorHeading, index: number): void;
 }) {
+  const depths = outlineDepths(outline);
   return (
     <section className={`${styles.simplePanel} ${styles.outlinePanel}`} aria-label="文档大纲">
       {outline.length > 0 ? <nav className={styles.outline} aria-label="文档大纲">
@@ -88,16 +89,28 @@ export function OutlinePanel({ outline, onNavigate }: {
             key={heading.id}
             type="button"
             data-level={heading.level}
+            data-depth={depths[index]}
+            style={{ '--outline-depth': depths[index] } as CSSProperties}
             aria-label={`跳转到「${heading.text}」，H${heading.level}`}
             onClick={() => onNavigate(heading, index)}
           >
-            <span className={styles.outlineLevel} aria-hidden="true">H{heading.level}</span>
             <span className={styles.outlineText}><MathText text={heading.text} inlineOnly /></span>
+            <span className={styles.outlineLevel} aria-hidden="true">H{heading.level}</span>
           </button>
         ))}
       </nav> : <p className={styles.emptyPanel}>添加一至四级标题后，大纲会自动生成。</p>}
     </section>
   );
+}
+
+/** 按实际嵌套计算缩进：H1 下直接跟 H4 只缩一级，不按标题级别留空档。 */
+function outlineDepths(outline: InspectorHeading[]) {
+  const stack: number[] = [];
+  return outline.map(({ level }) => {
+    while (stack.length && stack[stack.length - 1] >= level) stack.pop();
+    stack.push(level);
+    return stack.length - 1;
+  });
 }
 
 export function LinksPanel({ relations, loading, onOpenNote, noteLinks, linksLoading, error, onOpenOccurrence, onOpenLinkedNote }: {

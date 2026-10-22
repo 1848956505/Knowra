@@ -285,7 +285,11 @@ for (const viewport of viewports) test(`V5 命令搜索与编辑器元信息只�
     const preview = history.getByRole('article', { name: '版本正文预览', exact: true });
     await expect(preview).toContainText('仅供只读预览');
     await preview.scrollIntoViewIfNeeded(); await expect(preview).toBeInViewport({ ratio: 0.95 });
-    await checkUiFont('version-preview-character-count', preview.locator('header > span'));
+    // 字数元信息随新版历史面板移到所选版本标题下，仍需可见且使用 UI 字体。
+    const versionMetadata = history.locator('section').filter({ has: page.getByRole('heading', { name: '所选版本', exact: true }) }).locator(':scope > p');
+    const previewContent = await preview.locator('pre').innerText();
+    await expect(versionMetadata).toContainText(`${previewContent.length.toLocaleString('zh-CN')} 字符`);
+    await checkUiFont('version-preview-character-count', versionMetadata);
     await capture('14-version-preview-readonly', inspector);
     await expect(page.getByRole('dialog', { name: '恢复历史正文', exact: true })).toHaveCount(0);
     readonlyChecks.push('信息、附件元信息、2 条标注、分组版本和正文预览均只读；未保存、恢复版本、另存、下载、上传或调用 AI');

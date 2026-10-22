@@ -1,37 +1,65 @@
+import { INLINE_ANNOTATION_SCHEMA } from './content-annotation.js';
 import { createNoteVersionReferenceIndex } from './note-version-references.js';
 import { calculateContentHash } from './note-version.js';
 import { NOTE_VERSION_RETENTION, selectVersionsToPrune } from './note-version-retention.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 export const ANNOTATION_REVISION_RETENTION = Object.freeze({
-  maxPerAnnotation: 10, maxAgeMs: 7 * DAY, sampleMs: 10 * 60 * 1000, maxBytesPerAnnotation: 128 * 1024
+  maxPerAnnotation: 10,
+  maxAgeMs: 7 * DAY,
+  sampleMs: 10 * 60 * 1000,
+  maxBytesPerAnnotation: 128 * 1024
 });
-/** 已取消（deleted）的重点保留 7 天后可回收（《重点标记内联化方案》12.5，用户确认）。 */
+/** 已取消（deleted）的旧版重点保留 7 天后可回收；v3 确定性 ID 保留供历史恢复（《重点标记内联化方案》12.5，用户确认）。 */
 export const DELETED_ANNOTATION_RETENTION_MS = 7 * DAY;
 /** 回收可能改动的全部集合：调用方据此回写，不要只回写其中一部分。 */
-export const HISTORY_RETENTION_COLLECTIONS = Object.freeze(['noteVersions', 'annotationRevisions', 'contentAnnotations', 'annotationExclusions']);
-const references = ['contentAnnotations', 'annotationExclusions', 'knowledgeEvidence',
-  'knowledgeArtifactProvenance', 'questionSources', 'analysisScopeSnapshots'];
+export const HISTORY_RETENTION_COLLECTIONS = Object.freeze([
+  'noteVersions',
+  'annotationRevisions',
+  'contentAnnotations',
+  'annotationExclusions'
+]);
+const references = [
+  'contentAnnotations',
+  'annotationExclusions',
+  'knowledgeEvidence',
+  'knowledgeArtifactProvenance',
+  'questionSources',
+  'analysisScopeSnapshots'
+];
 /** 能让一条重点免于回收的引用方：重点自身的排除区间与修订随它一起处理，不算外部引用。 */
-const annotationReferences = ['knowledgeEvidence', 'knowledgeArtifactProvenance', 'questionSources', 'analysisScopeSnapshots'];
+const annotationReferences = [
+  'knowledgeEvidence',
+  'knowledgeArtifactProvenance',
+  'questionSources',
+  'analysisScopeSnapshots'
+];
 const pair = (id, revision) => JSON.stringify([id, revision]);
 const size = record => Buffer.byteLength(JSON.stringify(record));
 const newestFirst = (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || b.id.localeCompare(a.id);
 
 /** 来源凭证、分析范围和私有任务中的确切修订引用；过程历史自身不是保留根。 */
 export function referencedAnnotationRevisions(state, externalReferences = []) {
-  const ids = new Set(), pairs = new Set();
+  const ids = new Set(),
+    pairs = new Set();
   const mentioned = createNoteVersionReferenceIndex({ external: externalReferences });
   function visit(value) {
     if (typeof value === 'string') {
       if (value.startsWith('annotation-revision-')) ids.add(value);
       // 私有任务的 JSON 载荷也可能以字符串存放。
-      if (/^\s*[\[{]/.test(value)) { try { visit(JSON.parse(value)); } catch { /* 普通正文不是 JSON。 */ } }
+      if (/^\s*[[{]/.test(value)) {
+        try {
+          visit(JSON.parse(value));
+        } catch {
+          /* 普通正文不是 JSON。 */
+        }
+      }
       return;
     }
     if (!value || typeof value !== 'object') return;
     if (typeof value.annotationRevisionId === 'string') ids.add(value.annotationRevisionId);
-    if (typeof value.annotationId === 'string' && Number.isSafeInteger(value.revision)) pairs.add(pair(value.annotationId, value.revision));
+    if (typeof value.annotationId === 'string' && Number.isSafeInteger(value.revision))
+      pairs.add(pair(value.annotationId, value.revision));
     for (const child of Object.values(value)) visit(child);
   }
   for (const name of references) visit(state[name] ?? []);
@@ -41,7 +69,11 @@ export function referencedAnnotationRevisions(state, externalReferences = []) {
   const annotations = new Map((state.contentAnnotations ?? []).map(item => [item.id, item]));
   const witnesses = new Map();
   for (const revision of state.annotationRevisions ?? []) {
-    const key = JSON.stringify([revision.annotationId, revision.newAnchor?.noteVersionId, String(revision.rangeSummary?.quoteText ?? '').trim()]);
+    const key = JSON.stringify([
+      revision.annotationId,
+      revision.newAnchor?.noteVersionId,
+      String(revision.rangeSummary?.quoteText ?? '').trim()
+    ]);
     const previous = witnesses.get(key);
     if (!previous || revision.revision > previous.revision) witnesses.set(key, revision);
   }
@@ -49,16 +81,29 @@ export function referencedAnnotationRevisions(state, externalReferences = []) {
     if (evidence.sourceType !== 'annotation') continue;
     const annotation = annotations.get(evidence.annotationId);
     const quote = String(evidence.quoteText ?? '').trim();
-    if ([annotation, annotation?.originSnapshot].some(item => item && item.noteVersionId === evidence.noteVersionId && String(item.quoteText ?? '').trim() === quote)) continue;
+    if (
+      [annotation, annotation?.originSnapshot].some(
+        item => item && item.noteVersionId === evidence.noteVersionId && String(item.quoteText ?? '').trim() === quote
+      )
+    )
+      continue;
     const witness = witnesses.get(JSON.stringify([evidence.annotationId, evidence.noteVersionId, quote]));
     if (witness) ids.add(witness.id);
   }
-  return revision => ids.has(revision.id) || pairs.has(pair(revision.annotationId, revision.revision)) || mentioned(revision);
+  return revision =>
+    ids.has(revision.id) || pairs.has(pair(revision.annotationId, revision.revision)) || mentioned(revision);
 }
 
-export function selectAnnotationRevisionsToPrune({ revisions, protectedIds = new Set(), now = Date.now(), policy = ANNOTATION_REVISION_RETENTION }) {
-  const buckets = new Set(), removed = [];
-  let kept = 0, bytes = 0;
+export function selectAnnotationRevisionsToPrune({
+  revisions,
+  protectedIds = new Set(),
+  now = Date.now(),
+  policy = ANNOTATION_REVISION_RETENTION
+}) {
+  const buckets = new Set(),
+    removed = [];
+  let kept = 0,
+    bytes = 0;
   for (const record of [...revisions].sort((a, b) => b.revision - a.revision || newestFirst(a, b))) {
     if (protectedIds.has(record.id)) continue;
     const time = Date.parse(record.createdAt);
@@ -67,37 +112,35 @@ export function selectAnnotationRevisionsToPrune({ revisions, protectedIds = new
     const bucket = Math.floor(time / policy.sampleMs);
     const automatic = record.operation === 'sourceReconciled';
     const length = size(record);
-    if (now - time > policy.maxAgeMs || kept >= policy.maxPerAnnotation || bytes + length > policy.maxBytesPerAnnotation
-      || (automatic && buckets.has(bucket))) { removed.push(record.id); continue; }
-    kept++; bytes += length;
+    if (
+      now - time > policy.maxAgeMs ||
+      kept >= policy.maxPerAnnotation ||
+      bytes + length > policy.maxBytesPerAnnotation ||
+      (automatic && buckets.has(bucket))
+    ) {
+      removed.push(record.id);
+      continue;
+    }
+    kept++;
+    bytes += length;
     if (automatic) buckets.add(bucket);
   }
   return removed;
-}
-
-/** 引用方中出现的全部重点 ID（含字符串化的 JSON 载荷，与修订引用的扫描方式一致）。 */
-function referencedAnnotationIds(state, externalReferences) {
-  const ids = new Set();
-  const visit = (value) => {
-    if (typeof value === 'string') {
-      if (value.startsWith('annotation-')) ids.add(value);
-      if (/^\s*[\[{]/.test(value)) { try { visit(JSON.parse(value)); } catch { /* 普通正文不是 JSON。 */ } }
-      return;
-    }
-    if (!value || typeof value !== 'object') return;
-    for (const child of Object.values(value)) visit(child);
-  };
-  for (const name of annotationReferences) visit(state[name] ?? []);
-  visit(externalReferences);
-  return ids;
 }
 
 /**
  * 已取消超过保留期的重点：没有被证据、分析范围、题目来源、知识产物来源或私有任务引用，
  * 且它的排除区间和修订都能一起回收（任何一项必须保留时整条保留，不留下悬空引用）。
  */
-function selectAnnotationsToPrune(state, { now, selected, externalReferences, canDiscard, retentionMs }) {
-  const referenced = referencedAnnotationIds(state, externalReferences);
+function selectAnnotationsToPrune(
+  state,
+  { now, selected, externalReferences, protectedRevisionIds, canDiscard, retentionMs }
+) {
+  // 与版本/修订引用采用同一 token 索引，包含自由文本和字符串化的私有任务载荷。
+  const referenced = createNoteVersionReferenceIndex({
+    ...Object.fromEntries(annotationReferences.map(name => [name, state[name] ?? []])),
+    external: externalReferences
+  });
   const exclusionsByParent = new Map();
   for (const exclusion of state.annotationExclusions ?? []) {
     if (!exclusionsByParent.has(exclusion.parentAnnotationId)) exclusionsByParent.set(exclusion.parentAnnotationId, []);
@@ -110,38 +153,86 @@ function selectAnnotationsToPrune(state, { now, selected, externalReferences, ca
   }
   const candidates = new Set();
   for (const annotation of state.contentAnnotations ?? []) {
-    if (annotation.lifecycleStatus !== 'deleted' || !selected(annotation.noteId) || referenced.has(annotation.id)) continue;
+    // v3 行的 ID 由正文标记确定：历史恢复会复用，不能生成禁止复活的永久删除事实。
+    if (
+      annotation.schemaVersion === INLINE_ANNOTATION_SCHEMA ||
+      annotation.lifecycleStatus !== 'deleted' ||
+      !selected(annotation.noteId) ||
+      referenced(annotation)
+    )
+      continue;
     const time = Date.parse(annotation.deletedAt ?? annotation.updatedAt);
     // 无法确定取消时间的旧记录不作自动删除。
     if (!Number.isFinite(time) || now - time <= retentionMs || !canDiscard('contentAnnotations', annotation)) continue;
-    if ((exclusionsByParent.get(annotation.id) ?? []).some(exclusion => !canDiscard('annotationExclusions', exclusion))) continue;
+    if (
+      (exclusionsByParent.get(annotation.id) ?? []).some(
+        exclusion => referenced(exclusion) || !canDiscard('annotationExclusions', exclusion)
+      )
+    )
+      continue;
     candidates.add(annotation.id);
   }
   if (!candidates.size) return { annotations: candidates, exclusions: new Set(), revisions: new Set() };
   // 修订是否被引用要按回收后的状态判断：被回收的重点不再保护自己的当前修订。
-  const after = { ...state, contentAnnotations: (state.contentAnnotations ?? []).filter(item => !candidates.has(item.id)) };
+  const after = {
+    ...state,
+    contentAnnotations: (state.contentAnnotations ?? []).filter(item => !candidates.has(item.id))
+  };
   const isRevisionReferenced = referencedAnnotationRevisions(after, externalReferences);
   for (const id of [...candidates]) {
-    if ((revisionsByAnnotation.get(id) ?? []).some(revision => isRevisionReferenced(revision) || !canDiscard('annotationRevisions', revision))) candidates.delete(id);
+    if (
+      (revisionsByAnnotation.get(id) ?? []).some(
+        revision =>
+          protectedRevisionIds.has(revision.id) ||
+          isRevisionReferenced(revision) ||
+          !canDiscard('annotationRevisions', revision)
+      )
+    )
+      candidates.delete(id);
   }
-  const exclusions = new Set([...candidates].flatMap(id => (exclusionsByParent.get(id) ?? []).map(exclusion => exclusion.id)));
-  const revisions = new Set([...candidates].flatMap(id => (revisionsByAnnotation.get(id) ?? []).map(revision => revision.id)));
+  const exclusions = new Set(
+    [...candidates].flatMap(id => (exclusionsByParent.get(id) ?? []).map(exclusion => exclusion.id))
+  );
+  const revisions = new Set(
+    [...candidates].flatMap(id => (revisionsByAnnotation.get(id) ?? []).map(revision => revision.id))
+  );
   return { annotations: candidates, exclusions, revisions };
 }
 
 /** 只规划，不改写输入；先回收过期的已取消重点，再裁剪标注过程历史，最后释放它们独占的正文版本。 */
-export function planHistoryRetention(input, { now = Date.now(), noteIds = null, externalReferences = [],
-  protectedVersionIds = new Set(), protectedRevisionIds = new Set(), canDiscard = () => true,
-  notePolicy = NOTE_VERSION_RETENTION, annotationPolicy = ANNOTATION_REVISION_RETENTION,
-  deletedAnnotationRetentionMs = DELETED_ANNOTATION_RETENTION_MS } = {}) {
+export function planHistoryRetention(
+  input,
+  {
+    now = Date.now(),
+    noteIds = null,
+    externalReferences = [],
+    protectedVersionIds = new Set(),
+    protectedRevisionIds = new Set(),
+    canDiscard = () => true,
+    notePolicy = NOTE_VERSION_RETENTION,
+    annotationPolicy = ANNOTATION_REVISION_RETENTION,
+    deletedAnnotationRetentionMs = DELETED_ANNOTATION_RETENTION_MS
+  } = {}
+) {
   const notes = new Map((input.notes ?? []).map(note => [note.id, note]));
   const annotations = new Map((input.contentAnnotations ?? []).map(annotation => [annotation.id, annotation]));
   const selected = id => !noteIds || noteIds.has(id);
-  const pruned = selectAnnotationsToPrune(input, { now, selected, externalReferences, canDiscard, retentionMs: deletedAnnotationRetentionMs });
-  const state = pruned.annotations.size ? { ...input,
-    contentAnnotations: input.contentAnnotations.filter(item => !pruned.annotations.has(item.id)),
-    annotationExclusions: (input.annotationExclusions ?? []).filter(item => !pruned.exclusions.has(item.id)),
-    annotationRevisions: (input.annotationRevisions ?? []).filter(item => !pruned.revisions.has(item.id)) } : input;
+  const pruned = selectAnnotationsToPrune(input, {
+    now,
+    selected,
+    externalReferences,
+    protectedRevisionIds,
+    canDiscard,
+    retentionMs: deletedAnnotationRetentionMs
+  });
+  const state = pruned.annotations.size
+    ? {
+        ...input,
+        contentAnnotations: input.contentAnnotations.filter(item => !pruned.annotations.has(item.id)),
+        annotationExclusions: (input.annotationExclusions ?? []).filter(item => !pruned.exclusions.has(item.id)),
+        annotationRevisions: (input.annotationRevisions ?? []).filter(item => !pruned.revisions.has(item.id))
+      }
+    : input;
   const isRevisionReferenced = referencedAnnotationRevisions(state, externalReferences);
   const revisionGroups = new Map();
   for (const record of state.annotationRevisions ?? []) {
@@ -151,13 +242,28 @@ export function planHistoryRetention(input, { now = Date.now(), noteIds = null, 
   }
   const removedRevisions = new Set(pruned.revisions);
   for (const records of revisionGroups.values()) {
-    const protectedIds = new Set(records.filter(record => protectedRevisionIds.has(record.id) || isRevisionReferenced(record)
-      || !canDiscard('annotationRevisions', record)).map(record => record.id));
-    for (const id of selectAnnotationRevisionsToPrune({ revisions: records, protectedIds, now, policy: annotationPolicy })) removedRevisions.add(id);
+    const protectedIds = new Set(
+      records
+        .filter(
+          record =>
+            protectedRevisionIds.has(record.id) ||
+            isRevisionReferenced(record) ||
+            !canDiscard('annotationRevisions', record)
+        )
+        .map(record => record.id)
+    );
+    for (const id of selectAnnotationRevisionsToPrune({
+      revisions: records,
+      protectedIds,
+      now,
+      policy: annotationPolicy
+    }))
+      removedRevisions.add(id);
   }
   const retainedRevisions = (state.annotationRevisions ?? []).filter(record => !removedRevisions.has(record.id));
   const isVersionReferenced = createNoteVersionReferenceIndex({
-    ...Object.fromEntries(references.map(name => [name, state[name] ?? []])), annotationRevisions: retainedRevisions,
+    ...Object.fromEntries(references.map(name => [name, state[name] ?? []])),
+    annotationRevisions: retainedRevisions,
     external: externalReferences
   });
   const versionGroups = new Map();
@@ -172,28 +278,55 @@ export function planHistoryRetention(input, { now = Date.now(), noteIds = null, 
     if (!note) continue;
     const currentHash = calculateContentHash(note.rawMarkdown);
     const baselineId = versions.find(version => version.createdAt === note.createdAt)?.id;
-    const protectedIds = new Set(versions.filter(version => protectedVersionIds.has(version.id) || version.contentHash === currentHash
-      || version.id === baselineId || isVersionReferenced(version) || !canDiscard('noteVersions', version)).map(version => version.id));
-    for (const id of selectVersionsToPrune({ versions, now, protectedIds, policy: notePolicy })) removedVersions.add(id);
+    const protectedIds = new Set(
+      versions
+        .filter(
+          version =>
+            protectedVersionIds.has(version.id) ||
+            version.contentHash === currentHash ||
+            version.id === baselineId ||
+            isVersionReferenced(version) ||
+            !canDiscard('noteVersions', version)
+        )
+        .map(version => version.id)
+    );
+    for (const id of selectVersionsToPrune({ versions, now, protectedIds, policy: notePolicy }))
+      removedVersions.add(id);
   }
   const summary = {};
-  for (const [collection, removed] of [['annotationRevisions', removedRevisions], ['noteVersions', removedVersions],
-    ['contentAnnotations', pruned.annotations], ['annotationExclusions', pruned.exclusions]]) {
+  for (const [collection, removed] of [
+    ['annotationRevisions', removedRevisions],
+    ['noteVersions', removedVersions],
+    ['contentAnnotations', pruned.annotations],
+    ['annotationExclusions', pruned.exclusions]
+  ]) {
     const records = input[collection] ?? [];
-    summary[collection] = { before: records.length, after: records.length - removed.size, removed: removed.size,
-      removedBytes: records.reduce((total, record) => total + (removed.has(record.id) ? size(record) : 0), 0) };
+    summary[collection] = {
+      before: records.length,
+      after: records.length - removed.size,
+      removed: removed.size,
+      removedBytes: records.reduce((total, record) => total + (removed.has(record.id) ? size(record) : 0), 0)
+    };
   }
-  return { removedRevisions, removedVersions, removedAnnotations: pruned.annotations, removedExclusions: pruned.exclusions, summary };
+  return {
+    removedRevisions,
+    removedVersions,
+    removedAnnotations: pruned.annotations,
+    removedExclusions: pruned.exclusions,
+    summary
+  };
 }
 
 export function applyHistoryRetentionPlan(state, plan) {
   const removedAnnotations = plan.removedAnnotations ?? new Set();
   const removedExclusions = plan.removedExclusions ?? new Set();
-  return { ...state,
+  return {
+    ...state,
     annotationRevisions: state.annotationRevisions.filter(record => !plan.removedRevisions.has(record.id)),
     noteVersions: state.noteVersions.filter(record => !plan.removedVersions.has(record.id)),
     contentAnnotations: (state.contentAnnotations ?? []).filter(record => !removedAnnotations.has(record.id)),
-    annotationExclusions: (state.annotationExclusions ?? []).filter(record => !removedExclusions.has(record.id)) };
+    annotationExclusions: (state.annotationExclusions ?? []).filter(record => !removedExclusions.has(record.id))
+  };
 }
 
 /** 普通保存只处理被修改的笔记/标注，避免读取或 AI 状态写入触发整库清理。 */
@@ -203,14 +336,26 @@ export function changedHistoryNoteIds(before, after) {
   const touched = new Set();
   for (const note of after.notes ?? []) {
     const previous = notes.get(note.id);
-    if (!previous || previous.updatedAt !== note.updatedAt
-      || (previous.historyContentHash ?? calculateContentHash(previous.rawMarkdown)) !== calculateContentHash(note.rawMarkdown)) touched.add(note.id);
+    if (
+      !previous ||
+      previous.updatedAt !== note.updatedAt ||
+      (previous.historyContentHash ?? calculateContentHash(previous.rawMarkdown)) !==
+        calculateContentHash(note.rawMarkdown)
+    )
+      touched.add(note.id);
   }
-  for (const item of after.contentAnnotations ?? []) if (annotations.get(item.id)?.revision !== item.revision) touched.add(item.noteId);
+  for (const item of after.contentAnnotations ?? [])
+    if (annotations.get(item.id)?.revision !== item.revision) touched.add(item.noteId);
   return touched;
 }
 
 export function historyRetentionBasis(state) {
-  return { notes: state.notes.map(({ id, updatedAt, rawMarkdown }) => ({ id, updatedAt, historyContentHash: calculateContentHash(rawMarkdown) })),
-    contentAnnotations: state.contentAnnotations.map(({ id, noteId, revision }) => ({ id, noteId, revision })) };
+  return {
+    notes: state.notes.map(({ id, updatedAt, rawMarkdown }) => ({
+      id,
+      updatedAt,
+      historyContentHash: calculateContentHash(rawMarkdown)
+    })),
+    contentAnnotations: state.contentAnnotations.map(({ id, noteId, revision }) => ({ id, noteId, revision }))
+  };
 }

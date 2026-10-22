@@ -1,6 +1,6 @@
 {
   "baselineCommit": "5e80f09c45edd8112b9f3cdd7345bf1cfb345277",
-  "declarationsSha256": "cc0cd498e5ec1c859f36a84b6255f55665d5b4ad2dc096107021419d149fae3b",
+  "declarationsSha256": "0157ff46e0c19dee8ef0842cf0da75adc7cc83c2782b01e917f000720a1bfa8f",
   "packageContract": {
     "name": "@study-accelerator/content-anchor",
     "type": "module",
@@ -919,20 +919,7 @@
             "memberFingerprint": "aedc7666f29cc48e95df6df6ad34228022a3d8b53964fb217198fb42d23245db"
           }
         },
-        "headingPaths": [
-          [],
-          [
-            "标题"
-          ],
-          [
-            "标题",
-            "尾"
-          ],
-          [
-            "标题",
-            "尾"
-          ]
-        ]
+        "headingPaths": [[], ["标题"], ["标题", "尾"], ["标题", "尾"]]
       }
     },
     "anchor-resolve-exact": {
@@ -3376,13 +3363,8 @@
           "formatVersion": 1,
           "structureRevision": 1,
           "rootId": "block-0670fc4617e8a3fdad7fcaa8",
-          "ancestorItemIds": [
-            "block-114b06ae9b44187608582ea3"
-          ],
-          "memberIds": [
-            "block-0670fc4617e8a3fdad7fcaa8",
-            "block-24e150ff0f90ff9873c8d108"
-          ]
+          "ancestorItemIds": ["block-114b06ae9b44187608582ea3"],
+          "memberIds": ["block-0670fc4617e8a3fdad7fcaa8", "block-24e150ff0f90ff9873c8d108"]
         }
       }
     },
@@ -4544,10 +4526,7 @@
             "structureRevision": 2,
             "rootId": "block-114b06ae9b44187608582ea3",
             "ancestorItemIds": [],
-            "memberIds": [
-              "block-114b06ae9b44187608582ea3",
-              "block-5a66d209e5ac78e72cdfd2af"
-            ],
+            "memberIds": ["block-114b06ae9b44187608582ea3", "block-5a66d209e5ac78e72cdfd2af"],
             "cut": null,
             "empty": false
           }
@@ -4701,9 +4680,7 @@
               "structureRevision": 2,
               "rootId": "block-f8fe7e885de556da104756f4",
               "ancestorItemIds": [],
-              "memberIds": [
-                "block-f8fe7e885de556da104756f4"
-              ],
+              "memberIds": ["block-f8fe7e885de556da104756f4"],
               "cut": null,
               "empty": true
             },
@@ -4799,10 +4776,7 @@
               "structureRevision": 3,
               "rootId": "block-f8fe7e885de556da104756f4",
               "ancestorItemIds": [],
-              "memberIds": [
-                "block-f8fe7e885de556da104756f4",
-                "block-e91fbf6f6b0bdb11702caf22"
-              ],
+              "memberIds": ["block-f8fe7e885de556da104756f4", "block-e91fbf6f6b0bdb11702caf22"],
               "cut": null,
               "empty": false
             }
@@ -4892,58 +4866,22 @@
           "pairs": {
             "$type": "Map",
             "entries": [
-              [
-                0,
-                0
-              ],
-              [
-                1,
-                1
-              ],
-              [
-                2,
-                2
-              ],
-              [
-                3,
-                3
-              ],
-              [
-                4,
-                4
-              ],
-              [
-                5,
-                5
-              ],
-              [
-                6,
-                6
-              ],
-              [
-                7,
-                7
-              ],
-              [
-                8,
-                8
-              ]
+              [0, 0],
+              [1, 1],
+              [2, 2],
+              [3, 3],
+              [4, 4],
+              [5, 5],
+              [6, 6],
+              [7, 7],
+              [8, 8]
             ]
           }
         }
       }
     },
     "identity-validation": {
-      "returned": [
-        true,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false,
-        false
-      ]
+      "returned": [true, false, false, false, false, false, false, false]
     },
     "identity-compare-guard-results": {
       "returned": {
@@ -5033,10 +4971,7 @@
           "occurrenceId": "occ-first"
         },
         "extracted": {
-          "targetIds": [
-            "目标/笔记",
-            "legacy-id"
-          ],
+          "targetIds": ["目标/笔记", "legacy-id"],
           "occurrences": [
             {
               "targetNoteId": "目标/笔记",
@@ -5068,13 +5003,7 @@
           "context": "甲乙"
         },
         "duplicate": null,
-        "invalid": [
-          null,
-          null,
-          null,
-          null,
-          null
-        ]
+        "invalid": [null, null, null, null, null]
       }
     },
     "error-projected-range-negative": {

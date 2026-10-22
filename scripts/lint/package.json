@@ -1,0 +1,17 @@
+{
+  "name": "knowra-lint-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "独立安装的 ESLint/Prettier 工具链；固定 typescript@6 供 typescript-eslint 使用，不影响工作区的原生 TS 7。",
+  "dependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.0"
+  }
+}

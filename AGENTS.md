@@ -15,15 +15,19 @@
 | 个人 Mac 纯构建（Apple Silicon，不安装） | `npm run build:mac` |
 | Mac 产物核验 / 隔离验收 / 显式安装 | `npm run verify:mac` / `npm run test:mac` / `npm run install:mac` |
 | API 测试 | `npm run test:api` |
+| API 类型检查（宽松 checkJs，本地失败返回非零、CI 仅报告；迁移计划见 `docs/后端TS迁移/`） | `npm run typecheck:api` |
 | V4 测试 | `npm run test:web` |
 | V4 类型、架构边界和测试 | `npm run check:web:v4` |
 | 共享工具 | `npm run test:shared` |
 | 共享契约 / V3 回归 / 脚本测试 | `npm run test:web-core` / `npm run test:web:legacy` / `npm run test:scripts` |
 | 全部测试 | `npm test` |
+| 代码风格（本地检查失败返回非零；CI 仅报告；工具链首次运行时装到 `scripts/lint/`） | `npm run lint` / `npm run format:check` |
 | 本地离线运行服务（先构建 V4） | `npm run start:desktop` |
 | 本地存储/恢复测试、真实页面验收 | `npm run test:desktop` / `npm run test:e2e -w @study-accelerator/desktop-runtime` |
 
 按改动选择检查；V4 UI 使用 Vitest，生产服务器使用 node:test；API 使用显式注册的自定义 runner。不要把直接导入 API 测试文件当作执行其测试。交互改动还需验证受影响的页面状态；完整 E2E 入口是 `npm run test:e2e -w @study-accelerator/web-v4`。
+
+改完代码后，只对本次新增或修改的文件运行 `node scripts/lint/run.mjs prettier --write <文件...>` 和 `node scripts/lint/run.mjs eslint <文件...>`，并修掉新引入的 ESLint 问题。仓库仍有存量问题，所以不要整仓库格式化，也不要顺手修与任务无关的旧问题；如果某个旧问题妨碍当前改动，请在回复中说明。
 
 ## 架构与数据约束
 

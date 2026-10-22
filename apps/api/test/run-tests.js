@@ -40,7 +40,11 @@ import { attachmentRecoveryTests } from './attachment-recovery.test.js';
 import { annotationDynamicPostgresTests } from './annotation-dynamic-postgres.test.js';
 import { annotationDynamicTests } from './annotation-dynamic.test.js';
 import { annotationIdentityShadowTests } from './annotation-identity-shadow.test.js';
-import { annotationIdentityBindingTests, annotationIdentityBindingPostgresTests } from './annotation-identity-binding.test.js';
+import {
+  annotationIdentityBindingTests,
+  annotationIdentityBindingPostgresTests
+} from './annotation-identity-binding.test.js';
+import { inlineAnnotationStorageRegressionTests } from './inline-annotation-storage-regression.test.js';
 import { inlineAnnotationTests, inlineAnnotationPostgresTests } from './inline-annotations.test.js';
 import { knowledgeReviewFlowTests } from './knowledge-review-flow.test.js';
 import { knowledgeExtractionContractTests } from './knowledge-extraction-contract.test.js';
@@ -89,12 +93,8 @@ import { httpResponseTests } from './http-response.test.js';
 import { contentAnnotationServiceTests } from './content-annotation-service.test.js';
 import { annotationScopeServiceTests } from './annotation-scope-service.test.js';
 import { serverHttpTests } from './server-http.test.js';
-import {
-  knowledgeBaseSnapshotServiceTests
-} from './knowledge-base-snapshot-service.test.js';
-import {
-  noteDeletionCoordinatorTests
-} from './note-deletion-coordinator.test.js';
+import { knowledgeBaseSnapshotServiceTests } from './knowledge-base-snapshot-service.test.js';
+import { noteDeletionCoordinatorTests } from './note-deletion-coordinator.test.js';
 import { postgresTagGroupMigrationTests } from './postgres-tag-group-migration.test.js';
 import { phase1PostgresTests } from './phase1-postgres.test.js';
 import { attachmentIntegrityTests } from './attachment-integrity.test.js';
@@ -102,7 +102,10 @@ import { assetLifecycleStage0Tests } from './asset-lifecycle-stage0.test.js';
 import { assetLifecycleStage1Tests } from './asset-lifecycle-stage1.test.js';
 import { assetLifecycleStage2Tests } from './asset-lifecycle-stage2.test.js';
 import { assetLifecycleStage3Tests } from './asset-lifecycle-stage3.test.js';
-import { desktopKnowledgeLifecycleTests, desktopKnowledgeLifecyclePostgresTests } from './desktop-knowledge-lifecycle.test.js';
+import {
+  desktopKnowledgeLifecycleTests,
+  desktopKnowledgeLifecyclePostgresTests
+} from './desktop-knowledge-lifecycle.test.js';
 import { authoritativeAssetPurgeTests } from './authoritative-asset-purge.test.js';
 import { authoritativeAssetPurgePostgresTests } from './authoritative-asset-purge-postgres.test.js';
 import { phase2KnowledgeDomainTests } from './phase2-knowledge-domain.test.js';
@@ -231,6 +234,7 @@ const tests = [
   ...annotationIdentityShadowTests,
   ...annotationIdentityBindingTests,
   ...annotationIdentityBindingPostgresTests,
+  ...inlineAnnotationStorageRegressionTests,
   ...inlineAnnotationTests,
   ...inlineAnnotationPostgresTests,
   ...annotationDynamicPostgresTests,
@@ -270,7 +274,7 @@ const tests = [
   ...aiRetrievalR06Tests,
   ...aiKeywordCoverageTests,
   ...aiKeywordCoveragePostgresTests,
-  ...aiConversationPostgresTests,
+  ...aiConversationPostgresTests
 ];
 
 let failed = 0;
