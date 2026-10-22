@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { chromium, expect } from '@playwright/test';
 import { createR07Fixture, inspectR07FixtureState } from '../fixtures/ai-r07-runtime.mjs';
+import { restartAfterPageUnload } from '../fixtures/restart-after-page-unload.mjs';
 
 for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABASE_URL ? ['postgres'] : [])]) {
   test(`R07 ${driver} 实际服务/生产页面与离线模型：聊天、授权工具、追问、取消及恢复`, { timeout: 120000 }, async t => {
@@ -94,7 +95,7 @@ for (const driver of ['json', 'sqlite', ...(process.env.KNOWRA_SYNC_TEST_DATABAS
     assert(!(await fixture.store.listMessages(conversation.conversationId)).some(message => message.content.includes('绝不能显示')));
     await expect(page.getByText('绝不能显示的迟到回答', { exact: true })).toHaveCount(0);
     {
-      const launch = await fixture.restart();
+      const launch = await restartAfterPageUnload(page, fixture);
       await page.goto(launch);
       await page.goto(`${new URL(launch).origin}/#/assistant?conversationId=${encodeURIComponent(conversation.conversationId)}`);
       await expect(page.getByText('合成资料回答：光合作用需要阳光和水。', { exact: true })).toBeVisible();
