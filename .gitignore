@@ -8,6 +8,10 @@ dist/
 .vercel/
 .cache/
 .npm-cache/
+# Python 课程实验的本机环境与测试缓存
+.venv/
+__pycache__/
+.pytest_cache/
 .DS_Store
 /storage/
 /.deploy-incoming/
