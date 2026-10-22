@@ -13,12 +13,19 @@ import { configureImageSize } from './editorImageBehavior';
 import { annotationMarkSchema, annotationSerializerGuard, configureBlockIdentitySchema } from './editorBlockIdentity';
 import { createKnowraMarksCodec, knowraMarkSchema, type KnowraMarkProblem } from './editorKnowraMarks';
 import type { MigrationCodec } from './annotationInlineMigration';
+import { inlineAnnotationHighlightBehavior } from './editorInlineAnnotations';
 
 /**
  * 测试与试运行用：与 MilkdownNoteEditor 相同的 schema、remark 与序列化包装（只取影响文档结构和 Markdown 的部分），
  * 包装成迁移计算需要的 MigrationCodec。只在 jsdom 等有 DOM 的环境里使用。
  */
 export async function createMigrationCodec(): Promise<MigrationCodec & { destroy(): Promise<void> }> {
+  const { view: _view, ...codec } = await createKnowraTestEditor('');
+  return codec;
+}
+
+/** 带内联重点显示插件的测试编辑器：返回视图，供操作与装饰测试使用。 */
+export async function createKnowraTestEditor(markdown: string) {
   const globals = globalThis as Record<string, unknown>;
   globals.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
   const problems: KnowraMarkProblem[] = [];
@@ -27,7 +34,7 @@ export async function createMigrationCodec(): Promise<MigrationCodec & { destroy
   const editor = await Editor.make().config(ctx => {
     configureImageSize(ctx);
     ctx.set(rootCtx, root);
-    ctx.set(defaultValueCtx, '');
+    ctx.set(defaultValueCtx, markdown);
     ctx.update(remarkStringifyOptionsCtx, options => {
       type MarkdownHandler = NonNullable<typeof options.handlers>['text'];
       const delimited = (open: string, close = open): MarkdownHandler => (node, _parent, state, info) => {
@@ -45,11 +52,12 @@ export async function createMigrationCodec(): Promise<MigrationCodec & { destroy
     .use(mathRemark).use(mathInlineGuardRemark).use(mathBlockSchema).use(mathBlockSerializerGuard).use(mathInlineSchema)
     .use(highlightRemark).use(highlightSchema).use(internalLinkRemark).use(internalLinkSchema)
     .use(annotationMarkSchema).use(annotationSerializerGuard)
-    .use(knowraMarkSchema).use(createKnowraMarksCodec(problem => problems.push(problem)))
+    .use(knowraMarkSchema).use(createKnowraMarksCodec(problem => problems.push(problem))).use(inlineAnnotationHighlightBehavior)
     .config(configureBlockIdentitySchema)
     .create();
-  void editor.ctx.get(editorViewCtx);
+  const view = editor.ctx.get(editorViewCtx);
   return {
+    view,
     parse: (markdown: string) => editor.ctx.get(parserCtx)(markdown) as ProseNode,
     serialize: (doc: ProseNode) => editor.ctx.get(serializerCtx)(doc),
     takeProblems: () => problems.splice(0),

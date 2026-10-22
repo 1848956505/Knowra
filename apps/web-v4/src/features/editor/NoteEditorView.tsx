@@ -54,6 +54,7 @@ import { getNoteDraftScope } from './noteDraftScope';
 import { useNoteAutosave } from './useNoteAutosave';
 import { useEditorInspectorData } from './useEditorInspectorData';
 import { useEditorAnnotationWrites } from './useEditorAnnotationWrites';
+import { useInlineAnnotationWrites } from './useInlineAnnotationWrites';
 import { INLINE_IMAGE_ACCEPT } from './attachmentFiles';
 import { useEditorAttachments } from './useEditorAttachments';
 import { EditorAttachmentFeedback } from './EditorAttachmentFeedback';
@@ -279,7 +280,7 @@ export function NoteEditorView({
     onListAttachments, onUploadAttachment, onRenameAttachment, onDeleteAttachment, onFileStatus
   });
 
-  const { createCurrentAnnotation, reanchorAnnotation, excludeCurrentBlock } = useEditorAnnotationWrites({
+  const { createCurrentAnnotation: createLegacyAnnotation, reanchorAnnotation: reanchorLegacyAnnotation, excludeCurrentBlock: excludeLegacyBlock } = useEditorAnnotationWrites({
     note, canEditContent, editorRef, autosave, onListAnnotations, onCreateAnnotation,
     onUpdateAnnotationAnchor, onCreateAnnotationExclusion, onFileStatus,
     onCreated: created => {
@@ -291,6 +292,25 @@ export function NoteEditorView({
       if (focus) setFocusedAnnotationId(updated.id);
     }
   });
+
+  // 重点内联化：没有活跃旧重点的笔记改为直接修改正文标记；还有旧重点的笔记仍走旧链路，等迁移后切换。
+  const inlineWrites = useInlineAnnotationWrites({
+    note, canEditContent, editorRef, autosave, annotations, annotationsLoading, onListAnnotations, onUpdateAnnotation,
+    setAnnotations, setFocusedAnnotationId, onFileStatus
+  });
+  // 用最新一次渲染的分流结果：列表加载期间先等加载完成（最多 5 秒），再决定走正文标记还是旧链路。
+  const inlineWritesRef = useRef(inlineWrites);
+  inlineWritesRef.current = inlineWrites;
+  const annotationsLoadingRef = useRef(annotationsLoading);
+  annotationsLoadingRef.current = annotationsLoading;
+  const createCurrentAnnotation = async (scope: 'selection' | 'blocks' | 'section' | 'list' = 'selection', importance: 'normal' | 'important' | 'core' = 'normal') => {
+    for (let waited = 0; annotationsLoadingRef.current && waited < 5000; waited += 50) await new Promise(resolve => setTimeout(resolve, 50));
+    if (inlineWritesRef.current.enabled) return inlineWritesRef.current.create(scope, importance);
+    return createLegacyAnnotation(scope, importance);
+  };
+  const annotationById = (annotationId: string) => annotations.find(item => item.id === annotationId);
+  const reanchorAnnotation = (annotation: Annotation) => inlineWrites.owns(annotation) ? inlineWrites.reanchor(annotation) : reanchorLegacyAnnotation(annotation);
+  const excludeCurrentBlock = (annotation: Annotation) => inlineWrites.owns(annotation) ? inlineWrites.exclude(annotation) : excludeLegacyBlock(annotation);
 
   useEffect(() => {
     setEditPanelMode(null);
@@ -538,14 +558,23 @@ export function NoteEditorView({
           onCreateAnnotation={createCurrentAnnotation}
           onSelectAnnotation={selectAnnotation}
           onDeleteAnnotation={async (annotationId, expectedRevision) => {
-            const deleted = await onDeleteAnnotation(annotationId, expectedRevision);
+            const inline = annotationById(annotationId);
+            const deleted = inlineWrites.owns(inline) ? await inlineWrites.remove(inline) : await onDeleteAnnotation(annotationId, expectedRevision);
             setAnnotations((current) => current.filter((item) => item.id !== annotationId));
             setFocusedAnnotationId((current) => current === annotationId ? null : current);
             return deleted;
           }}
-          onRestoreAnnotation={onRestoreAnnotation ? async (annotationId, expectedRevision) => replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision)) : undefined}
+          onRestoreAnnotation={async (annotationId, expectedRevision) => {
+            if (inlineWrites.canRestore(annotationId)) { await inlineWrites.restore(annotationId); return; }
+            if (!onRestoreAnnotation) throw new Error('当前环境不支持恢复重点');
+            replaceAnnotation(await onRestoreAnnotation(annotationId, expectedRevision));
+          }}
           onReanchorAnnotation={reanchorAnnotation}
-          onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => replaceAnnotation(await onUpdateAnnotation(annotationId, input)) : undefined}
+          onUpdateAnnotation={onUpdateAnnotation ? async (annotationId, input) => {
+            const inline = annotationById(annotationId);
+            if (inlineWrites.owns(inline)) { await inlineWrites.update(inline, input); return; }
+            replaceAnnotation(await onUpdateAnnotation(annotationId, input));
+          } : undefined}
           onConfirmAnnotationRange={onConfirmAnnotationRange ? async (id, input) => replaceAnnotation(await onConfirmAnnotationRange(id, input)) : undefined}
           onPreviewAnnotation={onPreviewAnnotation}
           onGetAnnotationKnowledgeLinks={onGetAnnotationKnowledgeLinks}

@@ -210,7 +210,9 @@ it('正常新建章节重点保留输入及幂等重试，不将失败当作成�
 
 it('新建章节重点提交后切换笔记，迟到成功回执不污染新笔记', async () => {
   const props = fixture();
-  vi.mocked(props.onListAnnotations).mockResolvedValue([]);
+  // 笔记里还有旧重点：仍走旧链路（迁移前的笔记）。
+  const legacy = { ...annotation, id: 'annotation-legacy' } as Annotation;
+  vi.mocked(props.onListAnnotations).mockResolvedValue([legacy]);
   let finish!: (item: Annotation) => void;
   vi.mocked(props.onCreateAnnotation).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   const { rerender } = render(<NoteEditorView {...props} />); await screen.findByTestId('mutation-editor');
@@ -218,7 +220,7 @@ it('新建章节重点提交后切换笔记，迟到成功回执不污染新笔�
   await waitFor(() => expect(finish).toBeTypeOf('function'));
   rerender(<NoteEditorView {...props} note={{ ...props.note!, id: 'note-2' }} />);
   await act(async () => { finish({ ...annotation, scopeType: 'section' }); await pending; });
-  expect(state.inspector.annotations).toEqual([]);
+  await waitFor(() => expect(state.inspector.annotations).toEqual([legacy]));
   expect(props.onFileStatus).not.toHaveBeenCalledWith('已标为重点');
 });
 

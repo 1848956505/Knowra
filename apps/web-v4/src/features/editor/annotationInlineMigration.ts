@@ -5,6 +5,7 @@ import { knowraCheck, parseKnowraMarks, stripKnowraMarks } from '@study-accelera
 import type { Annotation } from '@study-accelerator/web-core';
 import { resolveAnnotationRange } from './editorAnnotations';
 import { listItemAt } from './editorListAnnotations';
+import { outerBlocks } from './editorInlineAnnotations';
 import { KNOWRA_BLOCKS_ATTR, KNOWRA_MARK, type KnowraBlockEntry, type KnowraMarkProblem } from './editorKnowraMarks';
 
 /**
@@ -51,7 +52,6 @@ export interface NoteMigrationPlan {
   issues: string[];
 }
 
-const BLOCK_TYPES = new Set(['paragraph', 'heading', 'code_block', 'math_block', 'table', 'list_item', 'blockquote', 'hr']);
 
 /** 笔记内唯一、由旧重点 ID 确定的短标记 ID：试运行与正式迁移得到同一个结果。 */
 export function migrationMarkId(annotationId: string, taken: Set<string>) {
@@ -67,33 +67,6 @@ function markData(annotation: Annotation) {
   if (annotation.kind && annotation.kind !== 'important') data.c = annotation.kind;
   if (annotation.importance === 'important' || annotation.importance === 'core') data.l = annotation.importance;
   return data;
-}
-
-function insideTable(doc: ProseNode, position: number) {
-  const resolved = doc.resolve(position);
-  for (let depth = resolved.depth; depth > 0; depth -= 1) if (resolved.node(depth).type.name === 'table') return true;
-  return false;
-}
-
-/**
- * 范围内各行的外层块：段落若是列表项、引用的第一个子节点，与父块同行，标记归父块（与写出规则一致）；
- * 表格整体作为一个块，不展开单元格。
- */
-function outerBlocks(doc: ProseNode, from: number, to: number) {
-  const result: Array<{ node: ProseNode; position: number }> = [];
-  doc.nodesBetween(from, to, (node, position, parent, index) => {
-    if (!BLOCK_TYPES.has(node.type.name)) return true;
-    if (node.type.name === 'paragraph' && parent && ['list_item', 'blockquote'].includes(parent.type.name) && index === 0) return false;
-    const contentFrom = position + 1;
-    const contentTo = position + node.nodeSize - 1;
-    if (contentTo < from || contentFrom > to) return false;
-    if (node.type.name === 'paragraph' && !node.content.size) return false;
-    if (insideTable(doc, position) && node.type.name !== 'table') return false;
-    result.push({ node, position });
-    // 列表项、引用内部的后续块各占一行，需要继续向内找；其余块不再展开。
-    return ['list_item', 'blockquote'].includes(node.type.name);
-  });
-  return result;
 }
 
 /**

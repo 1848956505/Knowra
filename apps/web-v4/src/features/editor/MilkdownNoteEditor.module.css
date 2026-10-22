@@ -148,6 +148,8 @@
   background: var(--accent-soft);
   outline: 2px solid var(--accent-text);
 }
+/* 内联重点的 <mark> 只是载体：样式由与旧高亮相同的 editor-annotation 装饰提供，不叠加普通高亮底色。 */
+.milkdownEditor :global(.ProseMirror) mark[data-knowra-mark] { padding-inline: 0; background: none; }
 .milkdownEditor :global(.editor-annotation) {
   color: var(--accent-text);
   cursor: pointer;
