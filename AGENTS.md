@@ -26,6 +26,8 @@
 
 按改动选择检查；V4 UI 使用 Vitest，生产服务器使用 node:test；API 使用显式注册的自定义 runner。不要把直接导入 API 测试文件当作执行其测试。交互改动还需验证受影响的页面状态；完整 E2E 入口是 `npm run test:e2e -w @study-accelerator/web-v4`。
 
+改完代码后，只对本次新增或修改的文件运行 `node scripts/lint/run.mjs prettier --write <文件...>` 和 `node scripts/lint/run.mjs eslint <文件...>`，并修掉新引入的 ESLint 问题。仓库仍有存量问题，所以不要整仓库格式化，也不要顺手修与任务无关的旧问题；如果某个旧问题妨碍当前改动，请在回复中说明。
+
 ## 架构与数据约束
 
 - 唯一可启动前端是 `apps/web-v4`（React、TypeScript、Vite、Zustand、CSS Modules、hash 路由）；`apps/web` 只保留 V3 源码和回归测试。V4 不得导入 V3 模块或资源。
