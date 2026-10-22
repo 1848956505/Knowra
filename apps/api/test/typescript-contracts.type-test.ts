@@ -28,6 +28,15 @@ import type {
   resolveAnalysisScopeNoteVersion
 } from '../src/modules/knowledge/domain/analysis-scope-version-alias.ts';
 
+import type { KnowledgeArtifactProvenanceRepository } from '../src/modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.ts';
+import type {
+  Awaitable,
+  KnowledgeArtifactProvenanceReader,
+  KnowledgeArtifactProvenanceProjection,
+  ProvenanceReaderRepositories
+} from '../src/modules/knowledge/application/knowledge-artifact-provenance-read.ts';
+import type { ResolveProvenanceSourceInput } from '../src/modules/knowledge/domain/knowledge-artifact-provenance-contract.ts';
+
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
 type Assert<Value extends true> = Value;
@@ -64,5 +73,16 @@ export type MigratedContractAssertions = [
       ReturnType<typeof resolveAnalysisScopeNoteVersion<AnalysisScopeAliasVersion & { marker: true }>>,
       AnalysisScopeAliasVersion & { marker: true }
     >
-  >
+  >,
+  Assert<Equal<ReturnType<KnowledgeArtifactProvenanceRepository['create']>, KnowledgeArtifactProvenance>>,
+  Assert<Equal<ReturnType<KnowledgeArtifactProvenanceRepository['list']>, KnowledgeArtifactProvenance[]>>,
+  Assert<Equal<ReturnType<KnowledgeArtifactProvenanceReader>, Promise<KnowledgeArtifactProvenanceProjection>>>,
+  Assert<Equal<Awaitable<string>, string | Promise<string>>>,
+  Assert<
+    Equal<
+      Parameters<ProvenanceReaderRepositories['knowledgeSpaceRepository']['findById']>[0],
+      string | null | undefined
+    >
+  >,
+  Assert<null extends ResolveProvenanceSourceInput['noteVersion'] ? true : false>
 ];
