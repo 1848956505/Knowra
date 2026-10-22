@@ -15,6 +15,7 @@
 | 个人 Mac 纯构建（Apple Silicon，不安装） | `npm run build:mac` |
 | Mac 产物核验 / 隔离验收 / 显式安装 | `npm run verify:mac` / `npm run test:mac` / `npm run install:mac` |
 | API 测试 | `npm run test:api` |
+| API 类型检查（宽松 checkJs，仅报告；迁移计划见 `docs/后端TS迁移/`） | `npm run typecheck:api` |
 | V4 测试 | `npm run test:web` |
 | V4 类型、架构边界和测试 | `npm run check:web:v4` |
 | 共享工具 | `npm run test:shared` |

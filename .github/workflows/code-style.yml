@@ -28,12 +28,22 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: scripts/lint/package-lock.json
-      # 工具链独立安装在 scripts/lint，不需要安装工作区依赖。
+          cache-dependency-path: |
+            package-lock.json
+            scripts/lint/package-lock.json
+      # lint 工具链独立安装在 scripts/lint；只有 API 类型检查需要工作区依赖。
       - name: ESLint
         run: node scripts/lint/run.mjs eslint . --report 2>&1 | tee "$RUNNER_TEMP/eslint.txt"
       - name: Prettier
         run: node scripts/lint/run.mjs prettier . --check --report 2>&1 | tee "$RUNNER_TEMP/prettier.txt"
+      - name: Install workspace dependencies
+        run: npm ci --ignore-scripts
+      - name: API checkJs
+        # 后端 TS 迁移阶段 1：宽松模式只报告，计划见 docs/后端TS迁移/。
+        run: |
+          npm run prisma:generate
+          npm run typecheck:api --silent > "$RUNNER_TEMP/api-typecheck.txt" || true
+          cat "$RUNNER_TEMP/api-typecheck.txt"
       - name: Write summary
         if: always()
         run: |
@@ -46,5 +56,13 @@ jobs:
             echo "### Prettier"
             echo '```'
             tail -n 1 "$RUNNER_TEMP/prettier.txt" 2>/dev/null || echo "无输出"
+            echo '```'
+            echo "### API checkJs"
+            echo '```'
+            if [ -f "$RUNNER_TEMP/api-typecheck.txt" ]; then
+              echo "$(grep -c 'error TS' "$RUNNER_TEMP/api-typecheck.txt" || true) 个类型错误"
+            else
+              echo "未运行"
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

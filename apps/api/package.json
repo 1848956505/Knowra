@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node src/main.js",
     "test": "node test/run-tests.js",
+    "typecheck": "tsc -p tsconfig.json",
     "prisma:validate": "npx prisma validate --schema ../../prisma/schema.prisma",
     "prisma:generate": "npx prisma generate --schema ../../prisma/schema.prisma",
     "prisma:migrate:deploy": "npx prisma migrate deploy --schema ../../prisma/schema.prisma"
@@ -26,6 +27,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "prisma": "^6.9.0"
+    "prisma": "^6.9.0",
+    "typescript": "7.0.2"
   }
 }
