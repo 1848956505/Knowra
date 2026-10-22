@@ -19,6 +19,8 @@ import { ExternalClientSettings } from './ExternalClientSettings';
 import { isDesktopRuntime } from './externalClients';
 import { BuildInformation } from './BuildInformation';
 import { OverlayMaterialSettings } from './OverlayMaterialSettings';
+import { AnnotationInlineMigrationDialog } from './AnnotationInlineMigrationDialog';
+import { Button } from '../../components/ui/button';
 import styles from './SettingsView.module.css';
 
 interface SettingsViewProps {
@@ -30,10 +32,10 @@ interface SettingsViewProps {
 
 type SettingsCategory = 'all' | 'workspace' | 'appearance' | 'reading' | 'accessibility' | 'model' | 'about';
 
-/** “外部 AI 客户端”只在 Mac 应用的本地运行端出现，计数随之增加。 */
+/** “外部 AI 客户端”与“迁移重点到正文”只在 Mac 应用的本地运行端出现，计数随之增加。 */
 const buildCategories = (extra: number): { id: SettingsCategory; label: string; count: number }[] => [
-  { id: 'all', label: '全部设置', count: 9 + extra },
-  { id: 'workspace', label: '工作区', count: 1 },
+  { id: 'all', label: '全部设置', count: 9 + extra * 2 },
+  { id: 'workspace', label: '工作区', count: 1 + extra },
   { id: 'appearance', label: '外观', count: 1 },
   { id: 'reading', label: '阅读与编辑', count: 1 },
   { id: 'accessibility', label: '辅助体验', count: 1 },
@@ -49,6 +51,7 @@ const fontSizes: { value: NoteFontSize; label: string }[] = [
 
 export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, onSidebarOpenChange }: SettingsViewProps) {
   const [category, setCategory] = useState<SettingsCategory>('all');
+  const [migrationOpen, setMigrationOpen] = useState(false);
   const detailsRef = useRef<HTMLDivElement>(null);
   const categories = buildCategories(isDesktopRuntime() ? 1 : 0);
   const selectedCategory = categories.find((item) => item.id === category) ?? categories[0];
@@ -59,6 +62,7 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
   }
 
   return <WorkspacePanel as="main" aria-labelledby="settings-title">
+    {migrationOpen ? <AnnotationInlineMigrationDialog isOpen={migrationOpen} onOpenChange={setMigrationOpen} /> : null}
     <WorkspacePanelHeader
       title="设置"
       code="PREF"
@@ -94,6 +98,15 @@ export function SettingsView({ preferences, sidebarOpen, onPreferencesChange, on
                 <Checkbox className={styles.settingCheckbox} isSelected={sidebarOpen} onChange={onSidebarOpenChange} aria-label="显示笔记目录栏" />
               </div>
             </div>
+            {isDesktopRuntime() ? <div className={styles.settingRow}>
+              <div className={styles.settingCopy}>
+                <h4>迁移重点到正文</h4>
+                <p>把旧版重点写进笔记正文。会先检查并列出影响，确认后自动备份再迁移；只需执行一次。</p>
+              </div>
+              <div className={styles.settingControl}>
+                <Button onPress={() => setMigrationOpen(true)}>检查并迁移…</Button>
+              </div>
+            </div> : null}
           </div>
         </section> : null}
 

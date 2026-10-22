@@ -170,15 +170,17 @@ it('桌面本地运行端的设置页多一项并在“模型接入”分类里�
   vi.mocked(externalClients.overview).mockResolvedValue(overview());
   const view = <SettingsView preferences={defaultAppPreferences} sidebarOpen onPreferencesChange={() => {}} onSidebarOpenChange={() => {}} />;
   const desktop = render(view);
-  expect(screen.getByText('显示 10 / 10 项设置')).toBeInTheDocument();
+  expect(screen.getByText('显示 11 / 11 项设置')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '迁移重点到正文' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /模型接入/ }));
-  expect(screen.getByText('显示 5 / 10 项设置')).toBeInTheDocument();
+  expect(screen.getByText('显示 5 / 11 项设置')).toBeInTheDocument();
   expect(await screen.findByRole('heading', { name: '外部 AI 客户端' })).toBeInTheDocument();
   desktop.unmount();
   delete (globalThis as { knowraRuntime?: unknown }).knowraRuntime;
   render(view);
   expect(screen.getByText('显示 9 / 9 项设置')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '外部 AI 客户端' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: '迁移重点到正文' })).not.toBeInTheDocument();
 });
 
 it('子目录也能选为授权范围：目录以“父 / 子”路径显示，已删除与其他空间的目录不出现', async () => {

@@ -37,8 +37,8 @@ export interface AnnotationOutcome {
   quoteText: string;
   /** 迁移后标记实际覆盖的文字；块级重点为所在块的文字。 */
   placedText: string | null;
-  /** 定位方式：editor 为旧链路当前显示的位置；headingTitle 为章节按"同级同名标题的第几个"兜底匹配。 */
-  method?: 'editor' | 'headingTitle';
+  /** 定位方式：editor 为旧链路当前显示的位置；headingTitle 为章节按"同级同名标题的第几个"兜底匹配；existing 为正文里已有对应标记（续跑）。 */
+  method?: 'editor' | 'headingTitle' | 'existing';
 }
 
 export interface NoteMigrationPlan {
@@ -54,8 +54,10 @@ export interface NoteMigrationPlan {
 
 
 /** 笔记内唯一、由旧重点 ID 确定的短标记 ID：试运行与正式迁移得到同一个结果。 */
+export const migrationBaseMarkId = (annotationId: string) => `a${knowraCheck(annotationId)}`;
+
 export function migrationMarkId(annotationId: string, taken: Set<string>) {
-  const base = `a${knowraCheck(annotationId)}`;
+  const base = migrationBaseMarkId(annotationId);
   let id = base;
   for (let suffix = 2; taken.has(id); suffix += 1) id = `${base}${suffix}`;
   taken.add(id);
@@ -113,6 +115,8 @@ export function planNoteMigration(input: { markdown: string; annotations: Annota
   if (parseProblems.length) issues.push(`打开时已有无法识别的标记：${parseProblems.map(item => item.reason).join('、')}`);
   const projection = projectMarkdown(canonical);
   const existingIds = new Set([...parseKnowraMarks(canonical).inline.map(item => item.id), ...parseKnowraMarks(canonical).blocks.map(item => item.id)]);
+  /** 迁移前正文里已有的标记：上次迁移写出后中断，再跑时视为已迁移，不重复打标记。 */
+  const preexisting = new Set(existingIds);
   const tr = new Transform(doc);
   const markType = doc.type.schema.marks[KNOWRA_MARK];
   const outcomes: AnnotationOutcome[] = [];
@@ -130,6 +134,12 @@ export function planNoteMigration(input: { markdown: string; annotations: Annota
     };
     const skip = (status: AnnotationOutcomeStatus, reason: string) => outcomes.push({ ...base, status, reason });
     if ((annotation.lifecycleStatus ?? 'active') !== 'active') { skip('skipped', annotation.lifecycleStatus === 'archived' ? '已归档，不迁移' : '已取消，不迁移'); continue; }
+    if (preexisting.has(migrationBaseMarkId(annotation.id))) {
+      const markId = migrationBaseMarkId(annotation.id);
+      outcomes.push({ ...base, status: 'migrated', reason: null, method: 'existing', markId, placedText: null });
+      migratedMarkIds.set(annotation.id, markId);
+      continue;
+    }
     if (annotation.schemaVersion !== 2 || !annotation.anchor) { skip('unplaced', '旧版重点，没有可靠位置，需要重新选择'); continue; }
     if (annotation.anchorStatus === 'missing') { skip('unplaced', '原文位置已丢失，需要重新选择'); continue; }
     if (annotation.anchorStatus && annotation.anchorStatus !== 'resolved') { skip('unplaced', '范围待确认，需要先确认或重新选择'); continue; }

@@ -85,6 +85,10 @@ describe('旧重点迁移为正文标记', () => {
     const again = planNoteMigration({ markdown: first.markdown, annotations: [] }, codec);
     expect(again.markdown).toBe(first.markdown);
     expect(again.issues).toEqual([]);
+    // 中断后续跑：同一批旧重点再跑一次，正文已有对应标记，视为已迁移且不重复写入。
+    const resumed = planNoteMigration({ markdown: first.markdown, annotations }, codec);
+    expect(resumed.markdown).toBe(first.markdown);
+    expect(resumed.outcomes[0]).toMatchObject({ status: 'migrated', method: 'existing', markId: first.outcomes[0].markId });
   });
 
   it('章节的局部排除写成 <!--k- id-->', async () => {

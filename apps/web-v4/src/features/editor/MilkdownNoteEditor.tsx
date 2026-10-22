@@ -5,7 +5,6 @@ import {
   editorViewCtx,
   editorViewOptionsCtx,
   parserCtx,
-  remarkStringifyOptionsCtx,
   rootCtx
 } from '@milkdown/kit/core';
 import {
@@ -64,6 +63,7 @@ import {
 } from './editorInternalLink';
 import { taskListClickBehavior, turnIntoTaskListCommand } from './editorTaskList';
 import { createKnowraMarksCodec, knowraMarkSchema } from './editorKnowraMarks';
+import { configureNoteMarkdownStringify } from './editorMarkdownStringify';
 import {
   createInlineAnnotation, excludeBlockFromInlineAnnotation, inlineAnnotationHighlightBehavior, inlineMarkIdOf, isInlineAnnotation,
   reanchorInlineAnnotation, removeInlineAnnotation, restoreInlineAnnotation, selectInlineAnnotation, setInlineAnnotationRows, updateInlineAnnotation
@@ -478,32 +478,7 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
               spellcheck: 'true'
             }
           });
-          ctx.update(remarkStringifyOptionsCtx, (options) => {
-            type MarkdownHandler = NonNullable<typeof options.handlers>['text'];
-            const delimited = (open: string, close = open): MarkdownHandler => (
-              node, _parent, state, info
-            ) => {
-              const exit = state.enter('emphasis');
-              const tracker = state.createTracker(info);
-              let value = tracker.move(open);
-              value += tracker.move(state.containerPhrasing(node, {
-                before: value,
-                after: close,
-                ...tracker.current()
-              }));
-              value += tracker.move(close);
-              exit();
-              return value;
-            };
-            return {
-              ...options,
-              handlers: {
-                ...options.handlers,
-                highlight: delimited('=='),
-                internalLink: delimited('[[', ']]')
-              }
-            };
-          });
+          configureNoteMarkdownStringify(ctx);
           // Document transactions publish synchronously through the annotation plugin.
           // A debounced Markdown listener can replay an older document over a newer draft.
         })
