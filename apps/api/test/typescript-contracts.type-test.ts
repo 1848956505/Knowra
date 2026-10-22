@@ -1,4 +1,14 @@
 import type {
+  KnowledgeSpaceRecord,
+  KnowledgeSpaceRepository
+} from '../src/modules/knowledge/infrastructure/knowledge-space-repository.ts';
+import type { FolderRecord, FolderRepository } from '../src/modules/knowledge/infrastructure/folder-repository.ts';
+import type {
+  TagGroupRecord,
+  TagGroupRepository
+} from '../src/modules/knowledge/infrastructure/tag-group-repository.ts';
+import type { TagRecord, TagRepository } from '../src/modules/knowledge/infrastructure/tag-repository.ts';
+import type {
   ContentAnnotation,
   ContentAnnotationAnchor,
   ContentAnnotationConstructorInput,
@@ -111,5 +121,14 @@ export type MigratedContractAssertions = [
   Assert<ContentAnchor extends ContentAnnotationAnchor ? true : false>,
   Assert<{ format: 'knowra-inline'; markId: string } extends ContentAnnotationAnchor ? true : false>,
   Assert<Equal<ContentAnnotationAnchor['segments'], ContentAnchor['segments'] | undefined>>,
-  Assert<Equal<ContentAnnotationConstructorInput['scopeType'], string | undefined>>
+  Assert<Equal<ContentAnnotationConstructorInput['scopeType'], string | undefined>>,
+  Assert<{ id: string; userId: string; name: string } extends KnowledgeSpaceRecord ? true : false>,
+  Assert<{ id: string; spaceId: string; name: string } extends FolderRecord ? true : false>,
+  Assert<{ id: string; spaceId: string; name: string } extends TagRecord ? true : false>,
+  Assert<DefaultTagGroup extends TagGroupRecord ? true : false>,
+  Assert<Equal<TagGroupRecord['sortOrder'], number | undefined>>,
+  Assert<Equal<ReturnType<KnowledgeSpaceRepository['findById']>, KnowledgeSpaceRecord | null>>,
+  Assert<Equal<ReturnType<FolderRepository['save']>, FolderRecord>>,
+  Assert<Equal<ReturnType<TagGroupRepository['create']>, TagGroupRecord>>,
+  Assert<Equal<ReturnType<TagRepository['list']>, TagRecord[]>>
 ];
