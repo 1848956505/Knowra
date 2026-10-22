@@ -11,11 +11,13 @@ import { chromium, expect } from '@playwright/test';
 
 async function runOfflineEditorTest(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'knowra-offline-e2e-'));
+  const delayedRestoredImages = [];
   const browser = await chromium.launch({
     ...(process.env.V4_BROWSER_CHANNEL === 'chrome' ? { channel: 'chrome' } : {})
   });
   let child;
   t.after(async () => {
+    const imageRouteResults = await Promise.allSettled(delayedRestoredImages);
     await browser.close();
     if (child && child.exitCode === null && child.signalCode === null) {
       const exited = once(child, 'exit');
@@ -23,6 +25,10 @@ async function runOfflineEditorTest(t) {
       await exited;
     }
     fs.rmSync(root, { recursive: true, force: true });
+    const imageRouteErrors = imageRouteResults
+      .filter(result => result.status === 'rejected')
+      .map(result => result.reason);
+    if (imageRouteErrors.length) throw new AggregateError(imageRouteErrors, '受控图片请求失败，原清理已执行');
   });
   const start = async () => {
     child = fork(fileURLToPath(new URL('../../src/main.mjs', import.meta.url)), ['--data-dir', root], {
@@ -144,15 +150,41 @@ async function runOfflineEditorTest(t) {
   await exited;
   runtime = await start();
   context = await browser.newContext();
-  await context.route('**/*', route =>
-    new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort()
-  );
+  const restoredImageDelayMs = Number(process.env.KNOWRA_E2E_RESTORED_IMAGE_DELAY_MS ?? 0);
+  await context.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.hostname !== '127.0.0.1') return route.abort();
+    if (
+      restoredImageDelayMs > 0 &&
+      url.pathname.startsWith('/api/storage/attachments/') &&
+      route.request().resourceType() === 'image'
+    ) {
+      console.error('[offline-editor 受控延迟真实图片请求]', url.pathname, restoredImageDelayMs);
+      const pending = new Promise(resolve => setTimeout(resolve, restoredImageDelayMs)).then(() => route.continue());
+      delayedRestoredImages.push(pending);
+      return pending;
+    }
+    return route.continue();
+  });
   page = await context.newPage();
   page.on('pageerror', error => problems.push(error.message));
   await page.goto(runtime.launchUrl);
   await page.goto(`${runtime.origin}/#/materials/notes/${note.id}`);
   await expect(page.locator('.ProseMirror')).toContainText('离线新增中文正文');
   await expect(page.locator('.ProseMirror').getByRole('img', { name: '离线图片.png', exact: true })).toBeVisible();
+  if (restoredImageDelayMs > 0) {
+    console.error(
+      '[offline-editor 图片可见时的原始状态]',
+      await page
+        .locator('.ProseMirror')
+        .getByRole('img', { name: '离线图片.png', exact: true })
+        .evaluate(image => ({
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          src: image.getAttribute('src')
+        }))
+    );
+  }
   assert(
     await page
       .locator('.ProseMirror')

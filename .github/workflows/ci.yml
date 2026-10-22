@@ -166,14 +166,12 @@ jobs:
           npx playwright install --with-deps chromium
           google-chrome --version
 
-      # 临时诊断：首个失败立即停止并输出 TAP 详情，不重试失败来追求绿灯。
-      - name: Diagnose offline editor failure (temporary)
+      # 临时受控实验：仅延后真实恢复图片请求，保留原断言及失败出口。
+      - name: Probe restored image loading race (temporary)
         if: matrix.suite == 'chromium'
-        run: |
-          for attempt in {1..12}; do
-            echo "Offline editor diagnostic attempt ${attempt}"
-            node --test --test-reporter=tap --test-concurrency=1 apps/desktop-runtime/test/e2e/offline-editor.test.mjs
-          done
+        env:
+          KNOWRA_E2E_RESTORED_IMAGE_DELAY_MS: '1000'
+        run: node --test --test-reporter=tap --test-concurrency=1 apps/desktop-runtime/test/e2e/offline-editor.test.mjs
 
       - name: Run isolated test suite
         env:
