@@ -15,6 +15,19 @@ import type {
 import type { NoteVersionReferenceCandidate } from '../src/modules/knowledge/domain/note-version-references.ts';
 import type { NoteVersionRetentionPolicy } from '../src/modules/knowledge/domain/note-version-retention.ts';
 
+import type {
+  KnowledgeArtifactProvenance,
+  LegacyKnowledgeArtifactProvenance,
+  RecordedKnowledgeArtifactProvenance,
+  validateKnowledgeArtifactProvenance,
+  hashKnowledgeArtifactProvenance,
+  ResolvedProvenanceSource
+} from '../src/modules/knowledge/domain/knowledge-artifact-provenance-contract.ts';
+import type {
+  AnalysisScopeAliasVersion,
+  resolveAnalysisScopeNoteVersion
+} from '../src/modules/knowledge/domain/analysis-scope-version-alias.ts';
+
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false;
 type Assert<Value extends true> = Value;
@@ -38,5 +51,18 @@ export type MigratedContractAssertions = [
   Assert<Equal<ReturnType<typeof versionSummary>['createdAt'], string>>,
   Assert<Equal<ReturnType<typeof parseVersionPageQuery>['limit'], number>>,
   Assert<{ id: string } extends NoteVersionReferenceCandidate ? true : false>,
-  Assert<Equal<NoteVersionRetentionPolicy['maxPerNote'], number>>
+  Assert<Equal<NoteVersionRetentionPolicy['maxPerNote'], number>>,
+  Assert<Equal<Parameters<typeof validateKnowledgeArtifactProvenance>[0], unknown>>,
+  Assert<Equal<ReturnType<typeof validateKnowledgeArtifactProvenance>, KnowledgeArtifactProvenance>>,
+  Assert<Equal<Parameters<typeof hashKnowledgeArtifactProvenance>[0], unknown>>,
+  Assert<Equal<Extract<RecordedKnowledgeArtifactProvenance, { executionMode: 'mock' }>['provider'], 'mock'>>,
+  Assert<Equal<Extract<RecordedKnowledgeArtifactProvenance, { executionMode: 'mcp' }>['provider'], 'external-client'>>,
+  Assert<Equal<LegacyKnowledgeArtifactProvenance['sources'], undefined>>,
+  Assert<Equal<ResolvedProvenanceSource['sourceState'], 'available' | 'stale' | 'unavailable'>>,
+  Assert<
+    Equal<
+      ReturnType<typeof resolveAnalysisScopeNoteVersion<AnalysisScopeAliasVersion & { marker: true }>>,
+      AnalysisScopeAliasVersion & { marker: true }
+    >
+  >
 ];
