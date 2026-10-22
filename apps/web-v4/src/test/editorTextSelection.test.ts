@@ -1,3 +1,6 @@
+import { Schema } from '@milkdown/kit/prose/model';
+import { EditorState } from '@milkdown/kit/prose/state';
+import { EditorView } from '@milkdown/kit/prose/view';
 import { setTextSelection } from '../../e2e/fixtures/textSelection';
 
 function markWith(content: string) {
@@ -69,4 +72,36 @@ it('旧代码光标夹具在装饰元素中会落到整段末尾，新定位仍�
   const selection = window.getSelection()!;
   prefix.setEnd(selection.focusNode!, selection.focusOffset);
   expect(prefix.toString()).toBe('a');
+});
+
+it('注入选区立即同步 ProseMirror 状态，focus 延迟恢复不再清空选区', () => {
+  vi.useFakeTimers();
+  const schema = new Schema({
+    nodes: {
+      doc: { content: 'paragraph+' },
+      paragraph: { content: 'text*', toDOM: () => ['p', 0] },
+      text: {}
+    }
+  });
+  const host = document.createElement('div');
+  document.body.append(host);
+  const view = new EditorView(host, {
+    state: EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [schema.node('paragraph', null, [schema.text('abc')])])
+    })
+  });
+  try {
+    view.focus();
+    setTextSelection(view.dom, { from: 1, to: 2 });
+    expect(view.state.selection.from).toBe(2);
+    expect(view.state.selection.to).toBe(3);
+    vi.advanceTimersByTime(20);
+    expect(window.getSelection()?.toString()).toBe('b');
+    expect(view.state.selection.from).toBe(2);
+    expect(view.state.selection.to).toBe(3);
+  } finally {
+    view.destroy();
+    vi.useRealTimers();
+  }
 });
