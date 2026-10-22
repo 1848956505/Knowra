@@ -26,12 +26,12 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: '24'
           cache: npm
           cache-dependency-path: scripts/lint/package-lock.json
       # 工具链独立安装在 scripts/lint，不需要安装工作区依赖。
       - name: ESLint
-        run: node scripts/lint/run.mjs eslint . --report | tee "$RUNNER_TEMP/eslint.txt"
+        run: node scripts/lint/run.mjs eslint . --report 2>&1 | tee "$RUNNER_TEMP/eslint.txt"
       - name: Prettier
         run: node scripts/lint/run.mjs prettier . --check --report 2>&1 | tee "$RUNNER_TEMP/prettier.txt"
       - name: Write summary
