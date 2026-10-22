@@ -1,7 +1,7 @@
 /* 定稿的完整装饰与胶囊色板，由应用外壳及浮层共同继承。 */
 .theme {
---ni-chrome:#e1e4ea;
-  --ni-page:#fbfcfd;
+--ni-chrome:#eceef1;
+  --ni-page:#fefefe;
   --ni-ink:#17181b; --ni-ink-2:#686d76; --ni-ink-3:#8a8f99; --ni-ink-4:#b4b9c6;
   --ni-body:#2e323a; --ni-ink-3-text:#6d727d;
   --ni-line:rgba(24,30,48,.075); --ni-line-2:rgba(24,30,48,.12);
@@ -21,10 +21,10 @@
   --ni-fav:#ffbf1f; --ni-fav-line:#f2a900;
   --ni-toast-act:#ffb98f;
   --ni-btn-on-accent:#fff;
-  --ink-rgb:24 30 48; --ink-bg-rgb:251 252 253;
+  --ink-rgb:24 30 48; --ink-bg-rgb:254 254 254;
 
   --ni-surf:#fff; --ni-surf-2:rgba(255,255,255,.55);
-  --ni-ctx-bg:rgba(247,249,250,.92); --ni-ctx-bg-solid:rgba(246,247,250,.97); --ni-ctx-border:rgba(54,60,74,.13); --ni-ctx-hl:#ffffffc7;
+  --ni-ctx-bg:#fafafb; --ni-ctx-bg-solid:#fafafb; --ni-ctx-border:rgba(24,30,48,.10); --ni-ctx-hl:#ffffffc7;
   --ni-pop-bg:rgba(252,252,254,.97); --ni-gh-bg:#fafbfcf2; --ni-toast-bg:#262b3a;
   --ni-nv-sel:linear-gradient(#ffffffb0,#ffffff65); --ni-nv-sel-line:#dfe2e9; --ni-nv-sel-ink:#283344;
   --ni-rail-sel:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,255,255,.86));
@@ -33,7 +33,9 @@
   --ni-sw-off:rgba(24,30,48,.18); --ni-scroll:rgba(24,30,48,.15); --ni-hair:rgba(24,30,48,.13);
   --ni-sheen:rgba(255,255,255,.32); --ni-hl-c:#fff; --ni-sel-hover:color-mix(in srgb,var(--ni-accent) 12%,var(--ni-page));
   --ni-danger:#c23a3a; --ni-danger-soft:#fbeeee; --ni-danger-ring:#e5a3a3;
-  --ni-sh-page:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(24,30,48,.07),var(--shadow-panel-contact),0 6px 18px -6px rgba(24,30,48,.10),0 22px 48px -18px rgba(24,30,48,.14);
+  /* 浮卡靠 .10 细描边立住，模糊阴影只保留约 1/4 强度，避免发飘。 */
+  --ni-sh-page:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(24,30,48,.10),0 2px 6px -2px rgba(24,30,48,.04),0 6px 18px -6px rgba(24,30,48,.04),0 22px 48px -18px rgba(24,30,48,.06);
+  --ni-sh-ctx:var(--sidebar-highlight),0 0 0 1px var(--ni-ctx-border),0 2px 6px -2px rgba(24,30,48,.04),0 12px 28px -16px rgba(24,30,48,.075);
   --ni-sh-pop:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px var(--ni-ring),0 2px 4px rgba(24,30,48,.05),0 10px 24px -8px rgba(24,30,48,.14),0 28px 64px -14px rgba(24,30,48,.28);
   --ni-sh-card:0 0 0 1px rgba(24,30,48,.07),0 1px 2px rgba(24,30,48,.04);
   --ni-ui:"Inter","PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
@@ -121,6 +123,7 @@ color-scheme:dark;
   --ni-fill-1:rgba(255,255,255,.055); --ni-fill-2:rgba(255,255,255,.08); --ni-fill-3:rgba(255,255,255,.07); --ni-fill-4:rgba(255,255,255,.02);
   --ni-sw-off:rgba(255,255,255,.2); --ni-scroll:rgba(255,255,255,.16); --ni-hair:rgba(255,255,255,.1);
   --ni-sheen:rgba(255,255,255,.03); --ni-hl-c:rgba(255,255,255,.07);
+  --ni-sh-ctx:var(--sidebar-highlight),0 0 0 1px var(--ni-ctx-border),var(--shadow-panel-contact),0 12px 28px -16px var(--ni-ring);
   --ni-sh-page:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.4),0 8px 24px -8px rgba(0,0,0,.55),0 22px 48px -18px rgba(0,0,0,.6);
   --ni-sh-pop:inset 0 1px 0 var(--ni-ctx-hl),0 0 0 1px rgba(255,255,255,.11),0 2px 4px rgba(0,0,0,.35),0 10px 24px -8px rgba(0,0,0,.5),0 28px 64px -14px rgba(0,0,0,.75);
   --ni-sh-card:0 0 0 1px rgba(255,255,255,.08),0 1px 2px rgba(0,0,0,.3);
@@ -199,7 +202,7 @@ color-scheme:dark;
   --shadow-control: 0 0 0 1px var(--ni-line), 0 1px 2px var(--ni-ring);
   --shadow-page: var(--ni-sh-page);
   --shadow-popover: var(--ni-sh-pop);
-  --shadow-sidebar: var(--sidebar-highlight), 0 0 0 1px var(--ni-ctx-border), var(--shadow-panel-contact), 0 12px 28px -16px var(--ni-ring);
+  --shadow-sidebar: var(--ni-sh-ctx);
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--ni-accent) 28%, transparent);
   --focus-soft: 0 0 0 1px color-mix(in srgb, var(--ni-accent) 34%, transparent), 0 0 0 3px color-mix(in srgb, var(--ni-accent) 14%, transparent);
   --ink-bg: var(--ni-page);

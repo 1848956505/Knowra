@@ -43,7 +43,7 @@ test('全局定稿外观跨页面和浮层生效，明暗切换在刷新后保�
   await expect(create).toBeFocused();
   await page.getByRole('button', { name: '切换浅色模式' }).click();
   await expect(shell).toHaveAttribute('data-ni-mode', 'light');
-  await expect(page.locator('#feature-stage')).toHaveCSS('background-color', 'rgb(251, 252, 253)');
+  await expect(page.locator('#feature-stage')).toHaveCSS('background-color', 'rgb(254, 254, 254)');
   await page.screenshot({ path: info.outputPath('notes-light.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('button', { name: '切换深色模式' })).toBeVisible();

@@ -2,11 +2,11 @@
  * 亮橙用于装饰；小字与实色按钮使用深橙以满足对比度。
  * --ink-* 是逐步迁移期间的兼容别名，不引入另一套主题。 */
 :root {
-  --surface-chrome: #e1e4ea;
+  --surface-chrome: #eceef1;
   --surface-chrome-glow: radial-gradient(460px 320px at 6% 4%, rgb(255 255 255 / 32%), transparent 70%), radial-gradient(640px 560px at -4% 104%, color-mix(in srgb, var(--accent) 11%, transparent), transparent 66%);
-  --surface-page: #fbfcfd;
-  --surface-sidebar-solid: #f7f9fa;
-  --surface-sidebar: rgb(247 249 250 / 92%);
+  --surface-page: #fefefe;
+  --surface-sidebar-solid: #fafafb;
+  --surface-sidebar: #fafafb;
   --surface-raised: #fff;
   --surface-sunken: #eaedf0;
   --surface-hover: rgb(24 30 48 / 5.5%);
@@ -166,7 +166,7 @@
   --status-dot-size: 6px;
   --badge-edge-color: var(--border-strong);
   --ink-rgb: 24 30 48;
-  --ink-bg-rgb: 251 252 253;
+  --ink-bg-rgb: 254 254 254;
   --scrim-underlay: rgb(var(--ink-rgb) / 24%);
   --scrim-busy: rgb(var(--ink-bg-rgb) / 70%);
   --shadow-index-frame: var(--shadow-page);

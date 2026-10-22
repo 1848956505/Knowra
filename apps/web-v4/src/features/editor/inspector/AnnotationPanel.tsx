@@ -1,5 +1,5 @@
 import { MathText } from '../../../components/math/MathText';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Annotation } from '@study-accelerator/web-core';
 import { Button, Checkbox, Select, PressableButton } from '../../../components/ui';
 import { Menu, MenuItem, MenuPopover, MenuTrigger, PointMenu, Popover, PopoverTrigger, PopoverDialog } from '../../../components/ui/overlay';
@@ -117,10 +117,10 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
   }
 
   return (
-    <section className={`${styles.simplePanel} ${styles.annotationPanel}`} aria-label="正文标注">
+    <section className={props.analysisOnly ? styles.aiTab : `${styles.simplePanel} ${styles.annotationPanel}`} aria-label="正文标注">
       {props.analysisOnly ? <InspectorAnalysisIntro props={props} state={analysisState} /> : <>
       <header className={styles.annotationHeader}>
-        <div className={styles.annotationTitle}><StarIcon size={15} fill="currentColor" /><strong>重点标记</strong><span>{currentAnnotations.length}</span></div>
+        <div className={styles.annotationTitle}><StarIcon size={16} /><strong>重点标记</strong><span>{currentAnnotations.length}</span></div>
         <div className={styles.annotationHeaderActions}>
         <PopoverTrigger isOpen={sortOpen} onOpenChange={setSortOpen}>
           <IconButton size={24} aria-label="排序重点" title="排序重点" className={sortOrder !== 'document' ? styles.annotationFilterActive : undefined}><SortArrowsIcon size={15} /></IconButton>
@@ -157,11 +157,11 @@ export function AnnotationPanel(props: AnnotationPanelProps) {
         {rows.map(({ annotation, depth, parentId, containedCount, overlapCount, historicalRelation }, index) => {
           const stale = annotation.anchorStatus ? annotation.anchorStatus !== 'resolved' : annotation.status === 'stale';
           const pending = pendingIds.has(annotation.id);
-          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { marginLeft: `${Math.min(depth, 3) * 14}px` } : undefined} data-annotation-card-id={annotation.id} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setContextMenu({ id: annotation.id, x: event.clientX || rect.left + 12, y: event.clientY || rect.top + 12 }); }} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
+          return <article key={annotation.id} className={depth ? styles.annotationNested : undefined} style={depth ? { '--annotation-depth': Math.min(depth, 3) } as CSSProperties : undefined} data-annotation-card-id={annotation.id} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); setContextMenu({ id: annotation.id, x: event.clientX || rect.left + 12, y: event.clientY || rect.top + 12 }); }} data-importance={annotation.importance ?? undefined} data-overlap-focused={props.overlappingAnnotationIds?.includes(annotation.id) || undefined} data-focused={props.focusedAnnotationId === annotation.id || undefined} data-stale={stale || undefined} data-selected={selectedIds.includes(annotation.id) || undefined}>
             <Checkbox size="compact" aria-label={`选择重点 ${index + 1}`} isSelected={selectedIds.includes(annotation.id)} onChange={(selected) => setSelectedIds((current) => selected ? [...current, annotation.id] : current.filter((id) => id !== annotation.id))} />
             <PressableButton type="button" className={styles.annotationTarget} aria-label={`定位重点 ${index + 1}：${annotation.quoteText}`} isDisabled={pending} onPress={() => props.onSelectAnnotation(annotation.id)}>
-              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : null}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
               <span className={styles.annotationQuote}>{annotation.quoteText ? <MathText text={annotation.quoteText} inlineOnly /> : '空内容块，后续输入继续纳入'}</span>
+              <span className={styles.annotationItemHeading}><span>{scopeLabel(annotation.scopeType)}</span><span>· {KIND_OPTIONS.find((option) => option.id === annotation.kind)?.label ?? annotation.kind}</span>{annotation.importance ? <span className={styles.annotationImportance}>{IMPORTANCE_OPTIONS.find((option) => option.id === annotation.importance)?.label}</span> : null}{stale ? <strong>{annotation.anchorStatus === 'missing' ? '原文已删除' : '范围待确认'}</strong> : annotation.anchorReason === 'convertedToSelection' ? <strong>已保留原范围，转为选区</strong> : null}</span>
               {annotation.headingPath.length > 0 ? <small title={annotation.headingPath.join(' / ')}>{annotation.headingPath.join(' / ')}</small> : null}
               {parentId || containedCount || overlapCount ? <span className={styles.annotationRelation}>{historicalRelation ? '原标记范围：' : null}{parentId ? '位于另一条重点内' : null}{containedCount ? `${parentId ? ' · ' : ''}包含 ${containedCount} 条重点` : null}{overlapCount ? `${parentId || containedCount ? ' · ' : ''}与 ${overlapCount} 条重点重叠` : null}</span> : null}
             </PressableButton>
