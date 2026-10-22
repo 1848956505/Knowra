@@ -1,0 +1,50 @@
+name: Code style report
+
+# 只报告 ESLint / Prettier 结果，不阻塞合并；存量问题清理完成后再接入 CI 失败门。
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-style-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: ESLint · Prettier（仅报告）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: scripts/lint/package-lock.json
+      # 工具链独立安装在 scripts/lint，不需要安装工作区依赖。
+      - name: ESLint
+        run: node scripts/lint/run.mjs eslint . --report | tee "$RUNNER_TEMP/eslint.txt"
+      - name: Prettier
+        run: node scripts/lint/run.mjs prettier . --check --report 2>&1 | tee "$RUNNER_TEMP/prettier.txt"
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## 代码风格报告（不阻塞）"
+            echo "### ESLint"
+            echo '```'
+            tail -n 3 "$RUNNER_TEMP/eslint.txt" 2>/dev/null || echo "无输出"
+            echo '```'
+            echo "### Prettier"
+            echo '```'
+            tail -n 1 "$RUNNER_TEMP/prettier.txt" 2>/dev/null || echo "无输出"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

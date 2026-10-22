@@ -20,6 +20,7 @@
 | 共享工具 | `npm run test:shared` |
 | 共享契约 / V3 回归 / 脚本测试 | `npm run test:web-core` / `npm run test:web:legacy` / `npm run test:scripts` |
 | 全部测试 | `npm test` |
+| 代码风格（仅报告，工具链首次运行时装到 `scripts/lint/`） | `npm run lint` / `npm run format:check` |
 | 本地离线运行服务（先构建 V4） | `npm run start:desktop` |
 | 本地存储/恢复测试、真实页面验收 | `npm run test:desktop` / `npm run test:e2e -w @study-accelerator/desktop-runtime` |
 
