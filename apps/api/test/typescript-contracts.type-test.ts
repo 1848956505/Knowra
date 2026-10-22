@@ -1,4 +1,15 @@
-import type { AnnotationStructure } from '@study-accelerator/content-anchor';
+import type {
+  ContentAnnotation,
+  ContentAnnotationAnchor,
+  ContentAnnotationConstructorInput,
+  ContentAnnotationOriginSnapshot
+} from '../src/modules/knowledge/domain/content-annotation.ts';
+import type {
+  AnnotationScopeType,
+  AnnotationStructure,
+  ContentAnchor,
+  IdentityBinding
+} from '@study-accelerator/content-anchor';
 import type { Note, NoteConstructorInput, NoteDeletionPackage } from '../src/modules/knowledge/domain/note.ts';
 import type { ServerResponse } from 'node:http';
 import type { ResponseWriter } from '../src/http/response.ts';
@@ -92,5 +103,13 @@ export type MigratedContractAssertions = [
   Assert<Equal<Note['annotationStructure'], AnnotationStructure>>,
   Assert<Equal<Note['deletionPackage'], NoteDeletionPackage | null>>,
   Assert<Equal<Note['updatedAt'], string | null>>,
-  Assert<{ id: string; title: string; rawMarkdown: string } extends NoteConstructorInput ? true : false>
+  Assert<{ id: string; title: string; rawMarkdown: string } extends NoteConstructorInput ? true : false>,
+  Assert<Equal<ContentAnnotation['scopeType'], AnnotationScopeType>>,
+  Assert<Equal<ContentAnnotation['schemaVersion'], 1 | 2 | 3>>,
+  Assert<Equal<ContentAnnotation['identityBinding'], IdentityBinding | null>>,
+  Assert<Equal<ContentAnnotation['originSnapshot'], Partial<ContentAnnotationOriginSnapshot> | null>>,
+  Assert<ContentAnchor extends ContentAnnotationAnchor ? true : false>,
+  Assert<{ format: 'knowra-inline'; markId: string } extends ContentAnnotationAnchor ? true : false>,
+  Assert<Equal<ContentAnnotationAnchor['segments'], ContentAnchor['segments'] | undefined>>,
+  Assert<Equal<ContentAnnotationConstructorInput['scopeType'], string | undefined>>
 ];
