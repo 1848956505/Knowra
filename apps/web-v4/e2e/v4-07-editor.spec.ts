@@ -1647,7 +1647,13 @@ test('V4-07 重点重要等级在正文和检查器中有对应颜色', async ({
     const card = inspector.locator(`article[data-annotation-card-id="${id}"]`);
     await expect(card).toHaveAttribute('data-importance', id);
     await expect(card.getByText(label, { exact: true })).toHaveCSS('color', await tokenColor(card, badgeToken));
-    await expect(card).toHaveCSS('border-left-width', '1px');
+    // 新版无边框列表以色点和徽章传达重要级，不能丢失等级颜色。
+    await expect(card).toHaveCSS('border-left-width', '0px');
+    const badge = card.getByText(label, { exact: true });
+    const grade = await card.evaluate(element => getComputedStyle(element).getPropertyValue('--annotation-grade-bg').trim());
+    expect(grade).not.toBe('');
+    await expect(badge).toHaveCSS('background-color', await tokenColor(card, '--annotation-grade-bg'));
+    expect(await badge.locator('..').evaluate(element => getComputedStyle(element, '::before').backgroundColor)).toBe(await tokenColor(card, badgeToken));
     await expect(card).toHaveCSS('border-radius', '10px');
     expect(await card.evaluate(element => getComputedStyle(element).boxShadow)).not.toContain('inset');
     const mark = editor.locator(`[data-annotation-id="${id}"]`);
@@ -2244,4 +2250,91 @@ async function tokenColor(scope: Locator, token: string): Promise<string> {
     probe.remove();
     return color;
   }, token);
+}
+
+/** 合成实际祖先背景；暗色光晕取最亮端，保守覆盖整个列表而非只测透明背景。 */
+async function inspectorTextContrast(locator: Locator) {
+  return locator.evaluate(element => {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+    const context = canvas.getContext('2d', { willReadFrequently: true })!;
+    const pixel = () => [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    const fill = (color: string) => { context.fillStyle = color; context.fillRect(0, 0, 1, 1); };
+    const ancestors: Element[] = [];
+    for (let current: Element | null = element; current; current = current.parentElement) ancestors.unshift(current);
+    fill('white');
+    for (const ancestor of ancestors) {
+      const style = getComputedStyle(ancestor);
+      fill(style.backgroundColor);
+      const glow = style.backgroundImage.match(/rgba\(255, 255, 255, [\d.]+\)/)?.[0];
+      if (glow) fill(glow);
+    }
+    const background = pixel();
+    fill(getComputedStyle(element).color);
+    const foreground = pixel();
+    const luminance = (rgb: number[]) => rgb.map(value => {
+      const channel = value / 255;
+      return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    }).reduce((sum, channel, index) => sum + channel * [.2126, .7152, .0722][index], 0);
+    const light = luminance(foreground), dark = luminance(background);
+    return { ratio: (Math.max(light, dark) + .05) / (Math.min(light, dark) + .05), foreground, background };
+  });
+}
+
+for (const mode of ['light', 'dark']) {
+  test(`V4-07 检查器 ${mode} 小字在默认、悬停、选中状态保持对比度`, async ({ page }, info) => {
+    await mockEditorWorkspace(page, [], [], '# 大标题\n\n#### 跳级标题\n\n## 同级分支\n\n### 子标题\n\n合成正文');
+    await page.addInitScript(mode => localStorage.setItem('knowra:notes-index-appearance:v1', JSON.stringify({ mode })), mode);
+    await page.route('**/api/knowledge/annotations**', route => route.fulfill({ json: { data: [{
+      id: 'contrast-annotation', spaceId: 'space-1', noteId: 'note-1', kind: 'important', importance: null,
+      scopeType: 'selection', quoteText: '合成正文', headingPath: ['大标题'], fromPosition: 0, toPosition: 4,
+      status: 'active', lifecycleStatus: 'active', anchorStatus: 'resolved', sourceMode: 'manual'
+    }] } }));
+    const version = { id: 'contrast-version', noteId: 'note-1', content: '历史合成正文', contentHash: 'a'.repeat(64), createdAt: '2026-10-01T12:00:00Z' };
+    await page.route('**/api/knowledge/notes/note-1/versions**', route => route.fulfill({ json: { data:
+      new URL(route.request().url()).pathname.endsWith('/versions') ? { items: [version], total: 1, nextCursor: null } : version
+    } }));
+    await page.route('**/api/knowledge/analysis-scopes?**', route => route.fulfill({ json: { data: [{
+      id: 'contrast-scope', spaceId: 'space-1', createdAt: version.createdAt, deletedAt: version.createdAt,
+      noteVersions: [{ noteId: 'note-1', title: '已删除的合成范围' }], summary: { segmentCount: 1 }
+    }] } }));
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto('/#/materials/notes/note-1');
+    await page.getByRole('button', { name: '切换文档检查器' }).click();
+    const inspector = page.getByRole('complementary', { name: '文档检查器' });
+    const check = async (locator: Locator) => {
+      await expect(locator).toBeVisible();
+      const result = await inspectorTextContrast(locator);
+      expect(result.ratio, JSON.stringify(result)).toBeGreaterThanOrEqual(4.5);
+    };
+    await inspector.getByRole('tab', { name: '大纲', exact: true }).click();
+    const outline = inspector.getByRole('navigation', { name: '文档大纲' }).getByRole('button');
+    await expect(outline).toHaveCount(4);
+    expect(await outline.evaluateAll(rows => rows.map(row => row.getAttribute('data-depth')))).toEqual(['0', '1', '1', '2']);
+    await outline.nth(1).focus();
+    await check(outline.nth(1).locator('[class*="outlineLevel"]'));
+    await inspector.getByRole('tab', { name: '标注', exact: true }).click();
+    const card = inspector.locator('article[data-annotation-card-id="contrast-annotation"]');
+    for (const state of ['default', 'hover', 'selected']) {
+      if (state === 'hover') await card.hover();
+      if (state === 'selected') {
+        await card.getByRole('checkbox').focus();
+        await page.keyboard.press('Space');
+        await expect(card.getByRole('checkbox')).toBeChecked();
+      }
+      await check(card.locator('[class*="annotationItemHeading"] > span').first());
+      await check(card.locator('small'));
+    }
+    await inspector.getByRole('tab', { name: '记录', exact: true }).click();
+    const history = inspector.getByRole('button', { name: /历史正文/ });
+    await check(history.locator('span'));
+    await history.hover(); await check(history.locator('span'));
+    await history.click(); await expect(history).toHaveAttribute('aria-pressed', 'true');
+    await check(history.locator('span'));
+    await inspector.getByRole('tab', { name: 'AI', exact: true }).click();
+    await check(inspector.locator('[class*="aiCapability"] > span'));
+    const scope = inspector.locator('[class*="scopeRow"]');
+    await scope.hover();
+    await check(scope.locator('strong')); await check(scope.locator('[class*="scopeText"] > span'));
+    await info.attach(`inspector-${mode}`, { body: await inspector.screenshot(), contentType: 'image/png' });
+  });
 }
