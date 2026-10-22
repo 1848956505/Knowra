@@ -90,8 +90,6 @@ AI、检索与知识图谱是贯穿各工作域的横向能力，而不是独立
 | **服务器部署** | Linux + Nginx + PM2，可选 PostgreSQL | 可用；公开部署须启用 Nginx Basic Auth |
 | **Android** | 通过系统浏览器安全标签页打开你自己的知境服务 | 在线启动器预览，未签名 |
 
-> [!IMPORTANT]
-> 知境目前是**单用户**应用，尚未内置登录系统。公开部署时请按[部署指南](deploy/README.md)为整个站点启用 HTTP Basic Auth。
 
 ## 快速开始
 
