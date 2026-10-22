@@ -100,6 +100,8 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'config/storage.config.ts',
     'http/response.ts',
     'http/cors.ts',
+    'modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.ts',
+    'modules/knowledge/application/knowledge-artifact-provenance-read.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-contract.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-state.ts',
     'modules/knowledge/domain/analysis-scope-version-alias.ts',

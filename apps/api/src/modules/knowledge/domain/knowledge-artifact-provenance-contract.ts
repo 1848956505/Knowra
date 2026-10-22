@@ -91,10 +91,10 @@ export interface ProvenanceKnowledgeItem {
 export interface ResolveProvenanceSourceInput {
   record?: unknown;
   source?: KnowledgeArtifactProvenanceSource;
-  evidence?: ProvenanceEvidence;
-  noteVersion?: ProvenanceNoteVersion;
-  note?: ProvenanceNote;
-  knowledgeItem?: ProvenanceKnowledgeItem;
+  evidence?: ProvenanceEvidence | null;
+  noteVersion?: ProvenanceNoteVersion | null;
+  note?: ProvenanceNote | null;
+  knowledgeItem?: ProvenanceKnowledgeItem | null;
 }
 export interface ResolvedProvenanceSource {
   originalVersionId: string;
