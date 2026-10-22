@@ -23,4 +23,6 @@ export function setTextSelection(element: Element, { from, to = from }: { from: 
   if (!selection) throw new Error('无法取得浏览器选区');
   selection.removeAllRanges();
   selection.addRange(range);
+  // 同步通知编辑器，避免 focus 的延迟选区恢复覆盖尚未消费的 DOM 选区。
+  document.dispatchEvent(new Event('selectionchange'));
 }
