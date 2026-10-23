@@ -109,13 +109,44 @@ async function offlineEditor(t) {
         (await (await request.get(`${runtime.origin}/api/knowledge/annotations?noteId=${note.id}`)).json()).data.length
     )
     .toBe(1);
-  // 此夹具只有一段正文；End 同步更新编辑器选区，避免原生方向键的
-  // selectionchange 尚未处理便离焦，使插图恢复旧的全选范围。
+  // 在浏览器执行原生默认动作前观察应用是否已经收起选区。
+  // 不恢复/修改选区，不新增点击或等待；保留原来的 Ctrl+A、标记、End 操作。
+  await page.evaluate(() => {
+    window.__knowraEndObservation = null;
+    const observeEnd = event => {
+      if (event.key !== 'End') return;
+      const selection = window.getSelection();
+      const editor = document.querySelector('.ProseMirror');
+      const inEditor = Boolean(selection?.focusNode && editor?.contains(selection.focusNode));
+      let atEnd = false;
+      if (inEditor) {
+        const remaining = document.createRange();
+        remaining.selectNodeContents(editor);
+        remaining.setStart(selection.focusNode, selection.focusOffset);
+        atEnd = remaining.toString().length === 0;
+      }
+      window.__knowraEndObservation = {
+        handled: event.defaultPrevented,
+        collapsed: selection?.isCollapsed ?? false,
+        inEditor,
+        atEnd,
+        selectedText: selection?.toString() ?? '',
+        activeElement: document.activeElement?.tagName ?? null
+      };
+      document.removeEventListener('keydown', observeEnd);
+    };
+    document.addEventListener('keydown', observeEnd);
+  });
   await editor.press('End');
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
     page.getByRole('button', { name: '插入图片', exact: true }).click()
   ]);
+  const endObservation = await page.evaluate(() => window.__knowraEndObservation);
+  assert(
+    endObservation?.handled && endObservation.collapsed && endObservation.inEditor && endObservation.atEnd,
+    `End 必须在原生默认动作之前同步收起编辑器选区：${JSON.stringify(endObservation)}`
+  );
   await chooser.setFiles({
     name: '离线图片.png',
     mimeType: 'image/png',
