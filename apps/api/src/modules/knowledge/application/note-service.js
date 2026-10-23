@@ -147,14 +147,13 @@ export function createNoteService({
       const dto = buildUpdateNoteDto(updates);
       if (dto.rawMarkdown !== undefined) addedNoteLinkTargets(dto.rawMarkdown, currentNote.rawMarkdown)
         .forEach(id => assertNoteLinkTarget(repository.findById(id), dto.spaceId ?? currentNote.spaceId));
+      // 原生 Date 接受未知值并可能抛错或产生 Invalid Date；此局部签名不声明输入已校验。
       if (
-        dto.expectedUpdatedAt
-        && dto.expectedUpdatedAt !== new Date(currentNote.updatedAt).toISOString()
+        dto.expectedUpdatedAt &&
+        dto.expectedUpdatedAt !==
+          new /** @type {new (value: unknown) => Date} */ (Date)(currentNote.updatedAt).toISOString()
       ) {
-        throw conflictError(
-          'NOTE_UPDATE_CONFLICT',
-          'Note has changed since it was loaded'
-        );
+        throw conflictError('NOTE_UPDATE_CONFLICT', 'Note has changed since it was loaded');
       }
       const nextFolderId = Object.prototype.hasOwnProperty.call(dto, 'folderId')
         ? dto.folderId
