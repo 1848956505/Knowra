@@ -108,6 +108,8 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/infrastructure/folder-repository.ts',
     'modules/knowledge/infrastructure/tag-group-repository.ts',
     'modules/knowledge/infrastructure/tag-repository.ts',
+    'modules/knowledge/infrastructure/knowledge-item-repository.ts',
+    'modules/knowledge/infrastructure/knowledge-evidence-repository.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-contract.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-state.ts',
     'modules/knowledge/domain/analysis-scope-version-alias.ts',

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { createInMemoryKnowledgeArtifactProvenanceRepository } from '../src/modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.js';
 import { createKnowledgeArtifactProvenanceReader } from '../src/modules/knowledge/application/knowledge-artifact-provenance-read.js';
+import { validateKnowledgeArtifactProvenanceRelations } from '../src/modules/knowledge/domain/knowledge-artifact-provenance-state.js';
 import {
   createLegacyKnowledgeArtifactProvenance,
   hashKnowledgeArtifactProvenance,
@@ -313,4 +314,27 @@ test('reader aliases retain original identity conflict errors and source-state p
   assert.equal((await equivalent(data)).result.sources[0].sourceState, 'unavailable');
   data.versions[0].content = 'tampered';
   assert.equal((await equivalent(data)).error.code, 'KNOWLEDGE_ARTIFACT_PROVENANCE_SOURCE_MISMATCH');
+});
+
+test('historical nullable evidence preserves available applicability and fails closed for missing version identity', async () => {
+  const data = fixture();
+  data.evidence.applicabilityStatus = null;
+  const state = {
+    knowledgeItems: [data.item],
+    knowledgeEvidence: [data.evidence],
+    notes: [data.note],
+    noteVersions: data.versions,
+    knowledgeArtifactProvenance: [data.record]
+  };
+  assert.equal((await equivalent(data)).result.sources[0].sourceState, 'available');
+  assert.equal(validateKnowledgeArtifactProvenanceRelations(state), state);
+  data.evidence.noteVersionId = null;
+  const expected = {
+    name: 'AppError',
+    code: 'KNOWLEDGE_ARTIFACT_PROVENANCE_SOURCE_MISMATCH',
+    statusCode: 422,
+    message: '知识产物来源与当前证据或笔记版本不一致。'
+  };
+  assert.deepEqual((await equivalent(data)).error, expected);
+  assert.throws(() => validateKnowledgeArtifactProvenanceRelations(state), expected);
 });
