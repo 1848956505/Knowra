@@ -2,13 +2,13 @@ import { createAppError } from '../../../errors/app-error.js';
 
 import type { KnowledgeItem } from '../domain/knowledge-item.ts';
 
-/** 本地历史记录只保证标识；其余字段不假定已经过领域构造器规范化。 */
-export interface KnowledgeItemRecord {
+/** 旧默认来源模式不变；未知来源模式须显式选择宽 Record 或由 records 推导。 */
+export interface KnowledgeItemRecord<SourceMode = KnowledgeItem['sourceMode'] | null> {
   id: string;
   title?: string;
   canonicalStatement?: string;
   reviewStatus?: KnowledgeItem['reviewStatus'] | null;
-  sourceMode?: KnowledgeItem['sourceMode'] | null;
+  sourceMode?: SourceMode;
   userExplanation?: unknown;
   knowledgeType?: unknown;
   importance?: unknown;
@@ -28,28 +28,34 @@ export interface KnowledgeItemListOptions {
   includeDeleted?: boolean | string | null;
 }
 
-/** 同步本地仓库；返回原记录引用，不负责异步持久化或回滚。 */
-export interface KnowledgeItemRepository {
-  create(item: KnowledgeItemRecord): KnowledgeItemRecord;
-  save(item: KnowledgeItemRecord, options?: KnowledgeItemSaveOptions): KnowledgeItemRecord;
-  findById(id: string | null | undefined): KnowledgeItemRecord | null;
-  delete(id: string | null | undefined): KnowledgeItemRecord | null;
-  list(options?: KnowledgeItemListOptions): KnowledgeItemRecord[];
+/** 同步本地仓库；原记录原样返回。写入函数保持严格参数方差，不能把窄仓库当宽仓库。 */
+export interface KnowledgeItemRepository<Record extends KnowledgeItemRecord<unknown> = KnowledgeItemRecord> {
+  create: (item: Record) => Record;
+  save: (item: Record, options?: KnowledgeItemSaveOptions) => Record;
+  findById(id: string | null | undefined): Record | null;
+  delete(id: string | null | undefined): Record | null;
+  list(options?: KnowledgeItemListOptions): Record[];
 }
 
-export interface KnowledgeItemRepositoryOptions {
+export interface KnowledgeItemRepositoryOptions<Record extends KnowledgeItemRecord<unknown> = KnowledgeItemRecord> {
   /** 保留调用方数组引用；省略或 null 时使用新数组。 */
-  records?: KnowledgeItemRecord[] | null;
+  records?: Record[] | null;
   /** 同步变更钩子；每次读取当前回调，抛错不在本仓库内回滚。 */
-  onChange?: ((records: KnowledgeItemRecord[]) => void) | null;
+  onChange?: ((records: Record[]) => void) | null;
 }
 
 // 原生 Date 单参数构造器接受任意 JavaScript 值且可能抛错；这里只补齐其重载边界。
 type NativeDateConstructor = new (value: unknown) => Date;
 
-export function createInMemoryKnowledgeItemRepository(
-  options: KnowledgeItemRepositoryOptions = {}
-): KnowledgeItemRepository {
+// 空数组推导出的 never 没有记录信息，沿用旧默认；保留实际宽记录的推导。
+type StoredKnowledgeItemRecord<Record extends KnowledgeItemRecord<unknown>> =
+  Record | ([Record] extends [never] ? KnowledgeItemRecord : never);
+
+export function createInMemoryKnowledgeItemRepository<
+  Record extends KnowledgeItemRecord<unknown> = KnowledgeItemRecord
+>(
+  options: KnowledgeItemRepositoryOptions<StoredKnowledgeItemRecord<Record>> = {}
+): KnowledgeItemRepository<StoredKnowledgeItemRecord<Record>> {
   const records = options.records ?? [];
   const persist = () => options.onChange?.(records);
   return {
