@@ -19,20 +19,29 @@ export interface VersionSummaryInput {
   createdBy: string;
 }
 
-export interface VersionSummary extends Omit<VersionSummaryInput, 'createdAt'> {
+/** 原字段只做投影，不由分页助手校验；默认公开契约仍是原有字符串输入。 */
+export type VersionSummaryFields = { [Field in keyof VersionSummaryInput]?: unknown };
+export interface VersionSummary<Source extends VersionSummaryFields = VersionSummaryInput> {
+  id: Source['id'];
+  noteId: Source['noteId'];
+  contentHash: Source['contentHash'];
   createdAt: string;
+  createdBy: Source['createdBy'];
 }
 
-export interface VersionPageOptions {
+export interface VersionPageOptions<CurrentVersionId = string | null> {
   limit: number;
   total: number;
-  currentVersionId: string | null;
+  currentVersionId: CurrentVersionId;
 }
 
-export interface VersionPage {
-  items: VersionSummary[];
+export interface VersionPage<
+  Source extends VersionSummaryFields = VersionSummaryInput,
+  CurrentVersionId = string | null
+> {
+  items: VersionSummary<Source>[];
   total: number;
-  currentVersionId: string | null;
+  currentVersionId: CurrentVersionId;
   nextCursor: string | null;
 }
 
@@ -70,21 +79,28 @@ function isVersionPageCursor(value: unknown): value is VersionPageCursor {
   );
 }
 
-export function versionSummary(version: VersionSummaryInput): VersionSummary {
+export function versionSummary<Source extends VersionSummaryFields>(version: Source): VersionSummary<Source>;
+export function versionSummary(version: VersionSummaryInput): VersionSummary;
+export function versionSummary<Source extends VersionSummaryFields>(version: Source): VersionSummary<Source> {
   return {
     id: version.id,
     noteId: version.noteId,
     contentHash: version.contentHash,
-    createdAt: new Date(version.createdAt).toISOString(),
+    createdAt: new (Date as new (value: unknown) => Date)(version.createdAt).toISOString(),
     createdBy: version.createdBy
   };
 }
 
-export function versionPage(
-  items: readonly VersionSummaryInput[],
-  { limit, total, currentVersionId }: VersionPageOptions
-): VersionPage {
-  const selected = items.slice(0, limit).map(versionSummary);
+export function versionPage<Source extends VersionSummaryFields, CurrentVersionId>(
+  items: readonly Source[],
+  options: VersionPageOptions<CurrentVersionId>
+): VersionPage<Source, CurrentVersionId>;
+export function versionPage(items: readonly VersionSummaryInput[], options: VersionPageOptions): VersionPage;
+export function versionPage<Source extends VersionSummaryFields, CurrentVersionId>(
+  items: readonly Source[],
+  { limit, total, currentVersionId }: VersionPageOptions<CurrentVersionId>
+): VersionPage<Source, CurrentVersionId> {
+  const selected = items.slice(0, limit).map(versionSummary<Source>);
   const last = selected.at(-1);
   return {
     items: selected,
