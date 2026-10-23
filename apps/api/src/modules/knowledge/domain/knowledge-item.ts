@@ -1,31 +1,51 @@
-export interface KnowledgeItemConstructorInput {
+type KnowledgeItemSourceMode = 'manual' | 'annotation' | 'selection' | 'ai';
+
+// 旧默认输入仍保持字符串；新的未知边界由显式泛型或调用推导承接。
+export interface KnowledgeItemConstructorInput<
+  Title = string,
+  CanonicalStatement = string,
+  UserExplanation = string | null,
+  KnowledgeType = string,
+  SourceMode = string,
+  CreatedAt = string,
+  UpdatedAt = CreatedAt
+> {
   id: string;
-  title?: string;
-  canonicalStatement?: string;
-  userExplanation?: string | null;
-  knowledgeType?: string;
+  title?: Title | '';
+  canonicalStatement?: CanonicalStatement | '';
+  userExplanation?: UserExplanation | '';
+  knowledgeType?: KnowledgeType | 'concept';
   importance?: unknown;
   reviewStatus?: string;
-  sourceMode?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  sourceMode?: SourceMode | 'manual';
+  createdAt?: CreatedAt | string;
+  updatedAt?: UpdatedAt | CreatedAt | string;
   deletedAt?: string | null;
 }
 
 const REVIEW_STATUSES = new Set(['candidate', 'confirmed', 'needsRevision', 'archived']);
 const SOURCE_MODES = new Set(['manual', 'annotation', 'selection', 'ai']);
 
-export class KnowledgeItem {
+// 旧字符串路径保留标准 Set.has 的既有枚举假设；unknown 不获得该保证。
+export class KnowledgeItem<
+  Title = string | undefined,
+  CanonicalStatement = string | undefined,
+  UserExplanation = string | null | undefined,
+  KnowledgeType = string | undefined,
+  SourceMode = string | undefined,
+  CreatedAt = string | undefined,
+  UpdatedAt = CreatedAt
+> {
   declare id: string;
   declare title: string;
   declare canonicalStatement: string;
-  declare userExplanation: string;
-  declare knowledgeType: string;
+  declare userExplanation: [Exclude<UserExplanation, null | undefined>] extends [string] ? string : unknown;
+  declare knowledgeType: Exclude<KnowledgeType, undefined> | 'concept';
   declare importance: number | null;
   declare reviewStatus: 'candidate' | 'confirmed' | 'needsRevision' | 'archived';
-  declare sourceMode: 'manual' | 'annotation' | 'selection' | 'ai';
-  declare createdAt: string;
-  declare updatedAt: string;
+  declare sourceMode: Exclude<SourceMode, string | undefined> | KnowledgeItemSourceMode;
+  declare createdAt: Exclude<CreatedAt, undefined> | string;
+  declare updatedAt: Exclude<UpdatedAt | CreatedAt, undefined> | string;
   declare deletedAt: string | null;
 
   constructor({
@@ -40,12 +60,20 @@ export class KnowledgeItem {
     createdAt = new Date().toISOString(),
     updatedAt = createdAt,
     deletedAt = null
-  }: KnowledgeItemConstructorInput) {
+  }: KnowledgeItemConstructorInput<
+    Title,
+    CanonicalStatement,
+    UserExplanation,
+    KnowledgeType,
+    SourceMode,
+    CreatedAt,
+    UpdatedAt
+  >) {
     if (!id?.trim()) throw new Error('KnowledgeItem id is required');
     if (typeof title !== 'string' || typeof canonicalStatement !== 'string') {
       throw new Error('KnowledgeItem text fields are invalid');
     }
-    if (!REVIEW_STATUSES.has(reviewStatus) || !SOURCE_MODES.has(sourceMode)) {
+    if (!REVIEW_STATUSES.has(reviewStatus) || !(SOURCE_MODES as ReadonlySet<unknown>).has(sourceMode)) {
       throw new Error('KnowledgeItem status or sourceMode is invalid');
     }
     if (importance !== null && importance !== undefined && !Number.isFinite(Number(importance))) {
@@ -56,7 +84,8 @@ export class KnowledgeItem {
       id,
       title: title.trim(),
       canonicalStatement: canonicalStatement.trim(),
-      userExplanation: userExplanation?.trim?.() ?? '',
+      // 只描述旧可选调用；未校验输入的自定义 trim 可以返回任意值。
+      userExplanation: (userExplanation as { trim?: () => unknown } | null | undefined)?.trim?.() ?? '',
       knowledgeType,
       importance: importance === null || importance === undefined ? null : Number(importance),
       reviewStatus,
