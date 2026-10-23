@@ -129,6 +129,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/tag-group-service.ts',
     'modules/knowledge/application/workspace-query-utils.ts',
     'modules/knowledge/application/workspace-query-dto.ts',
+    'modules/knowledge/application/workspace-query-snapshot.ts',
     'modules/knowledge/application/question-validation.ts',
     'modules/knowledge/application/formal-asset-validation.ts',
     'modules/knowledge/application/knowledge-item-concurrency.ts',
