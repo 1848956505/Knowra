@@ -130,7 +130,7 @@ export type AccessCallbackContractChecks = [
   Assert<Equal<IsAny<LocalContext['dataStore']>, true>>,
   Assert<Equal<IsAny<PostgresContext['http']['knowledge'][string]>, true>>,
   Assert<Equal<IsAny<NonNullable<AiRuntime['actions']>['resumeForTurn']>, true>>,
-  Assert<Equal<IsAny<Parameters<typeof getKnowledgeOperationAccess>[0]>, true>>,
+  Assert<Equal<Parameters<typeof getKnowledgeOperationAccess>, [name: unknown]>>,
   Assert<Equal<ReturnType<typeof getKnowledgeOperationAccess>, 'mutation' | 'read'>>
 ];
 
