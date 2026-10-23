@@ -3,12 +3,15 @@ import { createAppError } from '../../../errors/app-error.js';
 import type { KnowledgeEvidence } from '../domain/knowledge-evidence.ts';
 
 /** 本地历史记录只保证标识与知识归属；其余字段不假定已经过领域构造器规范化。 */
-export interface KnowledgeEvidenceRecord {
+export interface KnowledgeEvidenceRecord<
+  SourceType = KnowledgeEvidence['sourceType'] | null,
+  RelationType = KnowledgeEvidence['relationType'] | null
+> {
   id: string;
   knowledgeItemId: string;
-  sourceType?: KnowledgeEvidence['sourceType'] | null;
+  sourceType?: SourceType;
   status?: KnowledgeEvidence['status'] | null;
-  relationType?: KnowledgeEvidence['relationType'] | null;
+  relationType?: RelationType;
   applicabilityStatus?: KnowledgeEvidence['applicabilityStatus'] | null;
   noteId?: string | null;
   noteVersionId?: string | null;
@@ -27,43 +30,73 @@ export interface KnowledgeEvidenceListOptions {
   annotationId?: string | null;
 }
 
-/** 同步本地仓库；返回原记录引用，不负责异步持久化或回滚。 */
-export interface KnowledgeEvidenceRepository {
-  create(evidence: KnowledgeEvidenceRecord): KnowledgeEvidenceRecord;
-  save(evidence: KnowledgeEvidenceRecord): KnowledgeEvidenceRecord;
-  findById(id: string | null | undefined): KnowledgeEvidenceRecord | null;
-  deleteByKnowledgeItemId(knowledgeItemId: string | null | undefined): KnowledgeEvidenceRecord[];
-  list(options?: KnowledgeEvidenceListOptions): KnowledgeEvidenceRecord[];
-  markByNoteId(noteId: string | null | undefined, status: KnowledgeEvidence['status']): KnowledgeEvidenceRecord[];
+// mark* 会原地改写这两个字段；任何读取及回调均不能承诺其输入字面量。
+// 保留其他字段及 extra；旧默认 Record 的字段形状不变。
+type MutableEvidenceFields<Record extends KnowledgeEvidenceRecord<unknown, unknown>> = {
+  [Key in keyof Record as Key extends 'status' | 'updatedAt' ? never : Key]: Record[Key];
+} & {
+  status?: KnowledgeEvidence['status'] | null;
+  updatedAt?: Record['updatedAt'] | string;
+};
+
+// 同态映射保留联合记录的各自 extra 字段，不把它们缩成公共键。
+type EvidenceRecordShape<Fields> = { [Key in keyof Fields]: Fields[Key] };
+export type StoredKnowledgeEvidenceRecord<Record extends KnowledgeEvidenceRecord<unknown, unknown>> =
+  EvidenceRecordShape<MutableEvidenceFields<Record>>;
+
+/** 同步本地仓库，保留引用；严格写入参数拒绝窄仓库冒充宽仓库。 */
+export interface KnowledgeEvidenceRepository<
+  Record extends KnowledgeEvidenceRecord<unknown, unknown> = KnowledgeEvidenceRecord
+> {
+  create: (evidence: StoredKnowledgeEvidenceRecord<Record>) => StoredKnowledgeEvidenceRecord<Record>;
+  save: (evidence: StoredKnowledgeEvidenceRecord<Record>) => StoredKnowledgeEvidenceRecord<Record>;
+  findById(id: string | null | undefined): StoredKnowledgeEvidenceRecord<Record> | null;
+  deleteByKnowledgeItemId(knowledgeItemId: string | null | undefined): StoredKnowledgeEvidenceRecord<Record>[];
+  list(options?: KnowledgeEvidenceListOptions): StoredKnowledgeEvidenceRecord<Record>[];
+  markByNoteId(
+    noteId: string | null | undefined,
+    status: KnowledgeEvidence['status']
+  ): StoredKnowledgeEvidenceRecord<Record>[];
   markByAnnotationId(
     annotationId: string | null | undefined,
     status: KnowledgeEvidence['status']
-  ): KnowledgeEvidenceRecord[];
+  ): StoredKnowledgeEvidenceRecord<Record>[];
   markByNoteVersionId(
     noteVersionId: string | null | undefined,
     status: KnowledgeEvidence['status'],
     sourceType?: KnowledgeEvidence['sourceType'] | '' | null
-  ): KnowledgeEvidenceRecord[];
+  ): StoredKnowledgeEvidenceRecord<Record>[];
   markByNoteVersionIds(
     noteVersionIds: readonly string[],
     status: KnowledgeEvidence['status'],
     sourceType?: KnowledgeEvidence['sourceType'] | '' | null
-  ): KnowledgeEvidenceRecord[];
+  ): StoredKnowledgeEvidenceRecord<Record>[];
 }
 
-export interface KnowledgeEvidenceRepositoryOptions {
-  /** 保留调用方数组引用；省略或 null 时使用新数组。 */
-  records?: KnowledgeEvidenceRecord[] | null;
-  /** 同步变更钩子；每次读取当前回调，抛错不在本仓库内回滚。 */
-  onChange?: ((records: KnowledgeEvidenceRecord[]) => void) | null;
+export interface KnowledgeEvidenceRepositoryOptions<
+  Record extends KnowledgeEvidenceRecord<unknown, unknown> = KnowledgeEvidenceRecord
+> {
+  /** 保留调用方数组引用；省略或 null 时使用新数组。窄可变别名不能获得字段不变保证。 */
+  records?: Record[] | null;
+  /** 同步动态回调；接收到的记录可能已经被 mark* 改写。 */
+  onChange?: ((records: StoredKnowledgeEvidenceRecord<Record>[]) => void) | null;
 }
 
-export function createInMemoryKnowledgeEvidenceRepository(
-  options: KnowledgeEvidenceRepositoryOptions = {}
-): KnowledgeEvidenceRepository {
-  const records = options.records ?? [];
+// 只在整个推导结果为 never 时恢复旧默认，不把 Record<never> 中的字段偷换为默认。
+type InitialKnowledgeEvidenceRecord<Record extends KnowledgeEvidenceRecord<unknown, unknown>> =
+  Record | ([Record] extends [never] ? KnowledgeEvidenceRecord : never);
+
+export function createInMemoryKnowledgeEvidenceRepository<
+  Record extends KnowledgeEvidenceRecord<unknown, unknown> = KnowledgeEvidenceRecord
+>(
+  options: KnowledgeEvidenceRepositoryOptions<InitialKnowledgeEvidenceRecord<Record>> = {}
+): KnowledgeEvidenceRepository<InitialKnowledgeEvidenceRecord<Record>> {
+  const records: StoredKnowledgeEvidenceRecord<InitialKnowledgeEvidenceRecord<Record>>[] = options.records ?? [];
   const persist = () => options.onChange?.(records);
-  function updateStatus(predicate: (record: KnowledgeEvidenceRecord) => boolean, status: KnowledgeEvidence['status']) {
+  function updateStatus(
+    predicate: (record: StoredKnowledgeEvidenceRecord<InitialKnowledgeEvidenceRecord<Record>>) => boolean,
+    status: KnowledgeEvidence['status']
+  ) {
     const changed = [];
     for (const record of records) {
       if (!predicate(record) || record.status === status) continue;
