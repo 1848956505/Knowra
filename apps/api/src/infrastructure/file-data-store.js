@@ -50,7 +50,14 @@ export function createFileDataStore(filePath, {
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
   };
   let diskIdentity = identity();
+  // 仅给既有转发绑定配对完整调用元组；不使用重载 Parameters 的最后签名代替全部调用。
+  /**
+   * @template D
+   * @typedef {[filePath: string, value: unknown, options?: import('./atomic-json-file.ts').Options<number> | undefined] | [filePath: string, value: unknown, options: import('./atomic-json-file.ts').Hooks & { fileSystem: import('./atomic-json-file.ts').FilePort<D> }]} AtomicWriteArguments
+   */
+  /** @type {<D>(...args: AtomicWriteArguments<D>) => void} */
   const write = writeJson;
+  /** @template D @param {AtomicWriteArguments<D>} args */
   writeJson = (...args) => withDataFileWriteLock(filePath, maintenanceToken, () => {
     if (identity() !== diskIdentity) throw createAppError('STORAGE_EXTERNAL_CHANGE', '资料库已由另一进程修改，请重新加载后再保存；未覆盖新数据。', 409);
     const result = write(...args);
