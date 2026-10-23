@@ -65,10 +65,10 @@ export interface ProvenanceEvidence {
   knowledgeItemId?: unknown;
   noteId?: unknown;
   sourceType?: unknown;
-  noteVersionId?: string;
+  noteVersionId?: string | null;
   quoteText?: unknown;
   status?: unknown;
-  applicabilityStatus?: string;
+  applicabilityStatus?: string | null;
 }
 export interface ProvenanceNoteVersion {
   id?: string;

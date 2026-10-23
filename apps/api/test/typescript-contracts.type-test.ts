@@ -1,3 +1,13 @@
+import type { KnowledgeItem } from '../src/modules/knowledge/domain/knowledge-item.ts';
+import type { KnowledgeEvidence } from '../src/modules/knowledge/domain/knowledge-evidence.ts';
+import type {
+  KnowledgeItemRecord,
+  KnowledgeItemRepository
+} from '../src/modules/knowledge/infrastructure/knowledge-item-repository.ts';
+import type {
+  KnowledgeEvidenceRecord,
+  KnowledgeEvidenceRepository
+} from '../src/modules/knowledge/infrastructure/knowledge-evidence-repository.ts';
 import type {
   KnowledgeSpaceRecord,
   KnowledgeSpaceRepository
@@ -130,5 +140,18 @@ export type MigratedContractAssertions = [
   Assert<Equal<ReturnType<KnowledgeSpaceRepository['findById']>, KnowledgeSpaceRecord | null>>,
   Assert<Equal<ReturnType<FolderRepository['save']>, FolderRecord>>,
   Assert<Equal<ReturnType<TagGroupRepository['create']>, TagGroupRecord>>,
-  Assert<Equal<ReturnType<TagRepository['list']>, TagRecord[]>>
+  Assert<Equal<ReturnType<TagRepository['list']>, TagRecord[]>>,
+  Assert<KnowledgeItem extends KnowledgeItemRecord ? true : false>,
+  Assert<KnowledgeEvidence extends KnowledgeEvidenceRecord ? true : false>,
+  Assert<{ id: string } extends KnowledgeItemRecord ? true : false>,
+  Assert<{ id: string; knowledgeItemId: string } extends KnowledgeEvidenceRecord ? true : false>,
+  Assert<Equal<{ id: string } extends KnowledgeEvidenceRecord ? true : false, false>>,
+  Assert<Equal<KnowledgeItemRecord['updatedAt'], unknown>>,
+  Assert<Equal<KnowledgeEvidenceRecord['updatedAt'], unknown>>,
+  Assert<Equal<'invalid-status' extends KnowledgeEvidenceRecord['status'] ? true : false, false>>,
+  Assert<Equal<'invalid-source' extends KnowledgeEvidenceRecord['sourceType'] ? true : false, false>>,
+  Assert<Equal<ReturnType<KnowledgeItemRepository['save']>, KnowledgeItemRecord>>,
+  Assert<Equal<ReturnType<KnowledgeEvidenceRepository['markByNoteId']>, KnowledgeEvidenceRecord[]>>,
+  Assert<KnowledgeItemRepository extends ProvenanceReaderRepositories['knowledgeItemRepository'] ? true : false>,
+  Assert<KnowledgeEvidenceRepository extends ProvenanceReaderRepositories['knowledgeEvidenceRepository'] ? true : false>
 ];

@@ -52,7 +52,7 @@ export function migrateLegacyKnowledgeArtifactProvenance<T extends ProvenanceMig
 
 export function validateKnowledgeArtifactProvenanceRelations<T extends ProvenanceRelationState>(state: T): T {
   const index = <Row extends { id: string }>(collection: Row[] | null | undefined) =>
-    new Map<string | undefined, Row>((collection ?? []).map(item => [item.id, item]));
+    new Map<string | null | undefined, Row>((collection ?? []).map(item => [item.id, item]));
   const items = index(state.knowledgeItems),
     evidence = index(state.knowledgeEvidence),
     notes = index(state.notes),
