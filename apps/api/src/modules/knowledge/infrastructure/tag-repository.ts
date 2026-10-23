@@ -1,7 +1,8 @@
 import type { Tag } from '../domain/tag.ts';
 
-/** 本地数据只保证标识、归属和名称；历史记录不要求补齐模型字段。 */
-export type TagRecord = Pick<Tag, 'id' | 'spaceId' | 'name'> & Partial<Omit<Tag, 'id' | 'spaceId' | 'name'>>;
+/** 本地仓库只保证标识、归属和名称；未验证的颜色值不能冒充字符串。 */
+export type TagRecord = Pick<Tag<unknown>, 'id' | 'spaceId' | 'name'> &
+  Partial<Omit<Tag<unknown>, 'id' | 'spaceId' | 'name'>>;
 
 export interface TagListOptions {
   spaceId?: string | null;
