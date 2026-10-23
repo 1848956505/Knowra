@@ -117,6 +117,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/dto/folder.dto.ts',
     'modules/knowledge/application/dto/tag-group.dto.ts',
     'modules/knowledge/application/dto/tag.dto.ts',
+    'modules/knowledge/application/note-content-policy.ts',
     'modules/knowledge/application/question-validation.ts',
     'modules/knowledge/application/formal-asset-validation.ts',
     'modules/knowledge/application/knowledge-item-concurrency.ts',
