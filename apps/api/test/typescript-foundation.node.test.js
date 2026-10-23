@@ -114,6 +114,8 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/knowledge-errors.ts',
     'modules/knowledge/application/question-validation.ts',
     'modules/knowledge/application/formal-asset-validation.ts',
+    'modules/ai/recovery-scope.ts',
+    'modules/ai/runtime-lifecycle.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-contract.ts',
     'modules/knowledge/domain/knowledge-artifact-provenance-state.ts',
     'modules/knowledge/domain/analysis-scope-version-alias.ts',
