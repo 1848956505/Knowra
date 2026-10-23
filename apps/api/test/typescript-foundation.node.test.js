@@ -122,6 +122,8 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/note-version-coalescing.ts',
     'modules/knowledge/infrastructure/question-objective-identity.ts',
     'modules/knowledge/infrastructure/assessment-repository.ts',
+    'modules/knowledge/infrastructure/content-annotation-repository.ts',
+    'modules/knowledge/infrastructure/annotation-support-repositories.ts',
     'modules/knowledge/application/question-validation.ts',
     'modules/knowledge/application/formal-asset-validation.ts',
     'modules/knowledge/application/knowledge-item-concurrency.ts',
