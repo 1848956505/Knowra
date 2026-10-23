@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { stripTypeScriptTypes } from 'node:module';
+import { runInNewContext } from 'node:vm';
 import test from 'node:test';
 import { createAppContext } from '../src/app.factory.js';
 import { createPostgresKnowledgeHttpHandlers } from '../src/modules/knowledge/http/postgres-async-handlers.js';
@@ -10,13 +13,20 @@ import * as implementation from '../src/infrastructure/knowledge-operation-acces
 const baseline = process.env.KNOWRA_OPERATION_ACCESS_BASELINE === '1';
 const commit = '263a092cc129fcf637e1afa4f2646b8cebc0e5eb';
 const root = new URL('../src/', import.meta.url);
-const original = execFileSync('git', ['show', `${commit}:apps/api/src/infrastructure/knowledge-operation-access.js`], {
-  cwd: new URL('../../../', import.meta.url),
-  encoding: 'utf8'
-});
-const helperUrl = baseline
-  ? `data:text/javascript;base64,${Buffer.from(original).toString('base64')}`
-  : new URL('infrastructure/knowledge-operation-access.js', root).href;
+let historicalSource;
+let helperUrl = new URL('infrastructure/knowledge-operation-access.js', root).href;
+// 普通候选测试只依赖当前检出；显式旧 JS 模式才要求真实历史，不静默回退。
+if (baseline) {
+  historicalSource = execFileSync(
+    'git',
+    ['show', `${commit}:apps/api/src/infrastructure/knowledge-operation-access.js`],
+    {
+      cwd: new URL('../../../', import.meta.url),
+      encoding: 'utf8'
+    }
+  );
+  helperUrl = `data:text/javascript;base64,${Buffer.from(historicalSource).toString('base64')}`;
+}
 const { getKnowledgeOperationAccess: classify } = await import(helperUrl);
 const wrappers = [];
 for (const [file, name, read, mutation] of [
@@ -172,6 +182,21 @@ test('JS bridge exports the identical TS function and no extra runtime names', {
 });
 
 test('all frozen operation names keep their exact classifications', () => {
+  // 期望值是上方独立固定列表；读取实际 Set 可检出新增、删除、错分类和顺序变动。
+  const source = baseline
+    ? historicalSource
+    : readFileSync(new URL('infrastructure/knowledge-operation-access.ts', root), 'utf8');
+  const executable = stripTypeScriptTypes(source).replace(
+    'export function getKnowledgeOperationAccess',
+    'function getKnowledgeOperationAccess'
+  );
+  const actualSets = runInNewContext(
+    `${executable}\n({ mutation: [...MUTATION_OPERATIONS], read: [...READ_OPERATIONS] })`,
+    {},
+    { timeout: 1000 }
+  );
+  assert.deepEqual(Array.from(actualSets.mutation), MUTATION_OPERATIONS);
+  assert.deepEqual(Array.from(actualSets.read), READ_OPERATIONS);
   assert.equal(MUTATION_OPERATIONS.length, 79);
   assert.equal(READ_OPERATIONS.length, 43);
   assert.equal(new Set([...MUTATION_OPERATIONS, ...READ_OPERATIONS]).size, 122);
