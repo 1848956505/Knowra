@@ -8,26 +8,38 @@ export interface NoteDeletionPackage {
   annotationStates: Array<{ id: string; lifecycleStatus: string; revision: number }>;
 }
 
-export interface NoteConstructorInput {
+/** 默认类型保留规范调用契约；泛型只描述历史字段的原样透传，不代表已经校验。 */
+export interface NoteConstructorInput<
+  Status = string,
+  SourceType = string,
+  Favorite = boolean,
+  Deleted = boolean,
+  ContentHash = string | null,
+  Structure = AnnotationStructure,
+  CreatedAt = string | null,
+  UpdatedAt = string | null,
+  FolderDeletionPackageId = string | null,
+  DeletionPackage = NoteDeletionPackage | null
+> {
   id: string;
   spaceId?: string | null;
   folderId?: string | null;
   title: string;
   rawMarkdown: unknown;
-  status?: string;
-  sourceType?: string;
-  favorite?: boolean;
+  status?: Status | string;
+  sourceType?: SourceType | string;
+  favorite?: Favorite | boolean;
   aiVisibility?: string;
-  deleted?: boolean;
+  deleted?: Deleted | boolean;
   tagIds?: string[];
   plainText?: unknown;
   internalLinks?: string[] | null;
-  contentHash?: string | null;
-  annotationStructure?: AnnotationStructure | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
-  folderDeletionPackageId?: string | null;
-  deletionPackage?: NoteDeletionPackage | null;
+  contentHash?: ContentHash | null;
+  annotationStructure?: Structure | null;
+  createdAt?: CreatedAt | string;
+  updatedAt?: UpdatedAt | CreatedAt | string;
+  folderDeletionPackageId?: FolderDeletionPackageId | null;
+  deletionPackage?: DeletionPackage | null;
 }
 
 function stripMarkdown(markdown: string): string {
@@ -47,7 +59,19 @@ function extractInternalLinks(markdown: string): string[] {
   return extractNoteLinks(markdown).targetIds;
 }
 
-export class Note {
+/** 泛型输出保留真实输入与既有默认值；历史 unknown 不会被提升为规范领域值。 */
+export class Note<
+  Status = string,
+  SourceType = string,
+  Favorite = boolean,
+  Deleted = boolean,
+  ContentHash = string | null,
+  Structure = AnnotationStructure,
+  CreatedAt = string | null,
+  UpdatedAt = string | null,
+  FolderDeletionPackageId = string | null,
+  DeletionPackage = NoteDeletionPackage | null
+> {
   declare id: string;
   declare spaceId: string | null;
   declare folderId: string | null;
@@ -55,18 +79,18 @@ export class Note {
   declare rawMarkdown: string;
   declare plainText: string;
   declare internalLinks: string[];
-  declare contentHash: string | null;
-  declare annotationStructure: AnnotationStructure;
-  declare status: string;
-  declare sourceType: string;
-  declare favorite: boolean;
+  declare contentHash: ContentHash | null;
+  declare annotationStructure: NonNullable<Structure> | AnnotationStructure;
+  declare status: Status | string;
+  declare sourceType: SourceType | string;
+  declare favorite: Favorite | boolean;
   declare aiVisibility: string;
-  declare deleted: boolean;
+  declare deleted: Deleted | boolean;
   declare tagIds: string[];
-  declare createdAt: string | null;
-  declare updatedAt: string | null;
-  declare folderDeletionPackageId: string | null;
-  declare deletionPackage: NoteDeletionPackage | null;
+  declare createdAt: CreatedAt | string;
+  declare updatedAt: UpdatedAt | CreatedAt | string;
+  declare folderDeletionPackageId: FolderDeletionPackageId | null;
+  declare deletionPackage: DeletionPackage | null;
 
   constructor({
     id,
@@ -88,7 +112,18 @@ export class Note {
     updatedAt = createdAt,
     folderDeletionPackageId = null,
     deletionPackage = null
-  }: NoteConstructorInput) {
+  }: NoteConstructorInput<
+    Status,
+    SourceType,
+    Favorite,
+    Deleted,
+    ContentHash,
+    Structure,
+    CreatedAt,
+    UpdatedAt,
+    FolderDeletionPackageId,
+    DeletionPackage
+  >) {
     if (!id?.trim()) {
       throw new Error('Note id is required');
     }

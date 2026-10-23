@@ -1,3 +1,4 @@
+import type { NoteRecord, NoteRepository } from '../src/modules/knowledge/infrastructure/note-repository.ts';
 import type { KnowledgeItem } from '../src/modules/knowledge/domain/knowledge-item.ts';
 import type { KnowledgeEvidence } from '../src/modules/knowledge/domain/knowledge-evidence.ts';
 import type {
@@ -153,5 +154,16 @@ export type MigratedContractAssertions = [
   Assert<Equal<ReturnType<KnowledgeItemRepository['save']>, KnowledgeItemRecord>>,
   Assert<Equal<ReturnType<KnowledgeEvidenceRepository['markByNoteId']>, KnowledgeEvidenceRecord[]>>,
   Assert<KnowledgeItemRepository extends ProvenanceReaderRepositories['knowledgeItemRepository'] ? true : false>,
-  Assert<KnowledgeEvidenceRepository extends ProvenanceReaderRepositories['knowledgeEvidenceRepository'] ? true : false>
+  Assert<
+    KnowledgeEvidenceRepository extends ProvenanceReaderRepositories['knowledgeEvidenceRepository'] ? true : false
+  >,
+  Assert<Note extends NoteRecord ? true : false>,
+  Assert<{ id: string; title: string; rawMarkdown: string } extends NoteRecord ? true : false>,
+  Assert<Equal<NoteRecord['tagIds'], string[] | undefined>>,
+  Assert<Equal<NoteRecord['favorite'], unknown>>,
+  Assert<Equal<NoteRecord['annotationStructure'], unknown>>,
+  Assert<Equal<NoteRecord['updatedAt'], unknown>>,
+  Assert<Equal<NoteRecord extends NoteConstructorInput ? true : false, false>>,
+  Assert<Equal<ReturnType<NoteRepository['save']>, NoteRecord>>,
+  Assert<NoteRepository extends ProvenanceReaderRepositories['noteRepository'] ? true : false>
 ];
