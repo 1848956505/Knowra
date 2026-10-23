@@ -120,6 +120,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/dto/learning-objective.dto.ts',
     'modules/knowledge/application/dto/knowledge-item.dto.ts',
     'modules/knowledge/application/note-content-policy.ts',
+    'modules/knowledge/application/note-summary.ts',
     'modules/knowledge/application/navigation-reference-policy.ts',
     'modules/knowledge/application/note-version-coalescing.ts',
     'modules/knowledge/infrastructure/question-objective-identity.ts',
