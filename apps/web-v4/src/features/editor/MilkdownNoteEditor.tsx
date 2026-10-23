@@ -17,7 +17,7 @@ import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { closeHistory } from '@milkdown/kit/prose/history';
 import { Slice } from '@milkdown/kit/prose/model';
-import { TextSelection } from '@milkdown/kit/prose/state';
+import { AllSelection, TextSelection } from '@milkdown/kit/prose/state';
 import { selectTextblockEnd, selectTextblockStart } from '@milkdown/kit/prose/commands';
 import {
   linkSchema,
@@ -222,6 +222,18 @@ export const MilkdownNoteEditor = forwardRef<EditorCommandTarget, MilkdownNoteEd
         && (event.key === 'Home' || event.key === 'End')
       ) {
         const view = editor.ctx.get(editorViewCtx);
+        // Ctrl+A 的 AllSelection 位于文档边界，文本块命令不会处理它。
+        // 仅在边界可落到文本光标时同步收起，避免离焦后恢复旧全选。
+        if (view.state.selection instanceof AllSelection) {
+          const selection = event.key === 'Home'
+            ? TextSelection.atStart(view.state.doc)
+            : TextSelection.atEnd(view.state.doc);
+          if (selection instanceof TextSelection && selection.empty) {
+            view.dispatch(view.state.tr.setSelection(selection));
+            event.preventDefault();
+            return;
+          }
+        }
         const command = event.key === 'Home' ? selectTextblockStart : selectTextblockEnd;
         if (command(view.state, view.dispatch, view)) event.preventDefault();
         return;
