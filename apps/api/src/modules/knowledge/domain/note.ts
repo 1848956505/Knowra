@@ -19,7 +19,8 @@ export interface NoteConstructorInput<
   CreatedAt = string | null,
   UpdatedAt = string | null,
   FolderDeletionPackageId = string | null,
-  DeletionPackage = NoteDeletionPackage | null
+  DeletionPackage = NoteDeletionPackage | null,
+  TagId = string
 > {
   id: string;
   spaceId?: string | null;
@@ -31,7 +32,7 @@ export interface NoteConstructorInput<
   favorite?: Favorite | boolean;
   aiVisibility?: string;
   deleted?: Deleted | boolean;
-  tagIds?: string[];
+  tagIds?: TagId[];
   plainText?: unknown;
   internalLinks?: string[] | null;
   contentHash?: ContentHash | null;
@@ -70,7 +71,8 @@ export class Note<
   CreatedAt = string | null,
   UpdatedAt = string | null,
   FolderDeletionPackageId = string | null,
-  DeletionPackage = NoteDeletionPackage | null
+  DeletionPackage = NoteDeletionPackage | null,
+  TagId = string
 > {
   declare id: string;
   declare spaceId: string | null;
@@ -86,7 +88,7 @@ export class Note<
   declare favorite: Favorite | boolean;
   declare aiVisibility: string;
   declare deleted: Deleted | boolean;
-  declare tagIds: string[];
+  declare tagIds: TagId[];
   declare createdAt: CreatedAt | string;
   declare updatedAt: UpdatedAt | CreatedAt | string;
   declare folderDeletionPackageId: FolderDeletionPackageId | null;
@@ -122,7 +124,8 @@ export class Note<
     CreatedAt,
     UpdatedAt,
     FolderDeletionPackageId,
-    DeletionPackage
+    DeletionPackage,
+    TagId
   >) {
     if (!id?.trim()) {
       throw new Error('Note id is required');
