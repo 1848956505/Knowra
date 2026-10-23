@@ -1,8 +1,8 @@
 import type { TagGroup } from '../domain/tag-group.ts';
 
-/** 本地数据只保证标识、归属和名称；历史记录不要求补齐模型字段。 */
-export type TagGroupRecord = Pick<TagGroup, 'id' | 'spaceId' | 'name'> &
-  Partial<Omit<TagGroup, 'id' | 'spaceId' | 'name'>>;
+/** 本地仓库本身不校验 selectionMode；直接写入或动态校验后的值不能冒充字符串。 */
+export type TagGroupRecord = Pick<TagGroup<unknown>, 'id' | 'spaceId' | 'name'> &
+  Partial<Omit<TagGroup<unknown>, 'id' | 'spaceId' | 'name'>>;
 
 export interface TagGroupListOptions {
   spaceId?: string | null;
