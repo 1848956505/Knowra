@@ -5,9 +5,7 @@ const KNOWRA_LOCK_RESOURCE = 32;
 
 async function acquireTransactionLock(transaction, mode) {
   if (typeof transaction?.$queryRawUnsafe !== 'function') return;
-  const functionName = mode === 'shared'
-    ? 'pg_advisory_xact_lock_shared'
-    : 'pg_advisory_xact_lock';
+  const functionName = mode === 'shared' ? 'pg_advisory_xact_lock_shared' : 'pg_advisory_xact_lock';
   await transaction.$queryRawUnsafe(
     `SELECT ${functionName}($1::integer, $2::integer)::text AS lock_acquired`,
     KNOWRA_LOCK_NAMESPACE,
@@ -21,7 +19,7 @@ export function createPostgresAdvisoryLock(client) {
       return operation(client);
     }
     return client.$transaction(
-      async (transaction) => {
+      async transaction => {
         await acquireTransactionLock(transaction, mode);
         return operation(transaction);
       },
@@ -42,12 +40,10 @@ export function createPostgresAdvisoryLock(client) {
 export function wrapHandlersWithPostgresAdvisoryLock(
   handlers,
   advisoryLock,
+  /** @type {{getAccess?: ((name: string) => unknown) | undefined, skip?: ((name: string) => unknown) | undefined}} */
   {
     getAccess = getKnowledgeOperationAccess,
-    skip = (name) => (
-      name === 'permanentlyDeleteNote'
-      || name === 'emptyRecycleBin'
-    )
+    skip = name => name === 'permanentlyDeleteNote' || name === 'emptyRecycleBin'
   } = {}
 ) {
   return Object.fromEntries(
@@ -55,11 +51,13 @@ export function wrapHandlersWithPostgresAdvisoryLock(
       if (typeof handler !== 'function') return [name, handler];
       const access = getAccess(name);
       if (skip(name)) return [name, handler];
-      return [name, (...args) => (
-        access === 'mutation'
-          ? advisoryLock.runExclusive(() => handler(...args))
-          : advisoryLock.runShared(() => handler(...args))
-      )];
+      return [
+        name,
+        (...args) =>
+          access === 'mutation'
+            ? advisoryLock.runExclusive(() => handler(...args))
+            : advisoryLock.runShared(() => handler(...args))
+      ];
     })
   );
 }

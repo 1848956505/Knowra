@@ -15,7 +15,7 @@ export function createMaintenanceGate() {
 
   async function waitUntil(predicate) {
     while (!predicate()) {
-      await new Promise((resolve) => waiters.add(resolve));
+      await new Promise(resolve => waiters.add(resolve));
     }
   }
 
@@ -34,7 +34,7 @@ export function createMaintenanceGate() {
     async runMaintenance(operation) {
       let releaseMaintenance;
       const previousMaintenance = maintenanceTail;
-      maintenanceTail = new Promise((resolve) => {
+      maintenanceTail = new Promise(resolve => {
         releaseMaintenance = resolve;
       });
       waitingMaintenances += 1;
@@ -61,7 +61,7 @@ export function createMaintenanceGate() {
     async runMutation(operation) {
       let releaseMutation;
       const previousMutation = mutationTail;
-      mutationTail = new Promise((resolve) => {
+      mutationTail = new Promise(resolve => {
         releaseMutation = resolve;
       });
       await previousMutation;
@@ -85,19 +85,20 @@ export function createMaintenanceGate() {
 export function wrapHandlersWithMaintenanceGate(
   handlers,
   maintenanceGate,
-  {
-    getAccess = getKnowledgeOperationAccess
-  } = {}
+  /** @type {{getAccess?: ((name: string) => unknown) | undefined}} */
+  { getAccess = getKnowledgeOperationAccess } = {}
 ) {
   return Object.fromEntries(
     Object.entries(handlers).map(([name, handler]) => {
       if (typeof handler !== 'function') return [name, handler];
       const access = getAccess(name);
-      return [name, (...args) => (
-        access === 'mutation'
-          ? maintenanceGate.runMutation(() => handler(...args))
-          : maintenanceGate.runOperation(() => handler(...args))
-      )];
+      return [
+        name,
+        (...args) =>
+          access === 'mutation'
+            ? maintenanceGate.runMutation(() => handler(...args))
+            : maintenanceGate.runOperation(() => handler(...args))
+      ];
     })
   );
 }
