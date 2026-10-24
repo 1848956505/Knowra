@@ -113,6 +113,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/ai/usage-export.ts',
     'infrastructure/migration/migration-report.ts',
     'infrastructure/owner-boundary.ts',
+    'infrastructure/attachment-record-reconciliation.ts',
     'modules/knowledge/http/workspace-routes.ts',
     'modules/knowledge/http/note-version-routes.ts',
     'modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.ts',
