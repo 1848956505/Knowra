@@ -151,6 +151,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/postgres-async/tag-group-service.ts',
     'modules/knowledge/application/postgres-async/navigation-reference-policy.ts',
     'modules/knowledge/application/postgres-async/note-dependency-lifecycle.ts',
+    'modules/knowledge/application/note-dependency-lifecycle.ts',
     'modules/knowledge/application/workspace-query-utils.ts',
     'modules/knowledge/application/workspace-query-dto.ts',
     'modules/knowledge/application/workspace-query-snapshot.ts',
