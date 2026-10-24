@@ -148,6 +148,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/infrastructure/note-version-repository.ts',
     'modules/knowledge/application/tag-service.ts',
     'modules/knowledge/application/tag-group-service.ts',
+    'modules/knowledge/application/postgres-async/tag-group-service.ts',
     'modules/knowledge/application/workspace-query-utils.ts',
     'modules/knowledge/application/workspace-query-dto.ts',
     'modules/knowledge/application/workspace-query-snapshot.ts',
