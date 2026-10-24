@@ -108,6 +108,7 @@ test('desktop runtime bundle includes migrated TS through legacy JS entries', as
     'modules/knowledge/application/space-deletion-preflight.ts',
     'modules/knowledge/application/note-link-relations.ts',
     'modules/knowledge/application/knowledge-item-purge.ts',
+    'modules/knowledge/application/command-note-search.ts',
     'modules/knowledge/http/workspace-routes.ts',
     'modules/knowledge/http/note-version-routes.ts',
     'modules/knowledge/infrastructure/knowledge-artifact-provenance-repository.ts',
